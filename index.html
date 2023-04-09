@@ -94,10 +94,41 @@
                 <h2 class="text-4xl md:text-5xl font-bold">Get a Custom Quote</h2>
                 <p class="text-xl text-gray-600">Upload your STL file and provide your details for a custom quote</p>
             </div>
-            <div class="w-full max-w-md mx-auto">
-                <iframe class="airtable-embed" src="https://airtable.com/embed/shr1HQBlJL5y3KBs8?backgroundColor=blue"
-                    frameborder="0" onmousewheel="" width="100%" height="533"
-                    style="background: transparent; border: 1px solid #ccc;"></iframe>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="quote-form">
+                    <iframe class="airtable-embed"
+                        src="https://airtable.com/embed/shr1HQBlJL5y3KBs8?backgroundColor=blue" frameborder="0"
+                        onmousewheel="" width="100%" height="533"
+                        style="background: transparent; border: 1px solid #ccc;"></iframe>
+                </div>
+                <div class="quote-calculator">
+                    <h3 class="text-2xl font-bold mb-4">Quote Calculator</h3>
+                    <form id="quoteCalculatorForm">
+                        <div class="mb-4">
+                            <label for="height" class="block text-gray-700 text-sm font-bold mb-2">Height (cm)</label>
+                            <input type="number" id="height" name="height" placeholder="Height" step="0.01"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label for="width" class="block text-gray-700 text-sm font-bold mb-2">Width (cm)</label>
+                            <input type="number" id="width" name="width" placeholder="Width" step="0.01"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label for="length" class="block text-gray-700 text-sm font-bold mb-2">Length (cm)</label>
+                            <input type="number" id="length" name="length" placeholder="Length" step="0.01"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="text-center">
+                            <button type="button" id="calculateBtn"
+                                class="bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">Calculate
+                                Quote</button>
+                        </div>
+                    </form>
+                    <div id="quoteResult" class="mt-6 text-xl font-semibold text-gray-700 hidden">
+                        Estimated Printing Cost: $<span id="totalCost">0.00</span>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -180,6 +211,48 @@
         document.getElementById("menuBtn").addEventListener("click", function () {
             var nav = document.getElementById("nav");
             nav.classList.toggle("hidden");
+        });
+    </script>
+    <script>
+        document.getElementById("calculateBtn").addEventListener("click", function () {
+            const height = parseFloat(document.getElementById("height").value);
+            const width = parseFloat(document.getElementById("width").value);
+            const length = parseFloat(document.getElementById("length").value);
+
+            if (isNaN(height) || isNaN(width) || isNaN(length)) {
+                alert("Please enter valid values for height, width, and length.");
+                return;
+            }
+
+            const filamentConsumed = (height * width * length) * 0.6;
+            const filamentSpoolCost = 23;
+            const filamentSize = 1000;
+            const gPerCm3 = 1.25;
+            const machineHours = (filamentConsumed / 50) * 0.5;
+
+            const machineCost = 1200;
+            const usefulLife = 5;
+            const hoursUsedPerDay = 5;
+            const machineDepCostPerHour = machineCost / (365 * usefulLife * hoursUsedPerDay);
+
+            const maintenanceCostPerHour = 150 / (365 * usefulLife * hoursUsedPerDay);
+
+            const wattsPerHour = 200;
+            const kWhCost = 0.12;
+            const electricityCostPerHour = (wattsPerHour * kWhCost) / 1000;
+
+            const printFailures = 0.01;
+
+            const filamentConsumptionCost = filamentConsumed * (filamentSpoolCost / (filamentSize / gPerCm3));
+            const machineDepCost = machineHours * machineDepCostPerHour;
+            const maintenanceCost = machineHours * maintenanceCostPerHour;
+            const electricityCost = machineHours * electricityCostPerHour;
+            const printFailureCost = (filamentConsumptionCost + machineDepCost + maintenanceCost + electricityCost) * printFailures;
+
+            const totalCost = filamentConsumptionCost + machineDepCost + maintenanceCost + electricityCost + printFailureCost;
+
+            document.getElementById("totalCost").textContent = totalCost.toFixed(2);
+            document.getElementById("quoteResult").classList.remove("hidden");
         });
     </script>
 
