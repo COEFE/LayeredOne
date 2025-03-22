@@ -6,6 +6,7 @@
     "dev": "next dev",
     "dev:env": "./start-dev.sh",
     "build": "next build --no-lint",
+    "build:github": "GITHUB_PAGES=true next build --no-lint",
     "start": "next start",
     "lint": "next lint",
     "deploy": "next build --no-lint && firebase deploy --only hosting",

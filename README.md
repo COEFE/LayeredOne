@@ -26,6 +26,10 @@ A Next.js application that allows users to chat with different Large Language Mo
 - OpenAI API key (for ChatGPT models)
 - Anthropic API key (for Claude models)
 
+### Demo
+
+Check out the live demo of this application on GitHub Pages: [https://coefe.github.io/LayeredOne/](https://coefe.github.io/LayeredOne/)
+
 ### Installation
 
 1. Clone the repository:
@@ -180,6 +184,34 @@ Access to XMLHttpRequest at 'https://firebasestorage.googleapis.com/...' from or
 ```
 
 **Fix:** Follow the CORS configuration instructions above. For a quick fix during development, try restarting your dev server with `npm run dev`.
+
+## Deployment
+
+### GitHub Pages Deployment
+
+This repository is configured to automatically deploy to GitHub Pages when changes are pushed to the main branch.
+
+To deploy this application on GitHub Pages:
+
+1. Push your changes to the main branch
+2. GitHub Actions will automatically build and deploy your application
+3. View your deployed application at: `https://<your-username>.github.io/LayeredOne/`
+
+If you want to manually build for GitHub Pages:
+
+```bash
+npm run build:github
+```
+
+This will generate a static export in the `out` directory optimized for GitHub Pages deployment.
+
+### Firebase Deployment
+
+For full functionality including authentication and data storage, deploy to Firebase:
+
+```bash
+npm run deploy
+```
 
 ## License
 
