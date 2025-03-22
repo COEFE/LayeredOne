@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // For GitHub Pages deployment, we need static export
+  // For GitHub Pages deployment, use static export; for Firebase, use standalone
   output: process.env.GITHUB_PAGES === 'true' ? 'export' : 'standalone',
-  // Set the base path for GitHub Pages (repo name)
+  // Set the base path for GitHub Pages, but not for Firebase
   basePath: process.env.GITHUB_PAGES === 'true' ? '/LayeredOne' : '',
   images: {
     unoptimized: true,
