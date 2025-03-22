@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LayeredOne Studio | 3D Printing & Material Selection Guidance</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.16/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+        integrity="sha384-KyZXEAg3QhqLMpG8r+Knujsl5/1z7Z5X/pBIJAAz6lXz7t97u1h5dK7rkvneT3zg" crossorigin="anonymous">
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+    <header class="bg-white md:flex md:justify-between md:items-center fixed w-full z-10">
+        <div class="flex items-center justify-between p-4">
+            <div class="text-gray-900 font-semibold text-xl">
+                LayeredOne Studio
+            </div>
+            <button id="menuBtn" class="md:hidden p-2 bg-blue-600 rounded-md text-white">
+                Menu
+            </button>
+        </div>
+        <nav id="nav" class="hidden md:flex text-gray-900 p-4">
+            <a href="#home" class="ml-4">Home</a>
+            <a href="#services" class="ml-4">Services</a>
+            <a href="#quote" class="ml-4">Quote</a>
+            <a href="#about" class="ml-4">About</a>
+            <a href="#contact" class="ml-4">Contact</a>
+        </nav>
+    </header>
+    <section id="home" class="hero-section bg-gray-900 text-white px-4 py-20 md:px-20 text-center">
+        <div class="container mx-auto">
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold mb-4">Welcome to LayeredOne Studio</h1>
+            <p class="text-xl sm:text-2xl md:text-3xl mb-8">
+                Your trusted New York City-based 3D printing partner, offering fast, reliable, and personalized services
+                for small businesses, entrepreneurs, product designers, and engineers.
+            </p>
+            <img src="https://source.unsplash.com/random/800x600" alt="Hero Image"
+                class="rounded-lg shadow-md w-full h-auto mb-8">
+            <a href="#services" class="bg-white text-blue-500 font-semibold px-6 py-3 rounded-md">Explore Our
+                Services</a>
+        </div>
+    </section>
+    <section id="services" class="services-section relative py-16 bg-gray-900">
+        <div class="container mx-auto px-4">
+            <h2 class="text-center text-white text-4xl md:text-5xl font-bold mb-8">Our Services</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-8">
+                <!-- Service 1 -->
+                <div class="info-card p-6 bg-white text-center rounded-lg">
+                    <i class="fas fa-print text-blue-500 text-3xl mb-4"></i>
+                    <h3 class="text-xl font-semibold mb-4">Custom 3D Printing</h3>
+                    <p>
+                        Utilizing advanced 3D printers like the Original Prusa MK3s, we offer a variety of materials
+                        such as PLA, PETG, and flexible filaments to bring your ideas to life.
+                    </p>
+                </div>
+                <!-- Service 2 -->
+                <div class="info-card p-6 bg-white text-center rounded-lg">
+                    <i class="fas fa-hands-helping text-blue-500 text-3xl mb-4"></i>
+                    <h3 class="text-xl font-semibold mb-4">Material Selection Guidance</h3>
+                    <p>
+                        We help you choose the right materials for your project, ensuring durability, functionality, and
+                        aesthetics while keeping costs in check.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section id="quote" class="quote-section bg-white py-16">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl md:text-5xl font-bold">Get a Custom Quote</h2>
+                <p class="text-xl text-gray-600">Upload your STL file and provide your details for a custom quote</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="quote-form">
+                    <iframe class="airtable-embed"
+                        src="https://airtable.com/embed/shr1HQBlJL5y3KBs8?backgroundColor=blue" frameborder="0"
+                        onmousewheel="" width="100%" height="533"
+                        style="background: transparent; border: 1px solid #ccc;"></iframe>
+                </div>
+                <div class="quote-calculator">
+                    <h3 class="text-2xl font-bold mb-4">Quote Calculator</h3>
+                    <form id="quoteCalculatorForm">
+                        <div class="mb-4">
+                            <label for="height" class="block text-gray-700 text-sm font-bold mb-2">Height (cm)</label>
+                            <input type="number" id="height" name="height" placeholder="Height" step="0.01"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label for="width" class="block text-gray-700 text-sm font-bold mb-2">Width (cm)</label>
+                            <input type="number" id="width" name="width" placeholder="Width" step="0.01"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label for="length" class="block text-gray-700 text-sm font-bold mb-2">Length (cm)</label>
+                            <input type="number" id="length" name="length" placeholder="Length" step="0.01"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="text-center">
+                            <button type="button" id="calculateBtn"
+                                class="bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">Calculate
+                                Quote</button>
+                        </div>
+                    </form>
+                    <div id="quoteResult" class="mt-6 text-xl font-semibold text-gray-700 hidden">
+                        Estimated Printing Cost: $<span id="totalCost">0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section id="about" class="about-section bg-white py-16">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl md:text-5xl font-bold">About Us</h2>
+                <p class="text-xl text-gray-600">Discover the story behind LayeredOne Studio</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="about-image">
+                    <img src="https://source.unsplash.com/random/800x600" alt="About Image"
+                        class="rounded-lg shadow-md w-full h-auto">
+                </div>
+                <div class="about-text">
+                    <p class="mb-4">
+                        LayeredOne Studio was founded with the vision of becoming a leading 3D printing services
+                        provider in the New York City area. We pride ourselves on offering fast turnaround times and
+                        competitive pricing to cater to various budgets without compromising on quality.
+                    </p>
+                    <p>
+                        Our team of dedicated professionals is committed to delivering exceptional customer satisfaction
+                        and high-quality results. We strive to stay at the forefront of 3D printing technology and
+                        provide our clients with the best possible solutions.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section id="contact" class="contact-section relative py-16 bg-cover bg-center"
+        style="background-image: url('https://source.unsplash.com/random/1920x1080')">
+        <div class="bg-black bg-opacity-50 absolute inset-0"></div>
+        <div class="container mx-auto px-4 relative">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl md:text-5xl font-bold text-white">Contact Us</h2>
+                <p class="text-xl text-white">Get in touch with our team to discuss your project</p>
+            </div>
+            <div class="w-full max-w-md mx-auto">
+                <form action="https://formspree.io/f/mgebpvdv" method="POST">
+                    <div class="mb-6">
+                        <label for="name" class="block text-white text-sm font-bold mb-2">Name</label>
+                        <input type="text" id="name" name="name" placeholder="Your Name"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-6">
+                        <label for="email" class="block text-white text-sm font-bold mb-2">Email</label>
+                        <input type="email" id="email" name="email" placeholder="Your Email"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-6">
+                        <label for="message" class="block text-white text-sm font-bold mb-2">Message</label>
+                        <textarea id="message" name="message" rows="4" placeholder="Your Message"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                    <div class="text-center">
+                        <button type="submit"
+                            class="bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">Send
+                            Message</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+    <footer class="footer-section bg-gray-800 py-6">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 items-center justify-between text-center md:text-left">
+                <div class="copyright-text text-gray-300">
+                    <p>&copy; 2023 LayeredOne Studio. All Rights Reserved.</p>
+                </div>
+                <div class="social-icons">
+                    <a href="#" class="text-gray-300 hover:text-white mx-2"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" class="text-gray-300 hover:text-white mx-2"><i class="fab fa-twitter"></i></a>
+                    <a href="#" class="text-gray-300 hover:text-white mx-2"><i class="fab fa-instagram"></i></a>
+                    <a href="#" class="text-gray-300 hover:text-white mx-2"><i class="fab fa-linkedin-in"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <script>
+        document.getElementById("menuBtn").addEventListener("click", function () {
+            var nav = document.getElementById("nav");
+            nav.classList.toggle("hidden");
+        });
+    </script>
+    <script>
+        document.getElementById("calculateBtn").addEventListener("click", function () {
+            const height = parseFloat(document.getElementById("height").value);
+            const width = parseFloat(document.getElementById("width").value);
+            const length = parseFloat(document.getElementById("length").value);
+
+            if (isNaN(height) || isNaN(width) || isNaN(length)) {
+                alert("Please enter valid values for height, width, and length.");
+                return;
+            }
+
+            const filamentConsumed = (height * width * length) * 0.6;
+            const filamentSpoolCost = 23;
+            const filamentSize = 1000;
+            const gPerCm3 = 1.25;
+            const machineHours = (filamentConsumed / 50) * 0.5;
+
+            const machineCost = 1200;
+            const usefulLife = 5;
+            const hoursUsedPerDay = 5;
+            const machineDepCostPerHour = machineCost / (365 * usefulLife * hoursUsedPerDay);
+
+            const maintenanceCostPerHour = 150 / (365 * usefulLife * hoursUsedPerDay);
+
+            const wattsPerHour = 200;
+            const kWhCost = 0.12;
+            const electricityCostPerHour = (wattsPerHour * kWhCost) / 1000;
+
+            const printFailures = 0.01;
+
+            const filamentConsumptionCost = filamentConsumed * (filamentSpoolCost / (filamentSize / gPerCm3));
+            const machineDepCost = machineHours * machineDepCostPerHour;
+            const maintenanceCost = machineHours * maintenanceCostPerHour;
+            const electricityCost = machineHours * electricityCostPerHour;
+            const printFailureCost = (filamentConsumptionCost + machineDepCost + maintenanceCost + electricityCost) * printFailures;
+
+            const totalCost = filamentConsumptionCost + machineDepCost + maintenanceCost + electricityCost + printFailureCost;
+
+            document.getElementById("totalCost").textContent = totalCost.toFixed(2);
+            document.getElementById("quoteResult").classList.remove("hidden");
+        });
+    </script>
+
+</body>
+
+</html>
