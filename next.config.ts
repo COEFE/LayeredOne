@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+// This configuration is no longer used - see next.config.js instead
+// This file is kept for reference only
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

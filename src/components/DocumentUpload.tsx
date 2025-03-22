@@ -1,0 +1,548 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { db, storage, getProxiedDownloadURL } from '@/firebase/config';
+import { ref, uploadString } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { FirebaseError } from 'firebase/app';
+
+type DocumentUploadProps = {
+  onUploadComplete?: () => void;
+};
+
+export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [storageAvailable, setStorageAvailable] = useState(true);
+  const [folders, setFolders] = useState<{ id: string; name: string }[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const { user } = useAuth();
+  
+  // Check if Firebase Storage is properly configured
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
+      setStorageAvailable(false);
+      setError('Firebase Storage is not properly configured. Please check your environment variables.');
+      return;
+    }
+    
+    // Don't actively test the connection - it may trigger CORS errors
+    // Instead, assume it's available and handle errors during actual upload
+    setStorageAvailable(true);
+    
+    // Check if using emulators
+    const usingEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+    
+    // Log configuration for debugging
+    console.log('Storage bucket:', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+    console.log('Using Firebase emulators:', usingEmulators ? 'Yes' : 'No');
+    
+    if (usingEmulators) {
+      // Reset any previous errors if using emulators
+      setError(null);
+    }
+  }, []);
+  
+  // Load folders
+  useEffect(() => {
+    if (user) {
+      loadFolders();
+    }
+  }, [user]);
+  
+  const loadFolders = async () => {
+    if (!user) return;
+    
+    try {
+      const foldersQuery = query(
+        collection(db, 'folders'),
+        where('userId', '==', user.uid),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const foldersSnapshot = await getDocs(foldersQuery);
+      const loadedFolders: { id: string; name: string }[] = [];
+      
+      foldersSnapshot.forEach((doc) => {
+        loadedFolders.push({
+          id: doc.id,
+          name: doc.data().name
+        });
+      });
+      
+      setFolders(loadedFolders);
+    } catch (error) {
+      console.error('Error loading folders:', error);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+      setError(null);
+      setSuccess(false);
+    }
+  };
+
+  const mockUpload = async (file: File, user: any) => {
+    // Simulate a successful upload process without actually using Firebase Storage
+    return new Promise<{downloadURL: string, docRef: {id: string}}>(resolve => {
+      // Simulate the time it takes to upload
+      setTimeout(() => {
+        const mockUrl = `mock://documents/${user.uid}/${Date.now()}_${file.name}`;
+        console.log('Mock upload successful:', mockUrl);
+        
+        // Add document metadata to Firestore
+        addDoc(collection(db, 'documents'), {
+          userId: user.uid,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          url: mockUrl,
+          createdAt: serverTimestamp(),
+          processed: false,
+          processing: false,
+          mockUpload: true
+        }).then(docRef => {
+          resolve({
+            downloadURL: mockUrl,
+            docRef
+          });
+        });
+      }, 2000); // Simulate 2 second upload time
+    });
+  };
+  
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!file || !user) return;
+    
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf', 
+      'text/plain', 
+      'text/markdown', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // Excel
+      'text/csv', // CSV
+      'image/jpeg', // JPEG
+      'image/png', // PNG
+      'image/gif' // GIF
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      setError('File type not supported. Please upload PDF, TXT, MD, DOCX, Excel, CSV, or image files.');
+      return;
+    }
+    
+    try {
+      setUploading(true);
+      setUploadProgress(0);
+      let interval: NodeJS.Timeout | undefined;
+      let downloadURL: string;
+      let docRef: any;
+      
+      // Check if we're using mock mode
+      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'mockmode') {
+        console.log('Using mock upload in development mode');
+        
+        // Simulate upload progress for mock mode
+        interval = setInterval(() => {
+          setUploadProgress((prev) => {
+            if (prev >= 90) {
+              clearInterval(interval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 300);
+        
+        const result = await mockUpload(file, user);
+        downloadURL = result.downloadURL;
+        docRef = result.docRef;
+      } else {
+        // Sanitize the filename to avoid path traversal issues
+        const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const timestamp = Date.now();
+        const filePath = `documents/${user.uid}/${timestamp}_${safeFileName}`;
+        console.log(`Uploading to path: ${filePath}`);
+        
+        // Use the server-side upload API route - this avoids all CORS issues
+        console.log('Using server-side upload API');
+        
+        // Progress simulation interval
+        interval = setInterval(() => {
+          setUploadProgress((prev) => Math.min(prev + 5, 90));
+        }, 100);
+        
+        try {
+          // Get authentication token
+          const idToken = await user.getIdToken();
+          
+          // Create form data for upload
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('filename', file.name);
+          formData.append('contentType', file.type);
+          if (selectedFolder) {
+            formData.append('folderId', selectedFolder);
+          }
+          
+          // Upload through our API route
+          console.log('Uploading through server-side API route');
+          const uploadResponse = await fetch('/api/storage/upload', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${idToken}`
+            },
+            body: formData
+          });
+          
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text().catch(() => "");
+            console.error('Upload failed:', uploadResponse.status, uploadResponse.statusText, errorText);
+            throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
+          }
+          
+          // Parse the response
+          const responseData = await uploadResponse.json();
+          console.log('Upload successful:', responseData);
+          
+          // Extract the document data
+          downloadURL = responseData.url;
+          docRef = { id: responseData.documentId };
+          
+          clearInterval(interval);
+          setUploadProgress(95);
+          
+          console.log('Upload successful, URL:', downloadURL);
+        } catch (error) {
+          if (interval) clearInterval(interval);
+          console.error('Upload error:', error);
+          throw error;
+        }
+      }
+      
+      // Finalize upload
+      setUploadProgress(100);
+      setSuccess(true);
+      setFile(null);
+      
+      // Reset the form after a moment
+      setTimeout(() => {
+        setUploadProgress(0);
+        setUploading(false);
+        
+        // Call the onUploadComplete callback if provided
+        if (onUploadComplete) {
+          setTimeout(() => {
+            onUploadComplete();
+          }, 1500); // Give the user a moment to see the success message before closing
+        }
+      }, 1000);
+      
+      // Trigger document processing - note that with Cloud Functions, 
+      // processing should start automatically when the file is uploaded to Storage
+      // This API call is more of a fallback to ensure processing starts
+      try {
+        // Only proceed if we have a valid document ID
+        if (docRef && docRef.id) {
+          const idToken = await user.getIdToken();
+          
+          fetch('/api/documents/process', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({
+              documentId: docRef.id
+            })
+          });
+          
+          // We're not awaiting this fetch to avoid blocking the UI
+          console.log('Document processing triggered for document ID:', docRef.id);
+        } else {
+          console.log('Document processing skipped - no document ID available');
+        }
+      } catch (error) {
+        console.error('Failed to trigger document processing:', error);
+        // We don't show this error to the user as the upload was successful
+      }
+      
+    } catch (error) {
+      // Handle errors
+      setUploadProgress(0);
+      
+      const firebaseError = error as FirebaseError;
+      
+      if (firebaseError.code === 'storage/unauthorized') {
+        setError('You do not have permission to upload documents. Please sign in again.');
+      } else if (firebaseError.code === 'storage/canceled') {
+        setError('Upload was canceled. Please try again.');
+      } else if (firebaseError.code === 'storage/unknown') {
+        setError('CORS error or connection issue. Please check CORS configuration or try using Firebase emulators.');
+      } else if (firebaseError.code === 'storage/quota-exceeded') {
+        setError('Storage quota exceeded. Please contact support.');
+      } else if (firebaseError.name === 'FirebaseError' && firebaseError.message.includes('CORS')) {
+        setError('CORS policy error. Please configure Firebase Storage CORS settings.');
+        console.error('This is a CORS error. See the cors-setup.md file for instructions on how to fix it.');
+      } else {
+        setError(`Upload error: ${firebaseError.message || 'Unknown error'}`);
+      }
+      
+      console.error('Upload error:', error);
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="w-full">
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-lg border border-red-200 flex items-center gap-3">
+          <svg className="w-6 h-6 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
+      
+      {success && (
+        <div className="mb-6 p-4 bg-green-100 text-green-800 rounded-lg border border-green-200 flex items-center gap-3">
+          <svg className="w-6 h-6 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <div>
+            <p className="font-medium">Document uploaded successfully!</p>
+            <p className="text-sm mt-1">Your document is now being processed and will be available shortly.</p>
+          </div>
+        </div>
+      )}
+      
+      {!storageAvailable ? (
+        <div className="p-4 bg-yellow-100 text-yellow-800 rounded-lg border border-yellow-200 mb-4">
+          <div className="flex items-center gap-3 mb-2">
+            <svg className="w-6 h-6 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p className="font-medium">Firebase Storage not available</p>
+          </div>
+          <p className="text-sm ml-9">
+            The storage service is not properly configured. Document uploads are disabled. 
+            Please check your Firebase configuration.
+          </p>
+        </div>
+      ) : process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'mockmode' || process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? (
+        <div className={`p-4 ${process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'mockmode' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-blue-100 text-blue-800 border-blue-200'} rounded-lg border mb-4`}>
+          <div className="flex items-center gap-3 mb-2">
+            <svg className={`w-6 h-6 ${process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'mockmode' ? 'text-green-600' : 'text-blue-600'} flex-shrink-0`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="font-medium">
+              {process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'mockmode' ? 'Mock Storage Mode Enabled' : 'Using Firebase Emulators'}
+            </p>
+          </div>
+          <p className="text-sm ml-9">
+            {process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'mockmode' 
+              ? 'You are using mock storage for development. Files will be simulated without actually being uploaded to Firebase.'
+              : 'You are using Firebase emulators for local development. Make sure the Firebase emulators are running.'}
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleUpload} className="space-y-6">
+          <div className="border-2 border-dashed border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900 p-8 rounded-lg text-center relative transition-all duration-200 hover:bg-blue-100 hover:border-blue-400">
+            {file ? (
+              <div className="text-center">
+                <div className="mb-3 w-full flex justify-center">
+                  {file.type.startsWith('image/') ? (
+                    <div className="w-32 h-32 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={URL.createObjectURL(file)} 
+                        alt="Preview" 
+                        className="max-w-full max-h-full object-contain"
+                        onLoad={() => URL.revokeObjectURL(URL.createObjectURL(file))}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-24 h-24 bg-blue-200 rounded-lg shadow-sm flex items-center justify-center text-blue-700 text-4xl">
+                      {file.name.endsWith('.pdf') ? 'PDF' : 
+                       file.name.endsWith('.docx') ? 'DOC' : 
+                       file.name.endsWith('.xlsx') || file.name.endsWith('.xls') ? 'XLS' :
+                       file.name.endsWith('.csv') ? 'CSV' : '?'}
+                    </div>
+                  )}
+                </div>
+                <p className="text-base font-medium text-blue-800 truncate max-w-full px-4">{file.name}</p>
+                <p className="text-sm text-blue-600 mt-1">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+                <button 
+                  type="button"
+                  onClick={() => setFile(null)}
+                  className="mt-3 px-3 py-1 text-xs text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-200 rounded-full inline-flex items-center"
+                >
+                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Change file
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="mx-auto w-16 h-16 mb-4 text-blue-400">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                </div>
+                <p className="mb-2 text-base font-medium text-blue-800">
+                  Drag and drop your document or click to browse
+                </p>
+                <p className="text-sm text-blue-600">
+                  Maximum file size: 10MB
+                </p>
+                <div className="flex flex-wrap justify-center gap-2 mt-3">
+                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">PDF</span>
+                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">DOCX</span>
+                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">TXT</span>
+                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">Excel</span>
+                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">CSV</span>
+                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">Images</span>
+                </div>
+              </div>
+            )}
+            
+            <input
+              type="file"
+              onChange={handleFileChange}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              disabled={uploading || !user}
+              aria-label="Upload document"
+            />
+          </div>
+          
+          {uploading && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-blue-700">{uploadProgress < 100 ? 'Uploading...' : 'Processing...'}</span>
+                <span className="text-sm font-medium text-blue-700">{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                <div
+                  className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+          
+          {/* Folder selection */}
+          {folders.length > 0 && (
+            <div>
+              <label htmlFor="folder-select" className="block text-sm font-medium text-blue-900 mb-2">
+                Add to folder (optional)
+              </label>
+              <div className="relative">
+                <select
+                  id="folder-select"
+                  value={selectedFolder || ''}
+                  onChange={(e) => setSelectedFolder(e.target.value || null)}
+                  className="w-full p-2.5 border border-blue-200 text-blue-800 bg-white rounded-lg appearance-none pl-10 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={uploading}
+                >
+                  <option value="">No folder</option>
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                </div>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center justify-center gap-2"
+            disabled={!file || uploading || !user}
+          >
+            {uploading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Uploading...
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                {file ? 'Upload Document' : 'Select a file to upload'}
+              </>
+            )}
+          </button>
+          
+          {!user && (
+            <p className="text-center text-sm text-red-600 mt-2 flex items-center justify-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              You must be logged in to upload documents
+            </p>
+          )}
+        </form>
+      )}
+      
+      <div className="mt-6 bg-blue-50 border border-blue-100 rounded-lg p-5">
+        <h3 className="text-blue-900 font-medium flex items-center gap-2 mb-3">
+          <svg className="w-5 h-5 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Supported Document Types
+        </h3>
+        <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+          <div className="flex items-start gap-2">
+            <span className="text-blue-800 font-medium">Documents:</span>
+            <span className="text-blue-700">PDF, DOCX, TXT, MD</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-blue-800 font-medium">Spreadsheets:</span>
+            <span className="text-blue-700">Excel, CSV</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-blue-800 font-medium">Images:</span>
+            <span className="text-blue-700">JPEG, PNG, GIF</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-blue-800 font-medium">Max Size:</span>
+            <span className="text-blue-700">10MB per file</span>
+          </div>
+        </div>
+        <div className="flex items-start gap-2 mt-4 pt-3 border-t border-blue-200">
+          <svg className="w-6 h-6 text-purple-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          <div>
+            <p className="font-medium text-purple-800">Enhanced Document Analysis</p>
+            <p className="text-sm text-purple-700 mt-1">PDFs and images are analyzed with advanced Claude AI vision capabilities, preserving tables, charts, and formatting.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

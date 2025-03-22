@@ -1,0 +1,43 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Default rule: deny all access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+    
+    // Allow users to access only their own documents
+    match /documents/{userId}/{filename} {
+      // Validate file type and size
+      function isValidFile() {
+        return request.resource.size < 10 * 1024 * 1024 &&
+               (
+                 request.resource.contentType.matches('application/pdf') ||
+                 request.resource.contentType.matches('text/plain') ||
+                 request.resource.contentType.matches('text/markdown') ||
+                 request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+                 request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') || // Excel
+                 request.resource.contentType.matches('text/csv') || // CSV
+                 request.resource.contentType.matches('image/jpeg') || // JPEG
+                 request.resource.contentType.matches('image/png') || // PNG
+                 request.resource.contentType.matches('image/gif') // GIF
+               );
+      }
+      
+      // Prevent path traversal and injection attacks
+      function isSafeFilename() {
+        return !filename.matches('.*\\.\\..*') && // No directory traversal
+               !filename.matches('.*[<>:"/\\\\|?*].*'); // No special characters
+      }
+      
+      // Allow uploads with enhanced security
+      allow create: if request.auth != null && 
+                     request.auth.uid == userId && 
+                     isValidFile() &&
+                     isSafeFilename();
+      
+      // Allow users to read and delete only their own files
+      allow read, delete: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
