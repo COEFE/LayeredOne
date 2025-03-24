@@ -15,9 +15,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Fix routing issues - add trailing slash for better compatibility in production
-  trailingSlash: true,
-  // Let Vercel.json handle redirects for trailing slashes
+  // Fix routing issues - use clean URLs without trailing slash
+  trailingSlash: false,
+  // Use clean URLs without redirects for dynamic routes
   // Handle asset prefixes properly
   assetPrefix: process.env.NODE_ENV === 'production' ? undefined : '',
   // External packages for server components

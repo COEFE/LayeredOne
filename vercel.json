@@ -15,15 +15,9 @@
     { "source": "/api/:path*", "destination": "/api/:path*" }
   ],
   "redirects": [
-    { "source": "/chat/:id", "destination": "/chat/:id/", "permanent": true },
-    { "source": "/documents/:id", "destination": "/documents/:id/", "permanent": true },
-    { "source": "/folders/:id", "destination": "/folders/:id/", "permanent": true },
-    { "source": "/login", "destination": "/login/", "permanent": true },
-    { "source": "/signup", "destination": "/signup/", "permanent": true },
-    { "source": "/reset-password", "destination": "/reset-password/", "permanent": true }
   ],
-  "cleanUrls": false,
-  "trailingSlash": true,
+  "cleanUrls": true,
+  "trailingSlash": false,
   "headers": [
     {
       "source": "/(.*)",

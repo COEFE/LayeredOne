@@ -39,14 +39,14 @@ export function middleware(request) {
     return NextResponse.next();
   }
   
-  // Debugging for routes without trailing slashes, but let Vercel config handle the redirects
+  // Handle dynamic routes directly without any redirects
   if (
-    pathname.match(/^\/chat\/[^\/]+$/) || 
-    pathname.match(/^\/documents\/[^\/]+$/) || 
-    pathname.match(/^\/folders\/[^\/]+$/)
+    pathname.match(/^\/chat\/[^\/]+\/?$/) || 
+    pathname.match(/^\/documents\/[^\/]+\/?$/) || 
+    pathname.match(/^\/folders\/[^\/]+\/?$/)
   ) {
-    console.log(`[DEBUG] Dynamic route without trailing slash detected: ${pathname}`);
-    // Let Vercel config handle the redirect
+    console.log(`[DEBUG] Dynamic route detected: ${pathname}`);
+    // Don't redirect, just serve the page
     return NextResponse.next();
   }
 
