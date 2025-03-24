@@ -9,7 +9,7 @@ export default function DebugPage() {
   const [currentPath, setCurrentPath] = useState('');
   const [chatId, setChatId] = useState('');
   const [testRouteOptions, setTestRouteOptions] = useState({
-    addTrailingSlash: true,
+    addTrailingSlash: false, // Changed default to no trailing slash
     useWindowLocation: true,
   });
   const [routingTests, setRoutingTests] = useState<{name: string, path: string, success?: boolean}[]>([]);
@@ -36,7 +36,8 @@ export default function DebugPage() {
   const testRoute = () => {
     if (!chatId) return;
     
-    const path = `/chat/${chatId}${testRouteOptions.addTrailingSlash ? '/' : ''}`;
+    // No trailing slash is the recommended format now
+    const path = `/chat/${chatId}`;
     addRoutingTest(path);
     
     if (testRouteOptions.useWindowLocation) {
@@ -137,7 +138,7 @@ export default function DebugPage() {
                       window.location.href = `/chat/${chatId}`;
                     }}
                   >
-                    Test without trailing slash: /chat/{chatId}
+                    Test without trailing slash (recommended): /chat/{chatId}
                   </a>
                 </div>
                 <div>
@@ -150,7 +151,7 @@ export default function DebugPage() {
                       window.location.href = `/chat/${chatId}/`;
                     }}
                   >
-                    Test with trailing slash: /chat/{chatId}/
+                    Test with trailing slash (will be redirected): /chat/{chatId}/
                   </a>
                 </div>
               </>
@@ -175,9 +176,9 @@ export default function DebugPage() {
             <h3 className="font-medium mb-2">Recommendations</h3>
             <ul className="pl-6 list-disc space-y-1 text-sm">
               <li>Use consistent URL patterns throughout the app</li>
-              <li>For dynamic routes, we recommend using trailing slashes: <code>/chat/123/</code></li>
+              <li>For dynamic routes, we recommend NOT using trailing slashes: <code>/chat/123</code></li>
               <li>Use <code>window.location.href</code> for navigation</li>
-              <li>If the page shows a 404 error, try adding a trailing slash</li>
+              <li>If the page shows a 404 error, try removing any trailing slash</li>
             </ul>
           </div>
         </div>

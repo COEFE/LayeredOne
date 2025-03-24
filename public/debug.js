@@ -155,24 +155,23 @@
           // Log potential path formats for debugging
           debugLog(`Current path: ${currentPath}`, 'error');
           
-          // Check if it's missing a trailing slash
-          if (!currentPath.endsWith('/')) {
-            debugLog('Path is missing trailing slash - try adding it', 'warning');
-            const fixedPath = `${currentPath}/`;
+          // Check if it has a trailing slash that needs to be removed
+          if (currentPath.endsWith('/') && currentPath.length > 1) {
+            debugLog('Path has trailing slash - try removing it', 'warning');
+            const fixedPath = currentPath.substring(0, currentPath.length - 1);
             debugLog(`Consider navigating to: ${fixedPath}`, 'success');
             
             // Auto-fix: After 2 seconds, offer an option to try the fix
             setTimeout(function() {
-              if (confirm('The page was not found. Would you like to try adding a trailing slash to fix it?')) {
+              if (confirm('The page was not found. Would you like to try removing the trailing slash to fix it?')) {
                 window.location.href = fixedPath;
               }
             }, 2000);
           }
-          // Or maybe it has an extra trailing slash
-          else if (currentPath.endsWith('/') && currentPath !== '/') {
-            debugLog('Path has trailing slash - try removing it', 'warning');
-            const fixedPath = currentPath.substring(0, currentPath.length - 1);
-            debugLog(`Consider navigating to: ${fixedPath}`, 'success');
+          // For completeness, also check the other case
+          else if (!currentPath.endsWith('/')) {
+            debugLog('Path is missing trailing slash - you have the correct format', 'success');
+            debugLog('The 404 error must be due to another reason', 'warning');
           }
 
           // Extract ID from URL
