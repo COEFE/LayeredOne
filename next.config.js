@@ -10,21 +10,14 @@ const nextConfig = {
   // This ensures proper routing
   trailingSlash: true,
   
-  // For Next.js App Router, we need to configure via experimental
+  // For Next.js App Router
   experimental: {
-    serverComponentsExternalPackages: ['xlsx'],
     // App Router specific bodyParser config
     serverActions: {
       bodySizeLimit: '50mb',
     },
-  },
-  
-  // This is for increasing the API route body size limit (Pages Router)
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-    responseLimit: '50mb',
+    // External packages for server components
+    serverComponentsExternalPackages: ['xlsx']
   },
   
   env: {
