@@ -28,8 +28,16 @@ const nextConfig = {
   // Configure for App Router
   experimental: {
     appDir: true,
-    serverComponentsExternalPackages: ['firebase-admin']
+    serverComponentsExternalPackages: ['firebase-admin'],
+    // Add optimized CSS settings to reduce preload warnings
+    optimizeCss: true,
+    // Reduce unnecessary preloads
+    optimisticClientCache: true
   },
+  // Improve resource loading
+  poweredByHeader: false,
+  // Optimize asset loading
+  optimizeFonts: true,
 };
 
 module.exports = nextConfig;
