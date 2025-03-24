@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, storage, db } from '@/firebase/admin-config';
-import { ref, getDownloadURL, uploadBytes } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { getStorage } from 'firebase-admin/storage';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 // Configure maximum file size (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
@@ -101,8 +99,8 @@ export async function POST(request: NextRequest) {
       size: file.size,
       url: downloadURL,
       path: filePath,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
       processed: false,
       processing: false,
       folderId: folderId || null
