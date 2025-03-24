@@ -319,10 +319,10 @@ export default function ChatList() {
                 Select
               </button>
               <a 
-                href="/chat/new" 
+                href="/chat/new/" 
                 onClick={(e) => {
                   e.preventDefault();
-                  window.location.href = "/chat/new";
+                  window.location.href = "/chat/new/";
                 }}
                 className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
               >
@@ -391,9 +391,9 @@ export default function ChatList() {
                   } else {
                     e.preventDefault();
                     if (chat.documentId) {
-                      window.location.href = `/documents/${chat.documentId}`;
+                      window.location.href = `/documents/${chat.documentId}/`;
                     } else {
-                      window.location.href = `/chat/${chat.id}`;
+                      window.location.href = `/chat/${chat.id}/`;
                     }
                   }
                 }}

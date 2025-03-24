@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { db } from '@/firebase/config';
-import { collection, serverTimestamp, query, where, orderBy, getDocs, doc } from 'firebase/firestore';
+import { collection, serverTimestamp, query, where, orderBy, getDocs, doc, setDoc } from 'firebase/firestore';
 import { addDocumentWithRetry, updateDocumentWithRetry, getDocumentWithRetry, retryOperation } from '@/utils/firebase-helpers';
 import ModelSelector from './ModelSelector';
 
@@ -66,14 +66,15 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
           if (!chatDocSnap.exists()) {
             // Create a new chat for this document
             console.log('Creating new document chat');
-            await addDocumentWithRetry('chats', {
+            // Create the chat document at a specific document ID
+            await setDoc(doc(db, 'chats', formattedChatId), {
               userId: user.uid,
               documentId: chatId,
               title: docSnap.data().name || 'Document Chat',
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               model: selectedModel
-            }, formattedChatId); // Specify the document ID explicitly
+            });
             
             // Add initial system message
             await addDocumentWithRetry(`chats/${formattedChatId}/messages`, {
@@ -84,7 +85,7 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
             
             // Redirect to the new chat
             console.log('Redirecting to document chat');
-            router.push(`/chat/${formattedChatId}`);
+            window.location.href = `/chat/${formattedChatId}/`;
             return; // Stop execution since we're redirecting
           }
         }
@@ -207,7 +208,7 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
         
         // Navigate to the new chat
         console.log('Navigating to new chat:', newChatId);
-        router.push(`/chat/${newChatId}`);
+        window.location.href = `/chat/${newChatId}/`;
       }
       
       // Get all messages for context

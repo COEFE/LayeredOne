@@ -17,6 +17,27 @@ const nextConfig = {
   },
   // Fix routing issues - add trailing slash for better compatibility in production
   trailingSlash: true,
+  // Force trailing slash to help with routing issues
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: '(?<host>.*)',
+          },
+        ],
+        missing: [
+          {
+            type: 'trailing-slash',
+          },
+        ],
+        permanent: true,
+        destination: '/:path*/',
+      },
+    ];
+  },
   // Handle asset prefixes properly
   assetPrefix: process.env.NODE_ENV === 'production' ? undefined : '',
   // External packages for server components

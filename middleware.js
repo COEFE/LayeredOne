@@ -38,6 +38,17 @@ export function middleware(request) {
     console.log(`[DEBUG] Static or API route detected: ${pathname}`);
     return NextResponse.next();
   }
+  
+  // Handle missing trailing slashes in dynamic routes like /chat/[id]
+  if (
+    pathname.match(/^\/chat\/[^\/]+$/) || 
+    pathname.match(/^\/documents\/[^\/]+$/) || 
+    pathname.match(/^\/folders\/[^\/]+$/)
+  ) {
+    console.log(`[DEBUG] Dynamic route without trailing slash detected: ${pathname}`);
+    // Redirect to the same URL with trailing slash
+    return NextResponse.redirect(new URL(`${pathname}/`, request.url));
+  }
 
   // For other routes, proceed normally but with a header for debugging
   console.log(`[DEBUG] Page route detected: ${pathname}`);

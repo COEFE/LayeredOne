@@ -10,14 +10,23 @@
     "NEXT_TELEMETRY_DISABLED": "1"
   },
   "rewrites": [
-    { "source": "/login", "destination": "/login" },
-    { "source": "/signup", "destination": "/signup" },
-    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/login/", "destination": "/login/" },
+    { "source": "/signup/", "destination": "/signup/" },
+    { "source": "/api/:path*/", "destination": "/api/:path*/" },
     { "source": "/_next/:path*", "destination": "/_next/:path*" },
     { "source": "/static/:path*", "destination": "/static/:path*" },
-    { "source": "/(.*)", "destination": "/$1" }
+    { "source": "/(.*)/", "destination": "/$1/" }
   ],
-  "cleanUrls": true,
+  "redirects": [
+    { "source": "/chat/:id", "destination": "/chat/:id/", "permanent": true },
+    { "source": "/documents/:id", "destination": "/documents/:id/", "permanent": true },
+    { "source": "/folders/:id", "destination": "/folders/:id/", "permanent": true },
+    { "source": "/login", "destination": "/login/", "permanent": true },
+    { "source": "/signup", "destination": "/signup/", "permanent": true },
+    { "source": "/reset-password", "destination": "/reset-password/", "permanent": true }
+  ],
+  "cleanUrls": false,
+  "trailingSlash": true,
   "headers": [
     {
       "source": "/(.*)",
