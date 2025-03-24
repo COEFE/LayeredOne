@@ -101,7 +101,7 @@ export default function ClientChatPage({ id }: { id: string }) {
           
           // Redirect to document view
           if (chatExists && isAuthorized) {
-            window.location.href = `/documents/${chatId}/`;
+            window.location.href = `/documents/${chatId}`;
           }
         } else {
           // Check if it's a document chat ID
@@ -123,7 +123,7 @@ export default function ClientChatPage({ id }: { id: string }) {
               
               // Redirect to document view
               if (chatExists && isAuthorized) {
-                window.location.href = `/documents/${documentId}/`;
+                window.location.href = `/documents/${documentId}`;
               }
             } catch (error) {
               console.error("Error fetching document name:", error);
@@ -152,10 +152,10 @@ export default function ClientChatPage({ id }: { id: string }) {
         <h1 className="text-2xl font-bold mb-4">Please Log In</h1>
         <p className="mb-6">You need to be logged in to view and create chats.</p>
         <a 
-          href="/login/" 
+          href="/login" 
           onClick={(e) => {
             e.preventDefault();
-            window.location.href = "/login/";
+            window.location.href = "/login";
           }}
           className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
         >
@@ -171,10 +171,10 @@ export default function ClientChatPage({ id }: { id: string }) {
         <h1 className="text-2xl font-bold mb-4">Chat Not Found</h1>
         <p className="mb-6">The chat you're looking for does not exist or has been deleted.</p>
         <a 
-          href="/chat/" 
+          href="/chat" 
           onClick={(e) => {
             e.preventDefault();
-            window.location.href = "/chat/";
+            window.location.href = "/chat";
           }}
           className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
         >
@@ -190,10 +190,10 @@ export default function ClientChatPage({ id }: { id: string }) {
         <h1 className="text-2xl font-bold mb-4">Unauthorized</h1>
         <p className="mb-6">You do not have permission to access this chat.</p>
         <a 
-          href="/chat/" 
+          href="/chat" 
           onClick={(e) => {
             e.preventDefault();
-            window.location.href = "/chat/";
+            window.location.href = "/chat";
           }}
           className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
         >
@@ -218,10 +218,10 @@ export default function ClientChatPage({ id }: { id: string }) {
         <div className="flex gap-2">
           {isDocumentChat && (
             <a 
-              href={`/documents/${chatId}/`} 
+              href={`/documents/${chatId}`} 
               onClick={(e) => {
                 e.preventDefault();
-                window.location.href = `/documents/${chatId}/`;
+                window.location.href = `/documents/${chatId}`;
               }}
               className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100"
             >
@@ -229,10 +229,10 @@ export default function ClientChatPage({ id }: { id: string }) {
             </a>
           )}
           <a 
-            href="/chat/" 
+            href="/chat" 
             onClick={(e) => {
               e.preventDefault();
-              window.location.href = "/chat/";
+              window.location.href = "/chat";
             }}
             className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
           >

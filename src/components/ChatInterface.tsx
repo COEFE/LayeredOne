@@ -85,7 +85,7 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
             
             // Redirect to the new chat
             console.log('Redirecting to document chat');
-            window.location.href = `/chat/${formattedChatId}/`;
+            window.location.href = `/chat/${formattedChatId}`;
             return; // Stop execution since we're redirecting
           }
         }
@@ -208,7 +208,7 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
         
         // Navigate to the new chat
         console.log('Navigating to new chat:', newChatId);
-        window.location.href = `/chat/${newChatId}/`;
+        window.location.href = `/chat/${newChatId}`;
       }
       
       // Get all messages for context
