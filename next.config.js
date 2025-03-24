@@ -27,8 +27,7 @@ const nextConfig = {
   },
   // Configure CSS handling
   experimental: {
-    appDir: true,
-    optimizeCss: true
+    appDir: true
   },
 };
 
