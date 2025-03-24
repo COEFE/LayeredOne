@@ -7,6 +7,7 @@ import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
 import FileViewer from '@/components/FileViewer';
 import DocumentChat from '@/components/DocumentChat';
+import ReprocessDocumentButton from '@/components/ReprocessDocumentButton';
 import Link from 'next/link';
 
 export default function DocumentViewPage() {
@@ -108,10 +109,36 @@ export default function DocumentViewPage() {
             ← Back to Documents
           </Link>
         </div>
-        <div className="mt-2 text-sm text-blue-700">
-          {new Date(document.createdAt?.toDate()).toLocaleString()}
-          <span className="mx-2">•</span>
-          {(document.size / 1024 / 1024).toFixed(2)} MB
+        <div className="mt-2 flex justify-between items-center">
+          <div className="text-sm text-blue-700">
+            {new Date(document.createdAt?.toDate()).toLocaleString()}
+            <span className="mx-2">•</span>
+            {(document.size / 1024 / 1024).toFixed(2)} MB
+            {document.extractedText && (
+              <>
+                <span className="mx-2">•</span>
+                <span className="text-green-600">Text extracted</span>
+              </>
+            )}
+            {!document.extractedText && (
+              <>
+                <span className="mx-2">•</span>
+                <span className="text-amber-600">No text extracted</span>
+              </>
+            )}
+          </div>
+          {(document.type?.includes('excel') || 
+            document.type?.includes('spreadsheet') || 
+            document.name?.endsWith('.xlsx') || 
+            document.name?.endsWith('.xls')) && (
+            <ReprocessDocumentButton 
+              documentId={document.id}
+              onSuccess={() => {
+                // Refresh the document data after successful reprocessing
+                window.location.reload();
+              }}
+            />
+          )}
         </div>
       </div>
 
