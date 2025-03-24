@@ -39,7 +39,7 @@ export function middleware(request) {
     return NextResponse.next();
   }
   
-  // Handle dynamic routes directly without any redirects
+  // Handle dynamic routes and ensure consistent trailing slashes
   if (
     pathname.match(/^\/chat\/[^\/]+\/?$/) || 
     pathname.match(/^\/documents\/[^\/]+\/?$/) || 
@@ -51,7 +51,7 @@ export function middleware(request) {
     if (!pathname.endsWith('/') && !pathname.includes('.')) {
       console.log(`[DEBUG] Adding missing trailing slash to: ${pathname}`);
       // Redirect to the version with trailing slash
-      return NextResponse.redirect(new URL(`${pathname}/`, request.url));
+      return NextResponse.redirect(new URL(`${pathname}/`, request.url), 308); // 308 = Permanent Redirect
     }
     
     // Don't redirect, just serve the page

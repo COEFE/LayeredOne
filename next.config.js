@@ -15,8 +15,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Fix routing issues - use clean URLs without trailing slash
-  trailingSlash: false,
+  // Fix routing issues - use trailing slash for consistent dynamic routes
+  trailingSlash: true,
   // Use clean URLs without redirects for dynamic routes
   // Handle asset prefixes properly
   assetPrefix: process.env.NODE_ENV === 'production' ? undefined : '',
