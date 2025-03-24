@@ -160,6 +160,13 @@
             debugLog('Path is missing trailing slash - try adding it', 'warning');
             const fixedPath = `${currentPath}/`;
             debugLog(`Consider navigating to: ${fixedPath}`, 'success');
+            
+            // Auto-fix: After 2 seconds, offer an option to try the fix
+            setTimeout(function() {
+              if (confirm('The page was not found. Would you like to try adding a trailing slash to fix it?')) {
+                window.location.href = fixedPath;
+              }
+            }, 2000);
           }
           // Or maybe it has an extra trailing slash
           else if (currentPath.endsWith('/') && currentPath !== '/') {

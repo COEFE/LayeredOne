@@ -1,108 +1,186 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 
 export default function DebugPage() {
+  const [currentUrl, setCurrentUrl] = useState('');
+  const [currentPath, setCurrentPath] = useState('');
+  const [chatId, setChatId] = useState('');
+  const [testRouteOptions, setTestRouteOptions] = useState({
+    addTrailingSlash: true,
+    useWindowLocation: true,
+  });
+  const [routingTests, setRoutingTests] = useState<{name: string, path: string, success?: boolean}[]>([]);
   const router = useRouter();
-  const [selectedRoute, setSelectedRoute] = useState('/chat/new/');
-  const [routeParams, setRouteParams] = useState('');
-  const [customRoute, setCustomRoute] = useState('');
 
-  function navigateToRoute() {
-    if (selectedRoute === '/custom/') {
-      window.location.href = customRoute;
-    } else if (routeParams) {
-      window.location.href = selectedRoute.replace(':id', routeParams);
-    } else {
-      window.location.href = selectedRoute;
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentUrl(window.location.href);
+      setCurrentPath(window.location.pathname);
     }
-  }
+  }, []);
+
+  const handleChatIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setChatId(e.target.value);
+  };
+
+  const handleCheckboxChange = (option: keyof typeof testRouteOptions) => {
+    setTestRouteOptions((prev) => ({
+      ...prev,
+      [option]: !prev[option],
+    }));
+  };
+
+  const testRoute = () => {
+    if (!chatId) return;
+    
+    const path = `/chat/${chatId}${testRouteOptions.addTrailingSlash ? '/' : ''}`;
+    addRoutingTest(path);
+    
+    if (testRouteOptions.useWindowLocation) {
+      window.location.href = path;
+    } else {
+      router.push(path);
+    }
+  };
+
+  const addRoutingTest = (path: string) => {
+    setRoutingTests((prev) => [
+      ...prev,
+      {
+        name: `Test: ${path}`,
+        path,
+      }
+    ]);
+  };
 
   return (
-    <div className="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6">Route Debugging Tool</h1>
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <h1 className="text-3xl font-bold mb-6">Route Debugging</h1>
       
-      <div className="mb-8 p-4 bg-gray-100 dark:bg-gray-700 rounded-md">
-        <h2 className="text-lg font-semibold mb-2">Current Environment Info</h2>
-        <ul className="space-y-2">
-          <li><strong>Window Location:</strong> {typeof window !== 'undefined' ? window.location.href : 'Server-side rendering'}</li>
-          <li><strong>Hostname:</strong> {typeof window !== 'undefined' ? window.location.hostname : 'Server-side rendering'}</li>
-          <li><strong>Path:</strong> {typeof window !== 'undefined' ? window.location.pathname : 'Server-side rendering'}</li>
-          <li><strong>Search Params:</strong> {typeof window !== 'undefined' ? window.location.search : 'Server-side rendering'}</li>
-          <li><strong>User Agent:</strong> {typeof window !== 'undefined' ? window.navigator.userAgent : 'Server-side rendering'}</li>
-        </ul>
-      </div>
-      
-      <div className="mb-8">
-        <h2 className="text-lg font-semibold mb-4">Test Navigation</h2>
-        <div className="space-y-4">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
+        <h2 className="text-xl font-semibold mb-4">Current URL Information</h2>
+        <div className="space-y-2">
           <div>
-            <label className="block mb-2">Select Route:</label>
-            <select 
-              value={selectedRoute} 
-              onChange={(e) => setSelectedRoute(e.target.value)}
-              className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-            >
-              <option value="/chat/new/">New Chat</option>
-              <option value="/chat/:id/">Chat ID</option>
-              <option value="/documents/">Documents</option>
-              <option value="/documents/:id/">Document ID</option>
-              <option value="/login/">Login</option>
-              <option value="/signup/">Signup</option>
-              <option value="/reset-password/">Reset Password</option>
-              <option value="/custom/">Custom Route</option>
-            </select>
+            <span className="font-medium">Full URL:</span> 
+            <code className="ml-2 p-1 bg-gray-100 dark:bg-gray-700 rounded">{currentUrl}</code>
           </div>
+          <div>
+            <span className="font-medium">Path:</span> 
+            <code className="ml-2 p-1 bg-gray-100 dark:bg-gray-700 rounded">{currentPath}</code>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
+        <h2 className="text-xl font-semibold mb-4">Test Dynamic Routes</h2>
+        
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">
+            Enter a Chat ID to Test
+          </label>
+          <input
+            type="text"
+            value={chatId}
+            onChange={handleChatIdChange}
+            placeholder="e.g., eYDHflFj6R9KpN5qv1og"
+            className="w-full p-2 border rounded-md"
+          />
+        </div>
+        
+        <div className="flex flex-col gap-3 mb-4">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={testRouteOptions.addTrailingSlash}
+              onChange={() => handleCheckboxChange('addTrailingSlash')}
+              className="mr-2"
+            />
+            Add trailing slash (e.g., /chat/123/)
+          </label>
           
-          {selectedRoute === '/chat/:id/' || selectedRoute === '/documents/:id/' ? (
-            <div>
-              <label className="block mb-2">ID Parameter:</label>
-              <input 
-                type="text" 
-                value={routeParams} 
-                onChange={(e) => setRouteParams(e.target.value)}
-                placeholder="Enter ID"
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-              />
-            </div>
-          ) : null}
-          
-          {selectedRoute === '/custom/' && (
-            <div>
-              <label className="block mb-2">Custom Route:</label>
-              <input 
-                type="text" 
-                value={customRoute} 
-                onChange={(e) => setCustomRoute(e.target.value)}
-                placeholder="Enter custom route (e.g., /some/path/)"
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-              />
-            </div>
-          )}
-          
-          <button 
-            onClick={navigateToRoute}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-          >
-            Navigate
-          </button>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={testRouteOptions.useWindowLocation}
+              onChange={() => handleCheckboxChange('useWindowLocation')}
+              className="mr-2"
+            />
+            Use window.location.href (instead of router.push)
+          </label>
+        </div>
+        
+        <button
+          onClick={testRoute}
+          disabled={!chatId}
+          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+        >
+          Test Route
+        </button>
+        
+        <div className="mt-4">
+          <p className="text-sm text-gray-500">
+            Manual URL tests (click to test):
+          </p>
+          <div className="mt-2 space-y-2">
+            {chatId && (
+              <>
+                <div>
+                  <a 
+                    href={`/chat/${chatId}`} 
+                    className="text-blue-500 hover:underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      addRoutingTest(`/chat/${chatId}`);
+                      window.location.href = `/chat/${chatId}`;
+                    }}
+                  >
+                    Test without trailing slash: /chat/{chatId}
+                  </a>
+                </div>
+                <div>
+                  <a 
+                    href={`/chat/${chatId}/`} 
+                    className="text-blue-500 hover:underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      addRoutingTest(`/chat/${chatId}/`);
+                      window.location.href = `/chat/${chatId}/`;
+                    }}
+                  >
+                    Test with trailing slash: /chat/{chatId}/
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
       
-      <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-md">
-        <h2 className="text-lg font-semibold mb-2">App Routes</h2>
-        <ul className="space-y-2">
-          <li><strong>/</strong> - Home page</li>
-          <li><strong>/chat/</strong> - Chat list</li>
-          <li><strong>/chat/new/</strong> - New chat</li>
-          <li><strong>/chat/[id]/</strong> - Chat by ID</li>
-          <li><strong>/documents/</strong> - Documents list</li>
-          <li><strong>/documents/[id]/</strong> - Document by ID</li>
-          <li><strong>/login/</strong> - Login page</li>
-          <li><strong>/signup/</strong> - Signup page</li>
-          <li><strong>/reset-password/</strong> - Reset password</li>
-        </ul>
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold mb-4">URL Handling Reference</h2>
+        
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-medium mb-2">Configuration</h3>
+            <div className="pl-4 space-y-2 text-sm">
+              <p><code>next.config.js</code>: <code>trailingSlash: false</code></p>
+              <p><code>vercel.json</code>: <code>cleanUrls: true</code>, <code>trailingSlash: false</code></p>
+            </div>
+          </div>
+          
+          <div>
+            <h3 className="font-medium mb-2">Recommendations</h3>
+            <ul className="pl-6 list-disc space-y-1 text-sm">
+              <li>Use consistent URL patterns throughout the app</li>
+              <li>For dynamic routes, we recommend using trailing slashes: <code>/chat/123/</code></li>
+              <li>Use <code>window.location.href</code> for navigation</li>
+              <li>If the page shows a 404 error, try adding a trailing slash</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

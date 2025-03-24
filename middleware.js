@@ -46,6 +46,14 @@ export function middleware(request) {
     pathname.match(/^\/folders\/[^\/]+\/?$/)
   ) {
     console.log(`[DEBUG] Dynamic route detected: ${pathname}`);
+    
+    // Check if this is a missing trailing slash issue
+    if (!pathname.endsWith('/') && !pathname.includes('.')) {
+      console.log(`[DEBUG] Adding missing trailing slash to: ${pathname}`);
+      // Redirect to the version with trailing slash
+      return NextResponse.redirect(new URL(`${pathname}/`, request.url));
+    }
+    
     // Don't redirect, just serve the page
     return NextResponse.next();
   }
