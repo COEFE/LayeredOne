@@ -10,14 +10,7 @@ const nextConfig = {
   // This ensures proper routing
   trailingSlash: true,
   
-  // For Next.js App Router
-  experimental: {
-    // App Router specific bodyParser config
-    serverActions: {
-      bodySizeLimit: '50mb',
-    }
-  },
-  // External packages for server components (moved from experimental)
+  // External packages for server components
   serverExternalPackages: ['xlsx'],
   
   env: {
@@ -26,26 +19,6 @@ const nextConfig = {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     // Flag to verify env passing is working
     NEXT_PUBLIC_CLAUDE_KEY_CHECK: !!process.env.CLAUDE_API_KEY || !!process.env.ANTHROPIC_API_KEY ? "true" : "false",
-  },
-  
-  // Removed invalid 'api' config
-  // api: {
-  //   bodyParser: {
-  //     sizeLimit: '50mb',
-  //   },
-  // },
-  
-  // Fix for the 'canvas' module issue with pdfjs-dist
-  webpack: (config) => {
-    // Fallback for Node.js modules that aren't needed in the browser
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      canvas: false,
-      fs: false,
-      path: false,
-    };
-    
-    return config;
   },
 };
 

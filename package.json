@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "20.x"
+    "node": "18.x"
   },
   "scripts": {
     "dev": "next dev",
     "dev:env": "./start-dev.sh",
-    "build": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" next build --no-lint",
+    "build": "next build",
     "build:github": "GITHUB_PAGES=true next build --no-lint",
     "start": "next start",
     "lint": "next lint",
