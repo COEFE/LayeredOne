@@ -318,13 +318,17 @@ export default function ChatList() {
                 <FiCheck className="mr-2" />
                 Select
               </button>
-              <Link 
+              <a 
                 href="/chat/new" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = "/chat/new";
+                }}
                 className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
               >
                 <FiPlus className="mr-2" />
                 New Chat
-              </Link>
+              </a>
             </div>
           )}
         </div>
@@ -378,10 +382,21 @@ export default function ChatList() {
                 </div>
               )}
               
-              <Link 
+              <a 
                 href={!selectionMode ? (chat.documentId ? `/documents/${chat.documentId}` : `/chat/${chat.id}`) : '#'}
                 className={`block ${selectionMode ? 'pointer-events-none' : ''}`}
-                onClick={selectionMode ? (e) => e.preventDefault() : undefined}
+                onClick={(e) => {
+                  if (selectionMode) {
+                    e.preventDefault();
+                  } else {
+                    e.preventDefault();
+                    if (chat.documentId) {
+                      window.location.href = `/documents/${chat.documentId}`;
+                    } else {
+                      window.location.href = `/chat/${chat.id}`;
+                    }
+                  }
+                }}
               >
                 <div 
                   className={`flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg border ${
