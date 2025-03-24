@@ -19,33 +19,33 @@ interface Model {
 
 const models: Model[] = [
   {
-    id: 'claude-sonnet-3.5',
-    name: 'Claude Sonnet 3.5',
+    id: 'claude-3-sonnet-20240229',
+    name: 'Claude 3 Sonnet',
     provider: 'Anthropic',
     description: 'Balanced performance and intelligence'
   },
   {
-    id: 'claude-sonnet-3.7',
-    name: 'Claude Sonnet 3.7',
+    id: 'claude-3-opus-20240229',
+    name: 'Claude 3 Opus',
+    provider: 'Anthropic',
+    description: 'Most capable Claude model'
+  },
+  {
+    id: 'claude-3-haiku-20240307',
+    name: 'Claude 3 Haiku',
+    provider: 'Anthropic',
+    description: 'Fast and cost-effective Claude model'
+  },
+  {
+    id: 'claude-3.5-sonnet-20240620',
+    name: 'Claude 3.5 Sonnet',
     provider: 'Anthropic',
     description: 'Latest Claude model with improved capabilities'
-  },
-  {
-    id: 'chatgpt-4o',
-    name: 'ChatGPT 4o (Requires API Key)',
-    provider: 'OpenAI',
-    description: 'Advanced reasoning and knowledge'
-  },
-  {
-    id: 'chatgpt-03-mini',
-    name: 'ChatGPT 03 Mini (Requires API Key)',
-    provider: 'OpenAI',
-    description: 'Fast and cost-effective'
   }
 ];
 
 export default function ModelSelector({ 
-  selectedModel = 'claude-sonnet-3.7', 
+  selectedModel = 'claude-3-sonnet-20240229', 
   onSelectModel, 
   onModelChange,
   compact = false

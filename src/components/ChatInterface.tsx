@@ -19,7 +19,7 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('chatgpt-4o');
+  const [selectedModel, setSelectedModel] = useState('claude-3-sonnet-20240229');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const router = useRouter();
@@ -307,6 +307,8 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
       // Handle various response content structures
       let responseContent = '';
       
+      console.log("Response data:", JSON.stringify(data, null, 2));
+      
       if (typeof data.response.content === 'string') {
         responseContent = data.response.content;
       } else if (Array.isArray(data.response.content)) {
@@ -318,10 +320,27 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
       } else if (data.response.content && typeof data.response.content === 'object' && 'text' in data.response.content) {
         // For content that's an object with a text property
         responseContent = data.response.content.text;
+      } else if (data.response && data.response.content) {
+        // Direct access to content
+        responseContent = data.response.content;
+      } else if (data.response) {
+        // Try extracting from standard Claude response format
+        if (data.response.content) {
+          responseContent = data.response.content;
+        } else if (data.response.content) {
+          responseContent = data.response.content;
+        } else {
+          // Fallback: stringify the object
+          try {
+            responseContent = JSON.stringify(data.response);
+          } catch (e) {
+            responseContent = "Error: Could not parse AI response";
+          }
+        }
       } else {
         // Fallback: stringify the object
         try {
-          responseContent = JSON.stringify(data.response.content);
+          responseContent = JSON.stringify(data);
         } catch (e) {
           responseContent = "Error: Could not parse AI response";
         }
