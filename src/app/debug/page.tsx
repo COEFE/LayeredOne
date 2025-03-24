@@ -24,7 +24,7 @@ export default function DebugPage() {
     });
 
     // Access any diagnostic data from our debug script
-    if (typeof window \!== 'undefined' && (window as any).__debug) {
+    if (typeof window !== 'undefined' && (window as any).__debug) {
       setResourceInfo((window as any).__debug);
     }
 
