@@ -20,21 +20,41 @@ const nextConfig = {
   // Force trailing slash to help with routing issues
   async redirects() {
     return [
+      // Add redirects for dynamic routes
       {
-        source: '/:path*',
-        has: [
-          {
-            type: 'host',
-            value: '(?<host>.*)',
-          },
-        ],
-        missing: [
-          {
-            type: 'trailing-slash',
-          },
-        ],
+        source: '/chat/:id',
+        destination: '/chat/:id/',
         permanent: true,
-        destination: '/:path*/',
+      },
+      {
+        source: '/documents/:id',
+        destination: '/documents/:id/',
+        permanent: true,
+      },
+      {
+        source: '/folders/:id',
+        destination: '/folders/:id/',
+        permanent: true,
+      },
+      {
+        source: '/login',
+        destination: '/login/',
+        permanent: true,
+      },
+      {
+        source: '/signup',
+        destination: '/signup/',
+        permanent: true,
+      },
+      {
+        source: '/reset-password',
+        destination: '/reset-password/',
+        permanent: true,
+      },
+      {
+        source: '/settings',
+        destination: '/settings/',
+        permanent: true,
       },
     ];
   },
