@@ -851,9 +851,13 @@ export default function DocumentList() {
                       </td>
                       <td className="px-6 py-4 text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2 flex-wrap">
-                          {/* Explore document button - Updated with text label for better visibility */}
+                          {/* Explore document button - Using Next.js client-side navigation */}
                           <a 
                             href={`/documents/${doc.id}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              window.location.href = `/documents/${doc.id}`;
+                            }}
                             className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors"
                             title="Explore document"
                           >
@@ -868,6 +872,7 @@ export default function DocumentList() {
                           {/* Download button */}
                           <button 
                             onClick={async () => {
+                              if (!user) return;
                               try {
                                 const idToken = await user.getIdToken(true);
                                 
@@ -917,7 +922,7 @@ export default function DocumentList() {
                           </button>
                           
                           {/* Move to folder button */}
-                          <div className="relative inline-block" ref={el => menuRefs.current[doc.id] = el}>
+                          <div className="relative inline-block" ref={(el: HTMLDivElement | null) => { menuRefs.current[doc.id] = el }}>
                             <button 
                               onClick={() => setActiveMoveMenu(activeMoveMenu === doc.id ? null : doc.id)}
                               className={`flex items-center gap-1 px-2 py-1 ${
@@ -1057,6 +1062,10 @@ export default function DocumentList() {
                     <div className="grid grid-cols-3 gap-1.5 mt-auto pt-3">
                       <a 
                         href={`/documents/${doc.id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.location.href = `/documents/${doc.id}`;
+                        }}
                         className="flex items-center justify-center gap-1 px-2 py-1.5 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors text-xs font-medium"
                         title="Explore document"
                       >
@@ -1069,7 +1078,7 @@ export default function DocumentList() {
                       
                       
                       {/* Move button for grid view */}
-                      <div className="relative" ref={el => menuRefs.current[doc.id] = el}>
+                      <div className="relative" ref={(el: HTMLDivElement | null) => { menuRefs.current[doc.id] = el }}>
                         <button 
                           onClick={() => setActiveMoveMenu(activeMoveMenu === doc.id ? null : doc.id)}
                           className={`w-full flex items-center justify-center gap-1 px-2 py-1.5 ${
