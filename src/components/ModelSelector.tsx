@@ -19,6 +19,18 @@ interface Model {
 
 const models: Model[] = [
   {
+    id: 'claude-3-7-sonnet-20250219',
+    name: 'Claude 3.7 Sonnet',
+    provider: 'Anthropic',
+    description: 'Most advanced Claude model with hybrid reasoning'
+  },
+  {
+    id: 'claude-3.5-sonnet-20240620',
+    name: 'Claude 3.5 Sonnet',
+    provider: 'Anthropic',
+    description: 'Advanced model with improved capabilities'
+  },
+  {
     id: 'claude-3-sonnet-20240229',
     name: 'Claude 3 Sonnet',
     provider: 'Anthropic',
@@ -28,24 +40,18 @@ const models: Model[] = [
     id: 'claude-3-opus-20240229',
     name: 'Claude 3 Opus',
     provider: 'Anthropic',
-    description: 'Most capable Claude model'
+    description: 'Highly capable Claude model'
   },
   {
     id: 'claude-3-haiku-20240307',
     name: 'Claude 3 Haiku',
     provider: 'Anthropic',
     description: 'Fast and cost-effective Claude model'
-  },
-  {
-    id: 'claude-3.5-sonnet-20240620',
-    name: 'Claude 3.5 Sonnet',
-    provider: 'Anthropic',
-    description: 'Latest Claude model with improved capabilities'
   }
 ];
 
 export default function ModelSelector({ 
-  selectedModel = 'claude-3-sonnet-20240229', 
+  selectedModel = 'claude-3-7-sonnet-20250219', 
   onSelectModel, 
   onModelChange,
   compact = false

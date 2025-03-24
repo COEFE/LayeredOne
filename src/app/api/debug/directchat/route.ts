@@ -4,6 +4,9 @@ import { AnthropicMessage } from '@anthropic-ai/sdk';
 // Import environment variables
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
 
+// Debug flag to log detailed information
+const DEBUG = process.env.NODE_ENV === 'development' || true; // Force debug for now
+
 export async function POST(request: NextRequest) {
   try {
     console.log("DirectChat API route called");
@@ -12,8 +15,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { messages, model } = body;
 
-    console.log(`Using model: ${model}`);
-    console.log(`Messages count: ${messages.length}`);
+    console.log(`Using model: ${model || 'claude-3-7-sonnet-20250219'} (fallback if not specified)`);
+    console.log(`Messages count: ${messages?.length || 0}`);
+    
+    if (DEBUG) {
+      console.log('Environment:', process.env.NODE_ENV);
+      console.log('API Key present:', !!ANTHROPIC_API_KEY);
+      if (ANTHROPIC_API_KEY) {
+        console.log('API Key length:', ANTHROPIC_API_KEY.length);
+        console.log('API Key starts with:', ANTHROPIC_API_KEY.substring(0, 4) + '...');
+      }
+    }
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -34,7 +46,7 @@ export async function POST(request: NextRequest) {
     let apiResponse;
     // Default to Anthropic/Claude API
     try {
-      apiResponse = await callClaudeApi(messages, model || 'claude-3-sonnet-20240229');
+      apiResponse = await callClaudeApi(messages, model || 'claude-3-7-sonnet-20250219');
     } catch (err: any) {
       console.error("Error calling Claude API:", err);
       return NextResponse.json(
@@ -75,7 +87,7 @@ async function callClaudeApi(messages: any[], modelName: string) {
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01'
+      'anthropic-version': '2023-06-01' // Standard version compatible with Claude 3.7
     },
     body: JSON.stringify({
       model: modelName,
@@ -83,6 +95,13 @@ async function callClaudeApi(messages: any[], modelName: string) {
       system: systemMessage,
       max_tokens: 1000
     })
+  });
+  
+  console.log(`API request sent with model: ${modelName}`);
+  console.log(`API request headers:`, {
+    'Content-Type': 'application/json',
+    'x-api-key': ANTHROPIC_API_KEY ? 'Present (masked)' : 'Missing!',
+    'anthropic-version': '2023-06-01'
   });
 
   if (!response.ok) {
@@ -100,6 +119,17 @@ async function callClaudeApi(messages: any[], modelName: string) {
   }
 
   const result = await response.json();
-  console.log("Claude API response success");
+  
+  if (DEBUG) {
+    // Log a sanitized version of the response (without full content for brevity)
+    const sanitizedResult = { ...result };
+    if (sanitizedResult.content && typeof sanitizedResult.content === 'string' && sanitizedResult.content.length > 100) {
+      sanitizedResult.content = sanitizedResult.content.substring(0, 100) + '... [truncated]';
+    }
+    console.log("Claude API response success:", JSON.stringify(sanitizedResult, null, 2));
+  } else {
+    console.log("Claude API response success");
+  }
+  
   return result;
 }

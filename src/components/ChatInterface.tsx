@@ -19,7 +19,7 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('claude-3-sonnet-20240229');
+  const [selectedModel, setSelectedModel] = useState('claude-3-7-sonnet-20250219');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const router = useRouter();
@@ -309,40 +309,55 @@ export default function ChatInterface({ chatId }: { chatId?: string }) {
       
       console.log("Response data:", JSON.stringify(data, null, 2));
       
-      if (typeof data.response.content === 'string') {
-        responseContent = data.response.content;
-      } else if (Array.isArray(data.response.content)) {
-        // For content that's an array of blocks (Claude API)
-        responseContent = data.response.content
-          .filter((item: any) => item.type === 'text')
-          .map((item: any) => item.text)
-          .join('\n');
-      } else if (data.response.content && typeof data.response.content === 'object' && 'text' in data.response.content) {
-        // For content that's an object with a text property
-        responseContent = data.response.content.text;
-      } else if (data.response && data.response.content) {
-        // Direct access to content
-        responseContent = data.response.content;
-      } else if (data.response) {
-        // Try extracting from standard Claude response format
-        if (data.response.content) {
+      // Handle Claude 3.7 response format (and other versions)
+      if (data.response && data.response.content) {
+        // Check if content is an array (typical Claude format)
+        if (Array.isArray(data.response.content)) {
+          responseContent = data.response.content
+            .filter((item: any) => item.type === 'text')
+            .map((item: any) => item.text)
+            .join('\n');
+        } 
+        // Check if content is a string
+        else if (typeof data.response.content === 'string') {
           responseContent = data.response.content;
-        } else if (data.response.content) {
-          responseContent = data.response.content;
+        }
+        // Check if content has text property
+        else if (typeof data.response.content === 'object' && 'text' in data.response.content) {
+          responseContent = data.response.content.text;
+        }
+        // Fallback - direct message property in Claude response
+        else if (typeof data.response.message === 'string') {
+          responseContent = data.response.message;
+        }
+        // Fallback - access content value directly if all else fails
+        else {
+          try {
+            responseContent = JSON.stringify(data.response.content);
+          } catch (e) {
+            responseContent = "Error: Could not parse AI response content";
+          }
+        }
+      } 
+      // Direct access to the response for Claude 3.7 format
+      else if (data.response) {
+        if (data.response.text) {
+          responseContent = data.response.text;
         } else {
-          // Fallback: stringify the object
+          // Last resort - stringify the whole response object
           try {
             responseContent = JSON.stringify(data.response);
           } catch (e) {
             responseContent = "Error: Could not parse AI response";
           }
         }
-      } else {
-        // Fallback: stringify the object
+      } 
+      // Absolute fallback - take the entire data object
+      else {
         try {
           responseContent = JSON.stringify(data);
         } catch (e) {
-          responseContent = "Error: Could not parse AI response";
+          responseContent = "Error: Could not parse AI response data";
         }
       }
       
