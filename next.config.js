@@ -15,8 +15,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // This ensures proper routing
-  trailingSlash: true,
+  // Fix routing issues - remove trailing slash for better App Router compatibility
+  trailingSlash: false,
   // External packages for server components
   serverExternalPackages: ['xlsx'],
   // Environment variables
@@ -25,9 +25,10 @@ const nextConfig = {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     NEXT_PUBLIC_CLAUDE_KEY_CHECK: !!process.env.CLAUDE_API_KEY || !!process.env.ANTHROPIC_API_KEY ? "true" : "false",
   },
-  // Configure CSS handling
+  // Configure for App Router
   experimental: {
-    appDir: true
+    appDir: true,
+    serverComponentsExternalPackages: ['firebase-admin']
   },
 };
 
