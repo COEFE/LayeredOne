@@ -88,7 +88,6 @@ export async function POST(request: NextRequest) {
 
     // Prepare the messages for Claude
     const messagesToSend = [
-      { role: 'system', content: systemPrompt },
       { role: 'user', content: `Here is the document content:\n\n${documentContent}` },
       { role: 'user', content: message }
     ];
@@ -126,6 +125,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           model: model || DEFAULT_MODEL,
           messages: messagesToSend,
+          system: systemPrompt,
           max_tokens: 2000
         })
       });
