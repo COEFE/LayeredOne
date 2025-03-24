@@ -50,27 +50,39 @@ export default function Home() {
 
         {user ? (
           <div className="flex flex-col md:flex-row gap-4">
-            <Link
+            <a
               href="/chat/new"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = "/chat/new";
+              }}
               className="inline-flex items-center justify-center px-6 py-3 bg-blue-500 text-white font-medium rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Start a new chat
-            </Link>
-            <Link
+            </a>
+            <a
               href="/documents"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = "/documents";
+              }}
               className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-gray-700 dark:text-white font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Upload documents
-            </Link>
+            </a>
           </div>
         ) : (
           <div className="flex flex-col md:flex-row gap-4">
-            <Link
+            <a
               href="/signup"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = "/signup";
+              }}
               className="inline-flex items-center justify-center px-6 py-3 bg-blue-500 text-white font-medium rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Sign up for free
-            </Link>
+            </a>
             <a
               href="/login"
               onClick={(e) => {

@@ -26,7 +26,8 @@ export default function LoginPage() {
       setLoading(true);
       setError(null);
       await signIn(email, password);
-      router.push('/');
+      // Use window.location.replace for a clean redirect without RSC issues
+      window.location.replace('/');
     } catch (err: any) {
       console.error('Login error:', err);
       
@@ -48,7 +49,8 @@ export default function LoginPage() {
       setLoading(true);
       setError(null);
       await signInWithGoogle();
-      router.push('/');
+      // Use window.location.replace for a clean redirect without RSC issues
+      window.location.replace('/');
     } catch (err: any) {
       console.error('Google sign-in error:', err);
       setError(err.message || 'An error occurred during Google sign-in');
