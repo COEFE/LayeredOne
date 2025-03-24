@@ -47,7 +47,7 @@ export default function DocumentChat({ documentId }: DocumentChatProps) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState('claude-sonnet-3.7');
+  const [selectedModel, setSelectedModel] = useState('claude-3-7-sonnet-20250219');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
