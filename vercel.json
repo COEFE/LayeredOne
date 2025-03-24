@@ -8,5 +8,11 @@
   "env": {
     "NODE_ENV": "production",
     "NEXT_TELEMETRY_DISABLED": "1"
-  }
+  },
+  "rewrites": [
+    { "source": "/login", "destination": "/login" },
+    { "source": "/signup", "destination": "/signup" },
+    { "source": "/(.*)", "destination": "/$1" }
+  ],
+  "cleanUrls": true
 }
