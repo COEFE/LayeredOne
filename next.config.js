@@ -25,6 +25,15 @@ const nextConfig = {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     NEXT_PUBLIC_CLAUDE_KEY_CHECK: !!process.env.CLAUDE_API_KEY || !!process.env.ANTHROPIC_API_KEY ? "true" : "false",
   },
+  // Styling configuration for CSS loading
+  webpack: (config) => {
+    // Handle CSS files
+    config.module.rules.push({
+      test: /\.css$/,
+      use: ['style-loader', 'css-loader', 'postcss-loader'],
+    });
+    return config;
+  },
 };
 
 module.exports = nextConfig;
