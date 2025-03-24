@@ -29,8 +29,8 @@ const nextConfig = {
   experimental: {
     appDir: true,
     serverComponentsExternalPackages: ['firebase-admin'],
-    // Add optimized CSS settings to reduce preload warnings
-    optimizeCss: true,
+    // Disable CSS optimization to prevent critters issues
+    // optimizeCss: true,
     // Reduce unnecessary preloads
     optimisticClientCache: true
   },
