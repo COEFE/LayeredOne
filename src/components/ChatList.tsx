@@ -446,7 +446,7 @@ export default function ChatList() {
                     </button>
                   )}
                 </div>
-              </Link>
+              </a>
             </div>
           ))}
         </div>
