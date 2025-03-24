@@ -15,8 +15,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Fix routing issues - remove trailing slash for better App Router compatibility
-  trailingSlash: false,
+  // Fix routing issues - add trailing slash for better compatibility in production
+  trailingSlash: true,
+  // Handle asset prefixes properly
+  assetPrefix: process.env.NODE_ENV === 'production' ? undefined : '',
   // External packages for server components
   serverExternalPackages: ['xlsx'],
   // Environment variables
