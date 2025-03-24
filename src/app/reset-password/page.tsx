@@ -125,7 +125,7 @@ export default function ResetPasswordPage() {
           <div className="mt-6 text-center">
             <button
               onClick={() => {
-                window.location.href = "/login";
+                window.location.href = "/login/";
               }}
               className="text-blue-600 hover:text-blue-500 font-medium"
             >
@@ -136,10 +136,10 @@ export default function ResetPasswordPage() {
         
         <div className="mt-6 text-center text-sm">
           <a 
-            href="/login" 
+            href="/login/" 
             onClick={(e) => {
               e.preventDefault();
-              window.location.href = "/login";
+              window.location.href = "/login/";
             }}
             className="text-blue-600 hover:text-blue-500 font-medium"
           >

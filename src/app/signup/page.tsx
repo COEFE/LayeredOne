@@ -153,10 +153,10 @@ export default function Signup() {
       <div className="mt-6 text-center text-sm">
         Already have an account?{' '}
         <a 
-          href="/login" 
+          href="/login/" 
           onClick={(e) => {
             e.preventDefault();
-            window.location.href = "/login";
+            window.location.href = "/login/";
           }}
           className="text-blue-500 hover:text-blue-600"
         >

@@ -69,10 +69,10 @@ export default function LoginPage() {
           <p className="mt-2 text-center text-sm text-gray-600">
             Or{' '}
             <a 
-              href="/signup" 
+              href="/signup/" 
               onClick={(e) => {
                 e.preventDefault();
-                window.location.href = "/signup";
+                window.location.href = "/signup/";
               }}
               className="font-medium text-blue-600 hover:text-blue-500"
             >
@@ -145,10 +145,10 @@ export default function LoginPage() {
           <div className="flex items-center justify-between">
             <div className="text-sm">
               <a 
-                href="/reset-password" 
+                href="/reset-password/" 
                 onClick={(e) => {
                   e.preventDefault();
-                  window.location.href = "/reset-password";
+                  window.location.href = "/reset-password/";
                 }}
                 className="font-medium text-blue-600 hover:text-blue-500"
               >
