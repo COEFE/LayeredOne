@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, notFound } from 'next/navigation';
 import { db } from '@/firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
 import ChatInterface from '@/components/ChatInterface';
@@ -166,22 +166,8 @@ export default function ClientChatPage({ id }: { id: string }) {
   }
 
   if (chatExists === false) {
-    return (
-      <div className="max-w-lg mx-auto mt-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md text-center">
-        <h1 className="text-2xl font-bold mb-4">Chat Not Found</h1>
-        <p className="mb-6">The chat you're looking for does not exist or has been deleted.</p>
-        <a 
-          href="/chat" 
-          onClick={(e) => {
-            e.preventDefault();
-            window.location.href = "/chat";
-          }}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-        >
-          Back to Chats
-        </a>
-      </div>
-    );
+    // Use Next.js not-found mechanism
+    notFound();
   }
 
   if (isAuthorized === false) {

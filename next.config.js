@@ -8,8 +8,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // For GitHub Pages deployment, use static export; for Firebase, use standalone
-  output: process.env.GITHUB_PAGES === 'true' ? 'export' : 'standalone',
+  // For GitHub Pages deployment, use static export; otherwise use standalone
+  // output is also set below
   // Set the base path for GitHub Pages, but not for Firebase
   basePath: process.env.GITHUB_PAGES === 'true' ? '/LayeredOne' : '',
   images: {
@@ -36,6 +36,13 @@ const nextConfig = {
     // optimizeCss: true,
     // Reduce unnecessary preloads
     optimisticClientCache: true
+  },
+  // Always generate 404 page
+  output: 'standalone',
+  // Make sure dynamic routes work in production
+  generateBuildId: async () => {
+    // Return a unique build ID based on timestamp to avoid stale builds
+    return `build-${Date.now()}`;
   },
   // Improve resource loading
   poweredByHeader: false,
