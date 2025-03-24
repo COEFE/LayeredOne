@@ -28,6 +28,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Add diagnostic script for troubleshooting 404 errors */}
+        <script src="/debug.js" defer></script>
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
