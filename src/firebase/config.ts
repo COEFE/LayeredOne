@@ -12,15 +12,31 @@ import { getAnalytics, isSupported } from "firebase/analytics";
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'dummy-key-for-build',
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'dummy-domain-for-build',
-  // Use current domain for auth if running in production on Vercel
-  ...(typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && {
-    authDomain: window.location.hostname,
-  }),
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'dummy-project-for-build',
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'dummy-bucket-for-build',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:000000000000:web:0000000000000000000000',
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-0000000000',
+};
+
+// Dynamically set authDomain based on environment
+if (typeof window !== 'undefined') {
+  // We're on the client-side
+  if (process.env.NODE_ENV === 'production') {
+    // For Vercel preview deployments, use the current hostname
+    // This allows authentication to work on dynamic preview URLs
+    firebaseConfig.authDomain = window.location.hostname;
+    
+    // Log the domain being used for debugging
+    console.log(`Using dynamic authDomain: ${window.location.hostname}`);
+    
+    // Note: For this to work, you'll need to add all Vercel preview domains 
+    // to your Firebase project's Authorized Domains list
+    // Or use a wildcard domain if your Firebase plan supports it
+  } else if (process.env.NODE_ENV === 'development') {
+    // In development, use localhost or the specified auth domain
+    firebaseConfig.authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'localhost';
+  }
 };
 
 // Initialize Firebase only if not already initialized

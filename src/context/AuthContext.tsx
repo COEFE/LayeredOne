@@ -11,6 +11,7 @@ import {
   signInWithPopup
 } from 'firebase/auth';
 import { auth } from '../firebase/config';
+import { isVercelPreview, getRecommendedAuthorizedDomains } from '../utils/deployment';
 
 interface AuthContextType {
   user: User | null;
@@ -150,6 +151,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Log authentication attempt for debugging
       console.log("Attempting Google sign-in with domain:", window.location.hostname);
       
+      // Enhanced error handling for Vercel preview deployments
+      const currentDomain = window.location.hostname;
+      const isPreviewDeployment = isVercelPreview();
+      
+      if (isPreviewDeployment) {
+        console.log("Detected Vercel preview deployment - may require domain authorization in Firebase");
+        console.log("Recommended authorized domains:", getRecommendedAuthorizedDomains());
+      }
+      
       await signInWithPopup(auth, provider);
     } catch (err: any) {
       console.error('Google sign in error:', err);
@@ -157,12 +167,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Provide more specific error message for unauthorized domain
       if (err.code === 'auth/unauthorized-domain') {
         const currentDomain = window.location.hostname;
-        setError(`Authentication domain error: ${currentDomain} is not authorized in Firebase. Please contact support.`);
         
-        // Log detailed information for debugging
-        console.error(`Domain ${currentDomain} needs to be added to Firebase Console > Authentication > Settings > Authorized Domains`);
+        // Check if this is a Vercel preview deployment
+        const isPreviewDeployment = isVercelPreview();
+        
+        if (isPreviewDeployment) {
+          // Special handling for Vercel preview domains
+          setError(`This preview deployment (${currentDomain}) is not authorized in Firebase. Use the production URL or add this domain in Firebase Console > Authentication > Settings > Authorized Domains. See the VERCEL_PREVIEW_AUTH.md file for more information.`);
+          
+          // Get recommended domains to authorize
+          const recommendedDomains = getRecommendedAuthorizedDomains();
+          
+          // Log detailed troubleshooting steps
+          console.error(`
+            Vercel Preview Domain Authentication Error:
+            --------------------------------------
+            Current domain: ${currentDomain}
+            
+            To fix this issue:
+            1. Go to Firebase Console > Authentication > Settings
+            2. Add the following to Authorized Domains list:
+               ${recommendedDomains.map(domain => `- ${domain}`).join('\n               ')}
+            3. For each new preview deployment, you'll need to add its domain
+            
+            Alternative solutions:
+            - Use a custom domain for previews (see VERCEL_PREVIEW_AUTH.md)
+            - Create a separate Firebase project for development/staging
+          `);
+        } else {
+          // Standard unauthorized domain error
+          setError(`Authentication domain error: ${currentDomain} is not authorized in Firebase. Please contact support.`);
+          console.error(`Domain ${currentDomain} needs to be added to Firebase Console > Authentication > Settings > Authorized Domains`);
+        }
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        // User closed the popup - provide a clearer message
+        setError('Sign-in was cancelled. Please try again.');
+      } else if (err.code === 'auth/popup-blocked') {
+        // Browser blocked the popup
+        setError('Sign-in popup was blocked by your browser. Please allow popups for this site and try again.');
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        // Multiple popup requests - not a critical error
+        setError('Authentication process was interrupted. Please try again.');
+      } else if (err.code === 'auth/network-request-failed') {
+        // Network issues
+        setError('Network error during authentication. Please check your internet connection and try again.');
       } else {
-        setError(err.message);
+        setError(err.message || 'An unexpected error occurred during Google sign-in');
       }
       
       throw err;
