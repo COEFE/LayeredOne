@@ -1,118 +1,108 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function DebugPage() {
-  const [logs, setLogs] = useState<any[]>([]);
-  const [resourceInfo, setResourceInfo] = useState<any>(null);
-  const [envInfo, setEnvInfo] = useState<any>(null);
+  const router = useRouter();
+  const [selectedRoute, setSelectedRoute] = useState('/chat/new/');
+  const [routeParams, setRouteParams] = useState('');
+  const [customRoute, setCustomRoute] = useState('');
 
-  useEffect(() => {
-    // Gather environment info
-    setEnvInfo({
-      userAgent: navigator.userAgent,
-      url: window.location.href,
-      pathname: window.location.pathname,
-      hostname: window.location.hostname,
-      protocol: window.location.protocol,
-      nextPublic: Object.keys(process.env)
-        .filter(key => key.startsWith('NEXT_PUBLIC_'))
-        .reduce((obj, key) => {
-          obj[key] = process.env[key];
-          return obj;
-        }, {} as Record<string, any>)
-    });
-
-    // Access any diagnostic data from our debug script
-    if (typeof window !== 'undefined' && (window as any).__debug) {
-      setResourceInfo((window as any).__debug);
+  function navigateToRoute() {
+    if (selectedRoute === '/custom/') {
+      window.location.href = customRoute;
+    } else if (routeParams) {
+      window.location.href = selectedRoute.replace(':id', routeParams);
+    } else {
+      window.location.href = selectedRoute;
     }
-
-    // Create error logging
-    const errors: any[] = [];
-    const originalConsoleError = console.error;
-    
-    console.error = function(...args) {
-      errors.push({
-        message: args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-        ).join(' '),
-        timestamp: new Date().toISOString()
-      });
-      setLogs([...errors]);
-      originalConsoleError.apply(console, args);
-    };
-
-    // Test resource loading
-    const testResourceLoading = () => {
-      // Check CSS
-      const testCss = document.createElement('link');
-      testCss.rel = 'stylesheet';
-      testCss.href = '/_next/static/css/test.css';
-      document.head.appendChild(testCss);
-      
-      // Check JS
-      const testJs = document.createElement('script');
-      testJs.src = '/_next/static/chunks/test.js';
-      document.head.appendChild(testJs);
-      
-      // Check images
-      const testImg = document.createElement('img');
-      testImg.src = '/vercel.svg';
-      testImg.style.display = 'none';
-      document.body.appendChild(testImg);
-    };
-    
-    // Run the tests
-    setTimeout(testResourceLoading, 1000);
-    
-    return () => {
-      console.error = originalConsoleError;
-    };
-  }, []);
+  }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg">
-      <h1 className="text-2xl font-bold mb-6">Diagnostic Information</h1>
+    <div className="max-w-4xl mx-auto p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+      <h1 className="text-2xl font-bold mb-6">Route Debugging Tool</h1>
       
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">Environment Info</h2>
-        <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-auto max-h-60">
-          {JSON.stringify(envInfo, null, 2)}
-        </pre>
+      <div className="mb-8 p-4 bg-gray-100 dark:bg-gray-700 rounded-md">
+        <h2 className="text-lg font-semibold mb-2">Current Environment Info</h2>
+        <ul className="space-y-2">
+          <li><strong>Window Location:</strong> {typeof window !== 'undefined' ? window.location.href : 'Server-side rendering'}</li>
+          <li><strong>Hostname:</strong> {typeof window !== 'undefined' ? window.location.hostname : 'Server-side rendering'}</li>
+          <li><strong>Path:</strong> {typeof window !== 'undefined' ? window.location.pathname : 'Server-side rendering'}</li>
+          <li><strong>Search Params:</strong> {typeof window !== 'undefined' ? window.location.search : 'Server-side rendering'}</li>
+          <li><strong>User Agent:</strong> {typeof window !== 'undefined' ? window.navigator.userAgent : 'Server-side rendering'}</li>
+        </ul>
       </div>
       
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">Resource Info</h2>
-        <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-auto max-h-60">
-          {resourceInfo ? JSON.stringify(resourceInfo, null, 2) : 'No resource info available'}
-        </pre>
-      </div>
-      
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">Error Logs ({logs.length})</h2>
-        {logs.length > 0 ? (
-          <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-auto max-h-96">
-            {logs.map((log, i) => (
-              <div key={i} className="mb-2 pb-2 border-b border-gray-300 dark:border-gray-700">
-                <div className="text-red-600 dark:text-red-400 font-mono text-sm">{log.timestamp}</div>
-                <div className="text-gray-800 dark:text-gray-200 font-mono text-sm whitespace-pre-wrap">{log.message}</div>
-              </div>
-            ))}
+        <h2 className="text-lg font-semibold mb-4">Test Navigation</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block mb-2">Select Route:</label>
+            <select 
+              value={selectedRoute} 
+              onChange={(e) => setSelectedRoute(e.target.value)}
+              className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+            >
+              <option value="/chat/new/">New Chat</option>
+              <option value="/chat/:id/">Chat ID</option>
+              <option value="/documents/">Documents</option>
+              <option value="/documents/:id/">Document ID</option>
+              <option value="/login/">Login</option>
+              <option value="/signup/">Signup</option>
+              <option value="/reset-password/">Reset Password</option>
+              <option value="/custom/">Custom Route</option>
+            </select>
           </div>
-        ) : (
-          <p>No errors logged</p>
-        )}
+          
+          {selectedRoute === '/chat/:id/' || selectedRoute === '/documents/:id/' ? (
+            <div>
+              <label className="block mb-2">ID Parameter:</label>
+              <input 
+                type="text" 
+                value={routeParams} 
+                onChange={(e) => setRouteParams(e.target.value)}
+                placeholder="Enter ID"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+          ) : null}
+          
+          {selectedRoute === '/custom/' && (
+            <div>
+              <label className="block mb-2">Custom Route:</label>
+              <input 
+                type="text" 
+                value={customRoute} 
+                onChange={(e) => setCustomRoute(e.target.value)}
+                placeholder="Enter custom route (e.g., /some/path/)"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+          )}
+          
+          <button 
+            onClick={navigateToRoute}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            Navigate
+          </button>
+        </div>
       </div>
       
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">Network Tests</h2>
-        <button 
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Refresh Tests
-        </button>
+      <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-md">
+        <h2 className="text-lg font-semibold mb-2">App Routes</h2>
+        <ul className="space-y-2">
+          <li><strong>/</strong> - Home page</li>
+          <li><strong>/chat/</strong> - Chat list</li>
+          <li><strong>/chat/new/</strong> - New chat</li>
+          <li><strong>/chat/[id]/</strong> - Chat by ID</li>
+          <li><strong>/documents/</strong> - Documents list</li>
+          <li><strong>/documents/[id]/</strong> - Document by ID</li>
+          <li><strong>/login/</strong> - Login page</li>
+          <li><strong>/signup/</strong> - Signup page</li>
+          <li><strong>/reset-password/</strong> - Reset password</li>
+        </ul>
       </div>
     </div>
   );

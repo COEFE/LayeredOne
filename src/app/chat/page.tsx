@@ -22,10 +22,10 @@ export default function ChatPage() {
         <h1 className="text-2xl font-bold mb-4">Welcome to Chat</h1>
         <p className="mb-6">Log in to view your conversations and start chatting with AI.</p>
         <a 
-          href="/login" 
+          href="/login/" 
           onClick={(e) => {
             e.preventDefault();
-            window.location.href = "/login";
+            window.location.href = "/login/";
           }}
           className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
