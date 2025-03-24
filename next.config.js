@@ -15,10 +15,10 @@ const nextConfig = {
     // App Router specific bodyParser config
     serverActions: {
       bodySizeLimit: '50mb',
-    },
-    // External packages for server components
-    serverComponentsExternalPackages: ['xlsx']
+    }
   },
+  // External packages for server components (moved from experimental)
+  serverExternalPackages: ['xlsx'],
   
   env: {
     // Explicitly pass along environment variables
@@ -27,6 +27,13 @@ const nextConfig = {
     // Flag to verify env passing is working
     NEXT_PUBLIC_CLAUDE_KEY_CHECK: !!process.env.CLAUDE_API_KEY || !!process.env.ANTHROPIC_API_KEY ? "true" : "false",
   },
+  
+  // Removed invalid 'api' config
+  // api: {
+  //   bodyParser: {
+  //     sizeLimit: '50mb',
+  //   },
+  // },
   
   // Fix for the 'canvas' module issue with pdfjs-dist
   webpack: (config) => {

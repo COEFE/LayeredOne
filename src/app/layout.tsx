@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "../context/AuthContext";
+import AuthWrapper from "../components/AuthWrapper";
 import Navigation from "../components/Navigation";
 import ErrorDisplay from "../components/ErrorDisplay";
 import ClientThemeProvider from "../components/ClientThemeProvider";
@@ -32,7 +32,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ClientThemeProvider>
-          <AuthProvider>
+          <AuthWrapper>
             <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
               <ErrorDisplay />
               <Navigation />
@@ -42,7 +42,7 @@ export default function RootLayout({
                 reserved.
               </footer>
             </div>
-          </AuthProvider>
+          </AuthWrapper>
         </ClientThemeProvider>
       </body>
     </html>
