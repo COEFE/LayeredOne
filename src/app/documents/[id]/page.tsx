@@ -17,6 +17,7 @@ export default function DocumentViewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'view' | 'chat'>('view');
+  const [splitView, setSplitView] = useState(true);
 
   useEffect(() => {
     const loadDocument = async () => {
@@ -143,40 +144,87 @@ export default function DocumentViewPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-blue-100 overflow-hidden">
-        <div className="flex border-b border-blue-100">
-          <button
-            className={`px-6 py-3 font-medium text-sm ${
-              activeTab === 'view'
-                ? 'bg-blue-50 text-blue-800 border-b-2 border-blue-500'
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-            onClick={() => setActiveTab('view')}
-          >
-            View Document
-          </button>
-          <button
-            className={`px-6 py-3 font-medium text-sm ${
-              activeTab === 'chat'
-                ? 'bg-blue-50 text-blue-800 border-b-2 border-blue-500'
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-            onClick={() => setActiveTab('chat')}
-          >
-            Chat with Document
-          </button>
-        </div>
-
-        <div className="p-4">
-          {activeTab === 'view' ? (
-            <FileViewer 
-              fileUrl={document.url} 
-              mimeType={document.type} 
-              fileName={document.name} 
-            />
-          ) : (
-            <DocumentChat documentId={document.id} />
+        <div className="flex justify-between items-center border-b border-blue-100">
+          <div className="flex">
+            <button
+              className={`px-6 py-3 font-medium text-sm ${
+                !splitView && activeTab === 'view'
+                  ? 'bg-blue-50 text-blue-800 border-b-2 border-blue-500'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              onClick={() => {
+                setSplitView(false);
+                setActiveTab('view');
+              }}
+            >
+              View Only
+            </button>
+            <button
+              className={`px-6 py-3 font-medium text-sm ${
+                !splitView && activeTab === 'chat'
+                  ? 'bg-blue-50 text-blue-800 border-b-2 border-blue-500'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              onClick={() => {
+                setSplitView(false);
+                setActiveTab('chat');
+              }}
+            >
+              Chat Only
+            </button>
+            <button
+              className={`px-6 py-3 font-medium text-sm ${
+                splitView
+                  ? 'bg-blue-50 text-blue-800 border-b-2 border-blue-500'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              onClick={() => setSplitView(true)}
+            >
+              Split View
+            </button>
+          </div>
+          
+          {!document.extractedText && (
+            <div className="px-4 py-2">
+              <div className="text-amber-600 text-xs flex items-center">
+                <span className="mr-2">⚠️</span>
+                <span>No text extracted. Chat may not work properly.</span>
+              </div>
+            </div>
           )}
         </div>
+
+        {splitView ? (
+          <div className="flex h-[calc(100vh-250px)]">
+            {/* Document viewer - takes 2/3 of the space */}
+            <div className="w-2/3 border-r border-gray-200 p-4 overflow-auto">
+              <div className="h-full">
+                <FileViewer 
+                  fileUrl={document.url} 
+                  mimeType={document.type} 
+                  fileName={document.name} 
+                />
+              </div>
+            </div>
+            
+            {/* Chat interface - takes 1/3 of the space */}
+            <div className="w-1/3 h-full">
+              <DocumentChat documentId={document.id} compactMode={true} />
+            </div>
+          </div>
+        ) : (
+          <div className="p-4">
+            {activeTab === 'view' ? (
+              <FileViewer 
+                fileUrl={document.url} 
+                mimeType={document.type} 
+                fileName={document.name} 
+              />
+            ) : (
+              <DocumentChat documentId={document.id} />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
