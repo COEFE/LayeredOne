@@ -138,10 +138,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setError(null);
       const provider = new GoogleAuthProvider();
+      
+      // Add custom OAuth parameters for better compatibility
+      provider.setCustomParameters({
+        // Force account selection even when one account is available
+        prompt: 'select_account',
+        // Use current hostname to improve domain matching
+        login_hint: window.location.hostname
+      });
+
+      // Log authentication attempt for debugging
+      console.log("Attempting Google sign-in with domain:", window.location.hostname);
+      
       await signInWithPopup(auth, provider);
     } catch (err: any) {
       console.error('Google sign in error:', err);
-      setError(err.message);
+      
+      // Provide more specific error message for unauthorized domain
+      if (err.code === 'auth/unauthorized-domain') {
+        const currentDomain = window.location.hostname;
+        setError(`Authentication domain error: ${currentDomain} is not authorized in Firebase. Please contact support.`);
+        
+        // Log detailed information for debugging
+        console.error(`Domain ${currentDomain} needs to be added to Firebase Console > Authentication > Settings > Authorized Domains`);
+      } else {
+        setError(err.message);
+      }
+      
       throw err;
     }
   };

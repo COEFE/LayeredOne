@@ -12,6 +12,10 @@ import { getAnalytics, isSupported } from "firebase/analytics";
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'dummy-key-for-build',
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'dummy-domain-for-build',
+  // Use current domain for auth if running in production on Vercel
+  ...(typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && {
+    authDomain: window.location.hostname,
+  }),
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'dummy-project-for-build',
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'dummy-bucket-for-build',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
