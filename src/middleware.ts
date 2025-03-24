@@ -15,14 +15,12 @@ export function middleware(request: NextRequest) {
   }
   
   // For auth-related pages, apply special handling if needed
-  if (['/login', '/signup', '/reset-password'].includes(pathname)) {
+  if (['/login', '/login/', '/signup', '/signup/', '/reset-password', '/reset-password/'].includes(pathname)) {
     // Log auth page navigation for debugging
     console.log(`Auth page navigation: ${pathname}`);
     
-    // You can add additional logic here if needed for auth pages
-    // For example, redirect already logged-in users away from these pages
-    
-    // For now, just continue to the requested page
+    // Don't redirect these pages, just continue to the requested page
+    // Let Vercel.json handle any needed redirects for trailing slashes
     return NextResponse.next();
   }
   

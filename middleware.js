@@ -39,15 +39,15 @@ export function middleware(request) {
     return NextResponse.next();
   }
   
-  // Handle missing trailing slashes in dynamic routes like /chat/[id]
+  // Debugging for routes without trailing slashes, but let Vercel config handle the redirects
   if (
     pathname.match(/^\/chat\/[^\/]+$/) || 
     pathname.match(/^\/documents\/[^\/]+$/) || 
     pathname.match(/^\/folders\/[^\/]+$/)
   ) {
     console.log(`[DEBUG] Dynamic route without trailing slash detected: ${pathname}`);
-    // Redirect to the same URL with trailing slash
-    return NextResponse.redirect(new URL(`${pathname}/`, request.url));
+    // Let Vercel config handle the redirect
+    return NextResponse.next();
   }
 
   // For other routes, proceed normally but with a header for debugging

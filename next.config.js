@@ -17,47 +17,7 @@ const nextConfig = {
   },
   // Fix routing issues - add trailing slash for better compatibility in production
   trailingSlash: true,
-  // Force trailing slash to help with routing issues
-  async redirects() {
-    return [
-      // Add redirects for dynamic routes
-      {
-        source: '/chat/:id',
-        destination: '/chat/:id/',
-        permanent: true,
-      },
-      {
-        source: '/documents/:id',
-        destination: '/documents/:id/',
-        permanent: true,
-      },
-      {
-        source: '/folders/:id',
-        destination: '/folders/:id/',
-        permanent: true,
-      },
-      {
-        source: '/login',
-        destination: '/login/',
-        permanent: true,
-      },
-      {
-        source: '/signup',
-        destination: '/signup/',
-        permanent: true,
-      },
-      {
-        source: '/reset-password',
-        destination: '/reset-password/',
-        permanent: true,
-      },
-      {
-        source: '/settings',
-        destination: '/settings/',
-        permanent: true,
-      },
-    ];
-  },
+  // Let Vercel.json handle redirects for trailing slashes
   // Handle asset prefixes properly
   assetPrefix: process.env.NODE_ENV === 'production' ? undefined : '',
   // External packages for server components
