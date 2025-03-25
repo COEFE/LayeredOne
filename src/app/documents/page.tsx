@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import DocumentUpload from '@/components/DocumentUpload';
 import DocumentList from '@/components/DocumentList';
+import CreateBlankDocument from '@/components/CreateBlankDocument';
 import styles from './documents.module.css';
 
 export default function Documents() {
@@ -67,7 +68,7 @@ export default function Documents() {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-20 flex justify-end">
           <div className={`bg-white w-full max-w-md p-6 shadow-lg h-full overflow-y-auto ${styles.animateSlideIn}`}>
             <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pt-2 pb-4 border-b border-blue-100">
-              <h2 className="text-xl font-bold text-blue-900">Upload Document</h2>
+              <h2 className="text-xl font-bold text-blue-900">Add Document</h2>
               <button
                 onClick={() => setShowUploadPanel(false)}
                 className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
@@ -78,7 +79,21 @@ export default function Documents() {
                 </svg>
               </button>
             </div>
-            <DocumentUpload onUploadComplete={handleUploadComplete} />
+            
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Upload Existing Document</h3>
+                <DocumentUpload onUploadComplete={handleUploadComplete} />
+              </div>
+              
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Create New Document</h3>
+                <CreateBlankDocument 
+                  onSuccess={handleUploadComplete} 
+                  className="mt-2"
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}
