@@ -40,8 +40,14 @@ function getCellReference(rowIndex: number, columnIndex: number): string {
  */
 export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
   try {
-    // Parse the Excel file from buffer
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    // Parse the Excel file from buffer with additional options for larger sheets
+    const workbook = XLSX.read(buffer, { 
+      type: 'buffer',
+      cellFormula: true,   // parse and include formulas
+      cellNF: true,        // parse number formats
+      cellStyles: true,    // include cell styles
+      rawNumbers: false    // convert raw numbers to strings
+    });
     
     // Initialize text extraction result
     let extractedText = '';
@@ -50,51 +56,121 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
     workbook.SheetNames.forEach((sheetName) => {
       const worksheet = workbook.Sheets[sheetName];
       
-      // Get the sheet range
-      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      // Get the sheet range - expand range if necessary
+      let range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
       
       // Add sheet name as a header
       extractedText += `## Sheet: ${sheetName}\n\n`;
+      extractedText += `Range: ${worksheet['!ref'] || 'A1'}\n\n`;
       
-      // Add a row with column headers (A, B, C, etc.)
-      extractedText += '| Cell Ref | ';
-      for (let c = 0; c <= range.e.c; c++) {
-        extractedText += `Column ${getColumnLetter(c)} | `;
-      }
-      extractedText += '\n';
+      // Add raw cell listing first as it's the most reliable method
+      extractedText += `## Complete Cell Listing for Sheet "${sheetName}":\n\n`;
       
-      // Add separator row
-      extractedText += '| --- | ';
-      for (let c = 0; c <= range.e.c; c++) {
-        extractedText += '--- | ';
-      }
-      extractedText += '\n';
+      // List all non-empty cells with their references
+      const cellAddresses = Object.keys(worksheet)
+        .filter(key => key !== '!ref' && key !== '!margins' && !key.startsWith('!'));
       
-      // Process each row
-      for (let r = 0; r <= range.e.r; r++) {
-        // Add row number
-        extractedText += `| Row ${r + 1} | `;
+      if (cellAddresses.length > 0) {
+        // Find the maximum column and row to ensure we have the complete range
+        let maxCol = 0;
+        let maxRow = 0;
         
-        // Process each cell in the row
-        for (let c = 0; c <= range.e.c; c++) {
-          const cellRef = getCellReference(r, c);
-          const cell = worksheet[cellRef];
-          
-          // Get formatted cell value or empty string
-          const cellValue = cell ? XLSX.utils.format_cell(cell) : '';
-          
-          // Add cell value with its reference in a comment
-          extractedText += `${cellValue} (${cellRef}) | `;
+        cellAddresses.forEach(addr => {
+          const cellRef = XLSX.utils.decode_cell(addr);
+          maxCol = Math.max(maxCol, cellRef.c);
+          maxRow = Math.max(maxRow, cellRef.r);
+        });
+        
+        // Update range if larger cells were found
+        if (maxCol > range.e.c || maxRow > range.e.r) {
+          range.e.c = Math.max(range.e.c, maxCol);
+          range.e.r = Math.max(range.e.r, maxRow);
+          console.log(`Expanded range to include all cells: ${XLSX.utils.encode_range(range)}`);
         }
         
+        // Group cells by row for better organization
+        const rowGroups: {[key: number]: string[]} = {};
+        
+        cellAddresses.forEach(addr => {
+          const cellRef = XLSX.utils.decode_cell(addr);
+          const cellValue = XLSX.utils.format_cell(worksheet[addr]);
+          const rowNum = cellRef.r + 1; // Convert to 1-based
+          
+          if (!rowGroups[rowNum]) {
+            rowGroups[rowNum] = [];
+          }
+          
+          rowGroups[rowNum].push(`Cell ${addr}: ${cellValue}`);
+        });
+        
+        // Output cells grouped by row
+        const rows = Object.keys(rowGroups).map(Number).sort((a, b) => a - b);
+        
+        rows.forEach(rowNum => {
+          extractedText += `Row ${rowNum}:\n`;
+          rowGroups[rowNum].sort(); // Sort cells within row alphabetically
+          rowGroups[rowNum].forEach(cell => {
+            extractedText += `- ${cell}\n`;
+          });
+          extractedText += '\n';
+        });
+      } else {
+        extractedText += 'No data cells found in this sheet.\n\n';
+      }
+      
+      // Only show full grid for reasonable sized sheets (limit to 50x26 for readability)
+      if (range.e.r < 50 && range.e.c < 26) {
+        extractedText += '\n## Grid View (Column/Row Format):\n\n';
+        
+        // Add a row with column headers (A, B, C, etc.)
+        extractedText += '| Cell Ref | ';
+        for (let c = 0; c <= range.e.c; c++) {
+          extractedText += `Column ${getColumnLetter(c)} | `;
+        }
         extractedText += '\n';
+        
+        // Add separator row
+        extractedText += '| --- | ';
+        for (let c = 0; c <= range.e.c; c++) {
+          extractedText += '--- | ';
+        }
+        extractedText += '\n';
+        
+        // Process each row
+        for (let r = 0; r <= range.e.r; r++) {
+          // Add row number
+          extractedText += `| Row ${r + 1} | `;
+          
+          // Process each cell in the row
+          for (let c = 0; c <= range.e.c; c++) {
+            const cellRef = getCellReference(r, c);
+            const cell = worksheet[cellRef];
+            
+            // Get formatted cell value or empty string
+            const cellValue = cell ? XLSX.utils.format_cell(cell) : '';
+            
+            // Add cell value with its reference in a comment
+            extractedText += `${cellValue} (${cellRef}) | `;
+          }
+          
+          extractedText += '\n';
+        }
+      } else {
+        extractedText += '\n## Grid View Omitted (Sheet too large)\n';
+        extractedText += `This sheet has ${range.e.r + 1} rows and ${range.e.c + 1} columns, which is too large to display as a grid.\n`;
+        extractedText += 'Please refer to the complete cell listing above or use specific cell references in your queries.\n\n';
       }
       
       // Add a more traditional tabular representation using the JSON data
       extractedText += '\n## Tabular Data View:\n\n';
       
-      // Convert sheet to JSON for tabular display
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      // Convert sheet to JSON for tabular display with all options for max compatibility
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+        header: 1,
+        raw: false,
+        defval: '',
+        blankrows: true
+      });
       
       if (jsonData.length > 0) {
         // Get the headers (first row)
@@ -107,10 +183,11 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
           // Add separator row
           extractedText += '| --- | ' + headers.map(() => '---').join(' | ') + ' |\n';
           
-          // Add data rows with row numbers
-          for (let i = 1; i < jsonData.length; i++) {
+          // Add data rows with row numbers (limit to 100 rows for readability)
+          const maxRows = Math.min(jsonData.length, 100);
+          for (let i = 1; i < maxRows; i++) {
             const row = jsonData[i] as any[];
-            if (row && row.length > 0) {
+            if (row) {
               // Create row with row number prefix
               let rowContent = `| Row ${i + 1} | `;
               for (let j = 0; j < headers.length; j++) {
@@ -121,6 +198,11 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
               extractedText += rowContent.trim() + '\n';
             }
           }
+          
+          // Note if rows were truncated
+          if (jsonData.length > 100) {
+            extractedText += '\n*Note: Table truncated to 100 rows for readability. See complete cell listing for all data.*\n';
+          }
         } else {
           // Special case for empty sheets or non-tabular data
           extractedText += 'Sheet appears to be empty or does not contain tabular data.\n';
@@ -128,25 +210,7 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
       } else {
         extractedText += 'Empty sheet\n';
       }
-      
-      // Add raw cell listing with references
-      extractedText += '\n## Raw Cell Listing:\n\n';
-      
-      // List all non-empty cells with their references
-      const cellAddresses = Object.keys(worksheet)
-        .filter(key => key !== '!ref' && key !== '!margins' && !key.startsWith('!'));
-      
-      if (cellAddresses.length > 0) {
-        cellAddresses
-          .sort() // Sort cell references alphabetically
-          .forEach(cellAddress => {
-            const cellValue = XLSX.utils.format_cell(worksheet[cellAddress]);
-            extractedText += `- Cell ${cellAddress}: ${cellValue}\n`;
-          });
-      } else {
-        extractedText += 'No data cells found in this sheet.\n';
-      }
-      
+
       // Add spacing between sheets
       extractedText += '\n\n';
     });
