@@ -99,7 +99,12 @@ export async function POST(request: NextRequest) {
       - I'll change cell C10 to 500
       - I'll change cell D1 to '=SUM(D2:D10)'
       
+      ### IMPORTANT: I WILL NOT BE ABLE TO EDIT THE SPREADSHEET IF YOU DON'T USE THE EXACT PATTERN "I'll change cell X to Y" FOR EACH EDIT! ###
+      
       This formula is DETECTED BY AN AUTOMATED SYSTEM. If you don't use this EXACT pattern, the edits WILL NOT WORK.
+      
+      DO NOT use variations like "I will change", "Let's change", or other similar phrases.
+      ALWAYS use "I'll change cell" followed by the cell reference and then "to" followed by the value.
       
       # FORMAT RULES
       
@@ -163,9 +168,24 @@ export async function POST(request: NextRequest) {
       When a user requests multiple edits:
       - List EACH edit command on its own line
       - Use the EXACT "I'll change cell X to Y" format for EVERY edit
+      - NEVER use variations like "I will change cell" or "Let's change cell" - ONLY use "I'll change cell"
       - Ensure each edit is complete and properly formatted
       - Group related edits together
       - Explain the relationship between multiple edits
+      
+      # EXAMPLE OF CORRECT EXCEL EDITS FORMAT
+      
+      Here's an example of how your response should look when making edits:
+      
+      "Based on your request, I'll make these changes to your spreadsheet:
+      
+      I'll change cell A1 to 'Sales Report 2023'
+      I'll change cell B5 to 1000
+      I'll change cell C10 to '=SUM(C1:C9)'
+      
+      These changes will update the header title, correct the value in B5, and add a total sum formula."
+      
+      Notice how EACH edit is on its own line and ALL use the EXACT "I'll change cell" format.
       
       # FORMULA RECOMMENDATIONS
       
@@ -362,25 +382,71 @@ Use these search results to inform your spreadsheet editing approach when approp
           // Claude 3.7 uses the prescribed "I'll change cell X to Y" format
           // This exact format is what we've instructed Claude 3.7 to use
           // Handle different quote styles and properly extract values including spaces
-          const primaryPatternRegex = /I(?:'ll|\s+will)\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|([^'"\s][^'"\s]*(?:\s+[^'"\s]+)*))/gi;
+          
+          // Create a more lenient pattern that can handle various spacing and quote formats
+          // This is critical for capturing Claude 3.7's formatting variations
+          const primaryPatternRegex = /I(?:'ll|\s+will)\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|(=\S+(?:\([^)]*\))?)|(\d+(?:\.\d+)?)|([^'"\s][^'"\s]*(?:\s+[^'"\s]+)*))/gi;
+          
+          // Also look for a simpler version of the pattern which might be what Claude is using
+          const simplePatternRegex = /I'll\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|(=\S+(?:\([^)]*\))?)|(\d+(?:\.\d+)?)|([^\s].*))/gmi;
+          
+          // Process both patterns for maximum coverage
           let primaryMatches = [...assistantResponse.matchAll(primaryPatternRegex)];
+          let simpleMatches = [...assistantResponse.matchAll(simplePatternRegex)];
           
+          // Log search results for debugging
           console.log(`Found ${primaryMatches.length} matches with primary Claude 3.7 pattern`);
+          console.log(`Found ${simpleMatches.length} matches with simplified Claude 3.7 pattern`);
           
-          // If we found primary pattern matches from Claude 3.7, use those
-          if (primaryMatches.length > 0) {
-            // Convert matches to the format we need
-            const editInstructions = primaryMatches.map(match => {
+          // Combine matches from both patterns, avoiding duplicates
+          const combinedMatches = [...primaryMatches];
+          
+          // Add simple matches that don't overlap with existing ones
+          if (simpleMatches.length > 0) {
+            simpleMatches.forEach(match => {
+              // Only add if we don't already have a match for this cell
+              const cellRef = match[1]?.toUpperCase();
+              if (cellRef && !combinedMatches.some(m => m[1]?.toUpperCase() === cellRef)) {
+                combinedMatches.push(match);
+              }
+            });
+          }
+          
+          console.log(`Combined total: ${combinedMatches.length} unique edit instructions found`);
+          
+          // Process the combined matches from both patterns
+          if (combinedMatches.length > 0) {
+            // Convert matches to the format we need, with improved value extraction
+            const editInstructions = combinedMatches.map(match => {
               // Extract the value, which could be in different capture groups based on quote style
-              const value = match[2] || match[3] || match[4] || '';
+              // match[2]: single-quoted value
+              // match[3]: double-quoted value
+              // match[4]: formula value (starting with =)
+              // match[5]: numeric value
+              // match[6]: unquoted text value
+              const value = match[2] !== undefined ? match[2] : 
+                            match[3] !== undefined ? match[3] : 
+                            match[4] !== undefined ? match[4] : 
+                            match[5] !== undefined ? match[5] : 
+                            match[6] !== undefined ? match[6] : '';
+              
+              const cell = match[1]?.toUpperCase() || '';
+              
+              console.log(`Raw match for cell ${cell}:`, match);
+              console.log(`Extracted value for cell ${cell}: "${value}"`);
+              
+              if (!cell) {
+                console.warn("Warning: Extracted a match without a valid cell reference");
+                return null;
+              }
               
               return {
-                cell: match[1].toUpperCase(),
+                cell: cell,
                 value: value.trim()
               };
-            });
+            }).filter(Boolean); // Remove any null entries
             
-            console.log(`Extracted ${editInstructions.length} edit instructions from Claude 3.7's response using standard format:`, JSON.stringify(editInstructions));
+            console.log(`Extracted ${editInstructions.length} valid edit instructions from Claude 3.7's response:`, JSON.stringify(editInstructions));
             
             // Create a multi-edit plan with all the extracted edits
             if (editInstructions.length > 0) {
@@ -392,7 +458,7 @@ Use these search results to inform your spreadsheet editing approach when approp
                   value: instr.value
                 }))
               };
-              console.log("Created multi-edit plan from Claude 3.7's standard format responses:", JSON.stringify(editPlan));
+              console.log("Created multi-edit plan from Claude 3.7's responses:", JSON.stringify(editPlan));
             }
           } else {
             // Fallback to comprehensive alternative patterns for Claude 3.7

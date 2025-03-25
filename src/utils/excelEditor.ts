@@ -354,17 +354,41 @@ export async function updateColumn(
  * @returns An object with sheet, cell, and value properties if the instruction can be parsed
  */
 export function parseEditInstruction(instruction: string): { sheet?: string, cell?: string, value?: any } | null {
+  console.log("Parsing instruction:", instruction);
+
   // Claude 3.7 standard format: "I'll change cell X to Y"
   // Handle different quote styles and properly extract values including spaces
-  const claudePattern = /I(?:'ll|\s+will)\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|([^'"\s][^'"\s]*(?:\s+[^'"\s]+)*))/i;
+  // Improved pattern matching with better regex structure for different value types
+  const claudePattern = /I(?:'ll|\s+will)\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|(=\S+(?:\([^)]*\))?)|(\d+(?:\.\d+)?)|([^'"\s][^'"\s]*(?:\s+[^'"\s]+)*))/i;
   const claudeMatch = instruction.match(claudePattern);
   
-  if (claudeMatch) {
-    // Extract the value, which could be in different capture groups based on quote style
-    const value = claudeMatch[2] || claudeMatch[3] || claudeMatch[4] || '';
+  // Alternative pattern for simpler formats that Claude might use
+  const simplePattern = /I'll\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|(=\S+(?:\([^)]*\))?)|(\d+(?:\.\d+)?)|([^\s].*))/i;
+  const simpleMatch = !claudeMatch ? instruction.match(simplePattern) : null;
+  
+  // Use whichever pattern matched
+  const match = claudeMatch || simpleMatch;
+  
+  if (match) {
+    console.log("Match found:", match);
+    
+    // Extract the value using more robust handling for different capture groups
+    // match[2]: single-quoted value
+    // match[3]: double-quoted value
+    // match[4]: formula value (starting with =)
+    // match[5]: numeric value
+    // match[6]: unquoted text value
+    const value = match[2] !== undefined ? match[2] : 
+                match[3] !== undefined ? match[3] : 
+                match[4] !== undefined ? match[4] : 
+                match[5] !== undefined ? match[5] : 
+                match[6] !== undefined ? match[6] : '';
+    
+    console.log("Extracted cell:", match[1].toUpperCase());
+    console.log("Extracted value:", value);
     
     return {
-      cell: claudeMatch[1].toUpperCase(),
+      cell: match[1].toUpperCase(),
       value: value.trim()
     };
   }
