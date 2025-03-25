@@ -189,41 +189,56 @@ export async function editExcelFile(buffer: Buffer, edits: Array<{
       }
     }
     
-    // One of the most common issues with Excel editing is buffer handling
-    // Instead of using XLSX.write, let's try a different approach with a temporary file
+    // Serverless-friendly approach to Excel buffer creation
+    // Direct buffer creation is more reliable in serverless environments
     
-    console.log('Creating output buffer using a more robust method...');
+    console.log('Creating output buffer using serverless-compatible method...');
     
-    // First, write to a temporary file
-    const tmpFileName = `/tmp/tmp_excel_${Date.now()}.xlsx`;
     try {
-      // Write to a temporary file
-      console.log(`Writing to temporary file: ${tmpFileName}`);
-      XLSX.writeFile(workbook, tmpFileName);
+      // Use a more robust write options configuration
+      const writeOpts: XLSX.WritingOptions = { 
+        type: 'buffer',
+        bookType: 'xlsx',
+        compression: true // Enable compression for better reliability
+      };
       
-      // Read the file back as a buffer (avoids issues with direct buffer creation)
-      console.log(`Reading temporary file back as buffer`);
-      const fs = require('fs');
-      const outputBuffer = fs.readFileSync(tmpFileName);
+      // Write directly to buffer (safer in serverless environments with filesystem restrictions)
+      console.log('Writing Excel data directly to buffer...');
+      const outputBuffer = XLSX.write(workbook, writeOpts);
       
-      // Clean up temporary file
-      try {
-        fs.unlinkSync(tmpFileName);
-      } catch (cleanupError) {
-        console.warn(`Failed to clean up temporary file: ${cleanupError}`);
+      // Validate the buffer
+      if (!outputBuffer || outputBuffer.length === 0) {
+        throw new Error('Generated buffer is empty or invalid');
       }
       
       console.log(`Excel edit complete: Output buffer size ${outputBuffer.length} bytes`);
       return outputBuffer;
-    } catch (fileError) {
-      console.error(`Error with file-based approach, falling back to direct buffer creation: ${fileError}`);
+    } catch (bufferError) {
+      console.error(`Error with primary buffer creation approach: ${bufferError}`);
       
-      // Fall back to direct buffer creation
-      const options = { type: 'buffer', bookType: 'xlsx' } as XLSX.WritingOptions;
-      const outputBuffer = XLSX.write(workbook, options);
+      // Try an alternate approach as fallback
+      console.log('Attempting alternate buffer creation method...');
       
-      console.log(`Excel edit complete (fallback method): Output buffer size ${outputBuffer.length} bytes`);
-      return outputBuffer;
+      try {
+        // Create a different workbook object
+        const newWorkbook = XLSX.utils.book_new();
+        
+        // Copy all sheets from the original workbook
+        workbook.SheetNames.forEach(sheetName => {
+          const sheet = workbook.Sheets[sheetName];
+          XLSX.utils.book_append_sheet(newWorkbook, sheet, sheetName);
+        });
+        
+        // Use a simpler write configuration
+        const simpleOpts = { type: 'buffer', bookType: 'xlsx' } as XLSX.WritingOptions;
+        const fallbackBuffer = XLSX.write(newWorkbook, simpleOpts);
+        
+        console.log(`Excel edit complete (fallback method): Output buffer size ${fallbackBuffer.length} bytes`);
+        return fallbackBuffer;
+      } catch (fallbackError) {
+        console.error(`All buffer creation methods failed: ${fallbackError}`);
+        throw new Error(`Failed to create Excel buffer: ${bufferError.message}, fallback also failed: ${fallbackError.message}`);
+      }
     }
   } catch (error) {
     console.error('Error editing Excel file:', error);

@@ -84,32 +84,54 @@ export async function POST(request: NextRequest) {
 
     // Create system prompt specifically for spreadsheet editing
     const systemPrompt = `You are a spreadsheet editing assistant. The user wants to edit a spreadsheet called "${documentName}".
-      You can help with editing spreadsheets by understanding the user's request and applying their requested changes.
+      You CAN DIRECTLY EDIT this Excel file by including specific edit commands in your response.
       
-      You now have the ability to DIRECTLY EDIT Excel files! The system will attempt to automatically apply 
-      any cell changes that you analyze from the user's request. Be as specific as possible in your analysis.
+      CRITICAL INSTRUCTIONS FOR EDITING EXCEL:
       
-      When responding to a spreadsheet edit request:
-      1. Acknowledge the user's request
-      2. CRITICAL: You MUST include a cell edit statement USING ONE OF THE EXACT FORMATS below:
+      1. Begin your response with a clear acknowledgment of what the user wants to change.
+      
+      2. YOU MUST INCLUDE THIS EXACT PATTERN IN YOUR RESPONSE:
+         "I'll change cell [CELL_REFERENCE] to [NEW_VALUE]"
+         
+         For example: 
          - "I'll change cell A1 to 'Sales Report'"
-         - "I'll update cell B5 to 100"
-         - "I'll set cell C10 to 500"
-         - "I'll modify cell D15 to 'Q4 Results'"
-      3. Be very explicit about cell references - always use the exact cell format (e.g., A1, B5, C10)
-      4. Provide a clear, unambiguous edit instruction that the automatic editor can detect
+         - "I'll change cell B5 to 100"
+         - "I'll change cell C10 to 500"
+      
+      3. The automatic Excel editor REQUIRES this EXACT FORMAT to work:
+         - Must start with "I'll change cell"
+         - Followed by a cell reference (A1, B5, etc.)
+         - Then "to" and the new value
+         
+      4. For text values, write: I'll change cell A1 to 'Sales Report'
+         For numeric values, write: I'll change cell B5 to 100
+         For formulas, write: I'll change cell C1 to '=SUM(A1:A10)'
+      
+      5. Put the edit statement ON ITS OWN LINE, not embedded in a paragraph.
+      
+      WARNING: If you don't follow this exact format, the automatic editor will fail and the spreadsheet won't be updated.
       
       The spreadsheet is of type: ${documentType}.
       
-      CRITICAL: The automatic Excel editor searches for specific patterns in your response to apply edits.
-      Your response MUST include at least one direct edit statement that follows these formats EXACTLY:
-      - "Change cell A1 to 'Sales Report'"
-      - "Update cell B5 to 1000"
-      - "Set cell C10 to 500"
-      - "Modify cell D15 to 'Q4 Results'"
+      EXAMPLE CORRECT RESPONSE:
+      "I understand you want to update the sales figure.
       
-      REMEMBER: Always include the word "cell" followed by the cell reference (like A1, B5) and be 
-      extremely clear about what value to set. This is essential for the editing system to work.`;
+      I'll change cell B5 to 1000
+      
+      This will update the sales value in cell B5 to 1000."
+      
+      EXAMPLE INCORRECT RESPONSE:
+      "I'll update B5 with the value 1000."
+      (WRONG: missing the word "cell" and exact format)`;
+      
+      // Add extra emphasis with Claude-3.7 specific details
+      if (model?.includes('3.7') || model?.includes('claude-3-7')) {
+        systemPrompt += `
+        
+        As Claude 3.7, you have enhanced capabilities that allow you to interact with this spreadsheet editing system.
+        When working with spreadsheets, always use THE EXACT PHRASE "I'll change cell X to Y" to ensure the automatic
+        editor can properly process your instructions. Please be extremely literal about this format.`;
+      }
 
     // Prepare the messages for Claude
     const messagesToSend = [
@@ -214,20 +236,43 @@ export async function POST(request: NextRequest) {
         if (!editPlan) {
           console.log("Trying to extract edit instructions from Claude's response");
           
+          // Log the full assistant response for debugging
+          console.log("Full assistant response for pattern matching:", assistantResponse);
+          
           // Try multiple patterns to extract edit instructions from Claude's response
+          // Be as comprehensive as possible with pattern matching
           const patternMatches = [
             // Standard pattern: "change cell A1 to 100"
-            assistantResponse.match(/(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"']+)["']?/i),
+            assistantResponse.match(/(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
             
             // "I'll change/update pattern": "I'll change cell A1 to 100"
-            assistantResponse.match(/I(?:'ll|\s+will)?\s+(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"']+)["']?/i),
+            assistantResponse.match(/I(?:'ll|\s+will)?\s+(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
             
             // Direct mention: "Cell A1 should be 100"
-            assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:should|will|to)\s+(?:be|contain|have|equal)\s+["']?([^"']+)["']?/i),
+            assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:should|will|to)\s+(?:be|contain|have|equal)\s+["']?([^"'\n]+)["']?/i),
             
             // Value pattern: "Set the value in A1 to 100"
-            assistantResponse.match(/(?:set|put|place)\s+(?:the\s+)?(?:value|data|content)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as)\s+["']?([^"']+)["']?/i)
+            assistantResponse.match(/(?:set|put|place)\s+(?:the\s+)?(?:value|data|content)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as)\s+["']?([^"'\n]+)["']?/i),
+            
+            // Simple cell pattern: "A1: 100" or "A1 → 100"
+            assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)(?:\s*(?::|→|->|=)\s*)["']?([^"'\n]+)["']?/i),
+            
+            // Literal recommendation: "I recommend changing cell A1 to 100"
+            assistantResponse.match(/recommend\s+(?:changing|setting|updating|modifying)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
+            
+            // Manual edit pattern: "manually edit cell A1 to contain 100"
+            assistantResponse.match(/(?:manually|should)\s+(?:edit|change|update|modify|set)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to|contain)\s+["']?([^"'\n]+)["']?/i),
+            
+            // Cell reference with equals: "cell A1 equals 100"
+            assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:equals|is|becomes|gets set to)\s+["']?([^"'\n]+)["']?/i)
           ];
+          
+          // Log all matches for debugging
+          patternMatches.forEach((match, index) => {
+            if (match) {
+              console.log(`Pattern ${index + 1} matched:`, match[0], `Cell: ${match[1]}, Value: ${match[2]}`);
+            }
+          });
           
           // Find the first successful match
           const firstMatch = patternMatches.find(match => match !== null);
