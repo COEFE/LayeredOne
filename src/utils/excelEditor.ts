@@ -194,15 +194,22 @@ export async function editExcelFile(buffer: Buffer, edits: Array<{
     
     console.log('Creating output buffer using serverless-compatible method...');
     
+    // Use a performance timer to track Excel processing time
+    const startTime = Date.now();
+    console.log('Excel processing started at:', new Date(startTime).toISOString());
+    
     try {
-      // Use a more robust write options configuration
+      // Use a more robust write options configuration with optimizations
       const writeOpts: XLSX.WritingOptions = { 
         type: 'buffer',
         bookType: 'xlsx',
-        compression: true // Enable compression for better reliability
+        compression: true, // Enable compression for better reliability
+        cellDates: false,  // Disable date conversion for better performance
+        cellNF: false,     // Disable number format for better performance
+        cellStyles: true   // Maintain styles
       };
       
-      // Write directly to buffer (safer in serverless environments with filesystem restrictions)
+      // Write directly to buffer with performance optimization
       console.log('Writing Excel data directly to buffer...');
       const outputBuffer = XLSX.write(workbook, writeOpts);
       
@@ -211,28 +218,42 @@ export async function editExcelFile(buffer: Buffer, edits: Array<{
         throw new Error('Generated buffer is empty or invalid');
       }
       
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      console.log(`Excel processing completed in ${processingTime}ms`);
       console.log(`Excel edit complete: Output buffer size ${outputBuffer.length} bytes`);
       return outputBuffer;
     } catch (bufferError) {
       console.error(`Error with primary buffer creation approach: ${bufferError}`);
       
-      // Try an alternate approach as fallback
+      // Try an alternate approach as fallback with performance optimization
       console.log('Attempting alternate buffer creation method...');
       
       try {
         // Create a different workbook object
         const newWorkbook = XLSX.utils.book_new();
         
-        // Copy all sheets from the original workbook
+        // Copy only necessary properties for better performance
         workbook.SheetNames.forEach(sheetName => {
           const sheet = workbook.Sheets[sheetName];
           XLSX.utils.book_append_sheet(newWorkbook, sheet, sheetName);
         });
         
-        // Use a simpler write configuration
-        const simpleOpts = { type: 'buffer', bookType: 'xlsx' } as XLSX.WritingOptions;
+        // Use a simpler write configuration optimized for performance
+        const simpleOpts = { 
+          type: 'buffer', 
+          bookType: 'xlsx',
+          cellDates: false,
+          cellNF: false,
+          cellStyles: false,
+          compression: true
+        } as XLSX.WritingOptions;
+        
         const fallbackBuffer = XLSX.write(newWorkbook, simpleOpts);
         
+        const endTime = Date.now();
+        const processingTime = endTime - startTime;
+        console.log(`Excel processing completed (fallback) in ${processingTime}ms`);
         console.log(`Excel edit complete (fallback method): Output buffer size ${fallbackBuffer.length} bytes`);
         return fallbackBuffer;
       } catch (fallbackError) {

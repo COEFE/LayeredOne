@@ -12,6 +12,8 @@ import { analyzeEditRequest } from '@/utils/excelEditor';
 // Debug flag to log detailed information
 const DEBUG = process.env.NODE_ENV === 'development' || true;
 
+export const maxDuration = 60; // Set max duration to 60 seconds for Vercel Edge functions
+
 export async function POST(request: NextRequest) {
   try {
     console.log("Document Edit API route called");
