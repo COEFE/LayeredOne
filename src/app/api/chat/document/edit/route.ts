@@ -3,9 +3,10 @@ import { auth, db } from '@/firebase/admin-config';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 
-// Import environment variables
+// Import environment variables and utilities
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
 const DEFAULT_MODEL = 'claude-3-7-sonnet-20250219';
+import { analyzeEditRequest } from '@/utils/excelEditor';
 
 // Debug flag to log detailed information
 const DEBUG = process.env.NODE_ENV === 'development' || true;
@@ -83,17 +84,26 @@ export async function POST(request: NextRequest) {
 
     // Create system prompt specifically for spreadsheet editing
     const systemPrompt = `You are a spreadsheet editing assistant. The user wants to edit a spreadsheet called "${documentName}".
-      You can help with editing spreadsheets by understanding the user's request and responding with clear instructions.
-      However, please note that in this version, you cannot directly modify the spreadsheet. 
-      Instead, you'll analyze what changes the user wants to make and explain how to do it manually.
+      You can help with editing spreadsheets by understanding the user's request and applying their requested changes.
+      
+      You now have the ability to DIRECTLY EDIT Excel files! The system will attempt to automatically apply 
+      any cell changes that you analyze from the user's request. Be as specific as possible in your analysis.
       
       When responding to a spreadsheet edit request:
       1. Acknowledge the user's request
-      2. Explain clearly what changes they want to make
-      3. Provide step-by-step instructions for making these changes manually
-      4. If the request is unclear or not possible, politely explain why
+      2. Explain clearly what changes they want to make in terms of specific cells (e.g., "cell A1", "cell B5")
+      3. Provide a specific analysis of the edit, such as "set cell A1 to value 100" or "change cell C5 to 'Total Sales'"
+      4. Also explain how these changes would be made manually as a backup
+      5. If the request is unclear or not possible, politely explain why
       
-      The spreadsheet is of type: ${documentType}.`;
+      The spreadsheet is of type: ${documentType}.
+      
+      Examples of edits the system can automatically apply:
+      - "Change cell A1 to 'Sales Report'"
+      - "Update B5 to 1000"
+      - "Set cell C10 to the formula =SUM(C1:C9)"
+      
+      Try to identify specific cells that need to be modified based on the user's request.`;
 
     // Prepare the messages for Claude
     const messagesToSend = [
@@ -181,8 +191,61 @@ export async function POST(request: NextRequest) {
         assistantResponse = JSON.stringify(result);
       }
 
-      // Add a note about real-time editing not being available yet
-      assistantResponse = `${assistantResponse}\n\n(Note: Real-time spreadsheet editing is not fully implemented in this version. The instructions above explain how to make these changes manually.)`;
+      // Try to analyze the edit request to see if we can automatically apply the changes
+      let editResult = null;
+      const isSpreadsheet = 
+        documentType.includes('spreadsheet') || 
+        documentType.includes('excel') || 
+        documentName.endsWith('.xlsx') || 
+        documentName.endsWith('.xls');
+      
+      // Only attempt automatic edits for spreadsheet files
+      if (isSpreadsheet) {
+        // Analyze the user's request for edits
+        const editPlan = analyzeEditRequest(message);
+        
+        if (editPlan) {
+          try {
+            console.log("Auto-editing spreadsheet:", editPlan);
+            
+            // Call our document edit API to apply the changes
+            const editResponse = await fetch(new URL('/api/documents/edit', request.url).toString(), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                documentId: documentId,
+                editInstructions: message
+              })
+            });
+            
+            if (editResponse.ok) {
+              const editResult = await editResponse.json();
+              
+              // Add information about the successful edit to the response
+              assistantResponse = `${assistantResponse}\n\n✅ **I've applied your changes automatically!** A new version of the spreadsheet has been created with these edits.`;
+              
+              if (editResult.newDocumentUrl) {
+                assistantResponse += `\n\nYou can [view the edited spreadsheet here](${editResult.newDocumentUrl}).`;
+              }
+            } else {
+              console.log("Could not automatically edit spreadsheet:", await editResponse.text());
+              assistantResponse += `\n\n(Note: I analyzed your edit request but couldn't automatically apply the changes. The instructions above explain how to make these changes manually.)`;
+            }
+          } catch (editError) {
+            console.error("Error during automatic spreadsheet editing:", editError);
+            assistantResponse += `\n\n(Note: I tried to automatically apply your changes but encountered an error. The instructions above explain how to make these changes manually.)`;
+          }
+        } else {
+          // Could not parse the edit request
+          assistantResponse += `\n\n(Note: I couldn't automatically determine the exact cell edits from your request. The instructions above explain how to make these changes manually.)`;
+        }
+      } else {
+        // Not a spreadsheet file
+        assistantResponse += `\n\n(Note: Real-time editing is only available for Excel spreadsheets. The instructions above explain how to make these changes manually.)`;
+      }
 
       // Save assistant's response to chat
       await messagesRef.add({
