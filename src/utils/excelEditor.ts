@@ -354,8 +354,23 @@ export async function updateColumn(
  * @returns An object with sheet, cell, and value properties if the instruction can be parsed
  */
 export function parseEditInstruction(instruction: string): { sheet?: string, cell?: string, value?: any } | null {
+  // Claude 3.7 standard format: "I'll change cell X to Y"
+  // Handle different quote styles and properly extract values including spaces
+  const claudePattern = /I(?:'ll|\s+will)\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|([^'"\s][^'"\s]*(?:\s+[^'"\s]+)*))/i;
+  const claudeMatch = instruction.match(claudePattern);
+  
+  if (claudeMatch) {
+    // Extract the value, which could be in different capture groups based on quote style
+    const value = claudeMatch[2] || claudeMatch[3] || claudeMatch[4] || '';
+    
+    return {
+      cell: claudeMatch[1].toUpperCase(),
+      value: value.trim()
+    };
+  }
+  
   // Case 1: Change/set/update cell X to Y
-  const cellPattern = /(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"']+)["']?/i;
+  const cellPattern = /(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i;
   const cellMatch = instruction.match(cellPattern);
   
   if (cellMatch) {
@@ -366,7 +381,7 @@ export function parseEditInstruction(instruction: string): { sheet?: string, cel
   }
   
   // Case 2: Add value Y to row X (assuming first column)
-  const rowPattern = /(?:add|set|put)\s+(?:value\s+)?["']?([^"']+)["']?\s+(?:to|in|at)\s+row\s+([0-9]+)/i;
+  const rowPattern = /(?:add|set|put)\s+(?:value\s+)?["']?([^"'\n]+)["']?\s+(?:to|in|at)\s+row\s+([0-9]+)/i;
   const rowMatch = instruction.match(rowPattern);
   
   if (rowMatch) {
@@ -376,8 +391,85 @@ export function parseEditInstruction(instruction: string): { sheet?: string, cel
     };
   }
   
-  // Case 3: Find more flexible edit patterns
-  const flexibleCellPattern = /(?:cell|cells|column|row)?\s*([A-Za-z]+[0-9]+)(?:\s*(?:should|must|to|needs to|will)?\s*(?:be|contain|have|equal|set to|updated to|changed to|become))?\s+["']?([^"']+)["']?/i;
+  // Case 3: Cell reference with colon/arrow: "A1: 100" or "A1 → 100"
+  const colonPattern = /(?:cell\s+)?([A-Za-z]+[0-9]+)(?:\s*(?::|→|->|=)\s*)["']?([^"'\n]+)["']?/i;
+  const colonMatch = instruction.match(colonPattern);
+  
+  if (colonMatch) {
+    return {
+      cell: colonMatch[1].toUpperCase(),
+      value: colonMatch[2].trim()
+    };
+  }
+  
+  // Case 4: Value pattern: "Set the value in A1 to 100"
+  const valuePattern = /(?:set|put|place)\s+(?:the\s+)?(?:value|data|content)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as)\s+["']?([^"'\n]+)["']?/i;
+  const valueMatch = instruction.match(valuePattern);
+  
+  if (valueMatch) {
+    return {
+      cell: valueMatch[1].toUpperCase(),
+      value: valueMatch[2].trim()
+    };
+  }
+  
+  // Case 5: Direct mention: "Cell A1 should be 100"
+  const directPattern = /(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:should|will|to|must|needs to)\s+(?:be|contain|have|equal)\s+["']?([^"'\n]+)["']?/i;
+  const directMatch = instruction.match(directPattern);
+  
+  if (directMatch) {
+    return {
+      cell: directMatch[1].toUpperCase(),
+      value: directMatch[2].trim()
+    };
+  }
+  
+  // Case 6: Recommendation pattern: "I recommend changing cell A1 to 100"
+  const recommendPattern = /recommend\s+(?:changing|setting|updating|modifying)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i;
+  const recommendMatch = instruction.match(recommendPattern);
+  
+  if (recommendMatch) {
+    return {
+      cell: recommendMatch[1].toUpperCase(),
+      value: recommendMatch[2].trim()
+    };
+  }
+  
+  // Case 7: Manual edit pattern: "Manually edit cell A1 to contain 100"
+  const manualPattern = /(?:manually|should)\s+(?:edit|change|update|modify|set)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to|contain)\s+["']?([^"'\n]+)["']?/i;
+  const manualMatch = instruction.match(manualPattern);
+  
+  if (manualMatch) {
+    return {
+      cell: manualMatch[1].toUpperCase(),
+      value: manualMatch[2].trim()
+    };
+  }
+  
+  // Case 8: Cell equals pattern: "cell A1 equals 100"
+  const equalsPattern = /(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:equals|is|becomes|gets set to)\s+["']?([^"'\n]+)["']?/i;
+  const equalsMatch = instruction.match(equalsPattern);
+  
+  if (equalsMatch) {
+    return {
+      cell: equalsMatch[1].toUpperCase(),
+      value: equalsMatch[2].trim()
+    };
+  }
+  
+  // Case 9: Formula pattern: "Set formula in A1 to =SUM(B1:B10)"
+  const formulaPattern = /(?:set|add|create|use)\s+(?:a|the)?\s+formula\s+(?:in|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|:)\s+["']?(=.+)["']?/i;
+  const formulaMatch = instruction.match(formulaPattern);
+  
+  if (formulaMatch) {
+    return {
+      cell: formulaMatch[1].toUpperCase(),
+      value: formulaMatch[2].trim()
+    };
+  }
+  
+  // Case 10: Most flexible pattern as a fallback
+  const flexibleCellPattern = /(?:cell|cells|column|row)?\s*([A-Za-z]+[0-9]+)(?:\s*(?:should|must|to|needs to|will)?\s*(?:be|contain|have|equal|set to|updated to|changed to|become))?\s+["']?([^"'\n]+)["']?/i;
   const flexibleMatch = instruction.match(flexibleCellPattern);
   
   if (flexibleMatch && flexibleMatch[1] && flexibleMatch[2]) {
@@ -387,7 +479,7 @@ export function parseEditInstruction(instruction: string): { sheet?: string, cel
     };
   }
   
-  // Case 4: Sheet name specified
+  // Sheet name detection
   const sheetPattern = /(?:in|on|at)\s+(?:sheet|tab)\s+["']?([^"']+)["']?/i;
   const sheetMatch = instruction.match(sheetPattern);
   
@@ -397,28 +489,96 @@ export function parseEditInstruction(instruction: string): { sheet?: string, cel
   }
   
   // If at least one match was successful and we have a sheet name, add it
-  if ((cellMatch || rowMatch || flexibleMatch) && sheet) {
-    return {
-      sheet: sheet,
-      cell: cellMatch ? cellMatch[1].toUpperCase() : 
-            rowMatch ? `A${rowMatch[2].trim()}` : 
-            flexibleMatch![1].toUpperCase(),
-      value: cellMatch ? cellMatch[2].trim() : 
-             rowMatch ? rowMatch[1].trim() : 
-             flexibleMatch![2].trim()
-    };
+  if ((claudeMatch || cellMatch || rowMatch || colonMatch || valueMatch || directMatch || 
+       recommendMatch || manualMatch || equalsMatch || formulaMatch || flexibleMatch) && sheet) {
+    let cell = '';
+    let value = '';
+    
+    if (claudeMatch) {
+      cell = claudeMatch[1].toUpperCase();
+      value = claudeMatch[2].trim();
+    } else if (cellMatch) {
+      cell = cellMatch[1].toUpperCase();
+      value = cellMatch[2].trim();
+    } else if (rowMatch) {
+      cell = `A${rowMatch[2].trim()}`;
+      value = rowMatch[1].trim();
+    } else if (colonMatch) {
+      cell = colonMatch[1].toUpperCase();
+      value = colonMatch[2].trim();
+    } else if (valueMatch) {
+      cell = valueMatch[1].toUpperCase();
+      value = valueMatch[2].trim();
+    } else if (directMatch) {
+      cell = directMatch[1].toUpperCase();
+      value = directMatch[2].trim();
+    } else if (recommendMatch) {
+      cell = recommendMatch[1].toUpperCase();
+      value = recommendMatch[2].trim();
+    } else if (manualMatch) {
+      cell = manualMatch[1].toUpperCase();
+      value = manualMatch[2].trim();
+    } else if (equalsMatch) {
+      cell = equalsMatch[1].toUpperCase();
+      value = equalsMatch[2].trim();
+    } else if (formulaMatch) {
+      cell = formulaMatch[1].toUpperCase();
+      value = formulaMatch[2].trim();
+    } else if (flexibleMatch && flexibleMatch[1] && flexibleMatch[2]) {
+      cell = flexibleMatch[1].toUpperCase();
+      value = flexibleMatch[2].trim();
+    }
+    
+    return { sheet, cell, value };
   }
   
   // If at least one match was successful even without sheet name
-  if (cellMatch || rowMatch || (flexibleMatch && flexibleMatch[1] && flexibleMatch[2])) {
+  if (claudeMatch || cellMatch || rowMatch || colonMatch || valueMatch || directMatch || 
+      recommendMatch || manualMatch || equalsMatch || formulaMatch || 
+      (flexibleMatch && flexibleMatch[1] && flexibleMatch[2])) {
+    
+    let cell = '';
+    let value = '';
+    
+    if (claudeMatch) {
+      cell = claudeMatch[1].toUpperCase();
+      value = claudeMatch[2].trim();
+    } else if (cellMatch) {
+      cell = cellMatch[1].toUpperCase();
+      value = cellMatch[2].trim();
+    } else if (rowMatch) {
+      cell = `A${rowMatch[2].trim()}`;
+      value = rowMatch[1].trim();
+    } else if (colonMatch) {
+      cell = colonMatch[1].toUpperCase();
+      value = colonMatch[2].trim();
+    } else if (valueMatch) {
+      cell = valueMatch[1].toUpperCase();
+      value = valueMatch[2].trim();
+    } else if (directMatch) {
+      cell = directMatch[1].toUpperCase();
+      value = directMatch[2].trim();
+    } else if (recommendMatch) {
+      cell = recommendMatch[1].toUpperCase();
+      value = recommendMatch[2].trim();
+    } else if (manualMatch) {
+      cell = manualMatch[1].toUpperCase();
+      value = manualMatch[2].trim();
+    } else if (equalsMatch) {
+      cell = equalsMatch[1].toUpperCase();
+      value = equalsMatch[2].trim();
+    } else if (formulaMatch) {
+      cell = formulaMatch[1].toUpperCase();
+      value = formulaMatch[2].trim();
+    } else if (flexibleMatch && flexibleMatch[1] && flexibleMatch[2]) {
+      cell = flexibleMatch[1].toUpperCase();
+      value = flexibleMatch[2].trim();
+    }
+    
     return {
       sheet: "Sheet1", // Default sheet name
-      cell: cellMatch ? cellMatch[1].toUpperCase() : 
-            rowMatch ? `A${rowMatch[2].trim()}` : 
-            flexibleMatch![1].toUpperCase(),
-      value: cellMatch ? cellMatch[2].trim() : 
-             rowMatch ? rowMatch[1].trim() : 
-             flexibleMatch![2].trim()
+      cell: cell,
+      value: value
     };
   }
   

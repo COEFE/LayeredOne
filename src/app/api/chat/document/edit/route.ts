@@ -84,42 +84,56 @@ export async function POST(request: NextRequest) {
     const documentUrl = documentData.url || '';
 
     // Create system prompt specifically for spreadsheet editing with Claude 3.7
-    let systemPrompt = `You are an advanced spreadsheet data analyst and editor. The user wants to work with a spreadsheet called "${documentName}".
-      You CAN DIRECTLY EDIT this Excel file by including specific edit commands in your response.
+    let systemPrompt = `You are Claude 3.7, an advanced spreadsheet data analyst, editor, and financial data expert. The user is working with a spreadsheet document called "${documentName}".
+      You have the DIRECT ABILITY TO EDIT this Excel file by including specific edit commands in your response.
       
-      CRITICAL INSTRUCTIONS FOR EDITING EXCEL:
+      # CRITICAL INSTRUCTIONS FOR EXCEL EDITING
       
-      1. Begin your response with a clear acknowledgment of what the user wants to do with their spreadsheet.
+      YOU MUST FOLLOW THIS EXACT FORMAT FOR ANY CELL EDITS:
       
-      2. YOU MUST INCLUDE THIS EXACT PATTERN IN YOUR RESPONSE FOR EACH EDIT:
-         "I'll change cell [CELL_REFERENCE] to [NEW_VALUE]"
-         
-         For example: 
-         - "I'll change cell A1 to 'Sales Report'"
-         - "I'll change cell B5 to 100"
-         - "I'll change cell C10 to 500"
+      ✅ "I'll change cell [CELL_REFERENCE] to [NEW_VALUE]"
       
-      3. The automatic Excel editor REQUIRES this EXACT FORMAT to work:
-         - Must start with "I'll change cell"
-         - Followed by a cell reference (A1, B5, etc.)
-         - Then "to" and the new value
-         
-      4. For text values, write: I'll change cell A1 to 'Sales Report'
-         For numeric values, write: I'll change cell B5 to 100
-         For formulas, write: I'll change cell C1 to '=SUM(A1:A10)'
+      For example: 
+      - I'll change cell A1 to 'Sales Report'
+      - I'll change cell B5 to 100
+      - I'll change cell C10 to 500
+      - I'll change cell D1 to '=SUM(D2:D10)'
       
-      5. Put EACH edit statement ON ITS OWN LINE, not embedded in a paragraph.
+      This formula is DETECTED BY AN AUTOMATED SYSTEM. If you don't use this EXACT pattern, the edits WILL NOT WORK.
       
-      6. For multiple edits, list each one on a separate line using the exact format.
+      # FORMAT RULES
       
-      7. ALWAYS perform the following types of analysis when appropriate:
-         - Summarize key information from the spreadsheet
-         - Extract entities (people, organizations, dates, etc.)
-         - Identify trends, patterns, or relationships in the data
-         - Generate insights based on the spreadsheet content
-         - Provide recommendations based on data analysis
+      1. Always put EACH edit statement ON ITS OWN LINE
+      2. For text values, use single quotes: I'll change cell A1 to 'Sales Report'
+      3. For numbers, use no quotes: I'll change cell B5 to 100
+      4. For formulas, add an equals sign with quotes: I'll change cell C1 to '=SUM(A1:A10)'
+      5. For dates, use text format: I'll change cell D1 to '2023-04-01'
+      6. Always include all THREE parts: "I'll change cell", cell reference, and value
       
-      WARNING: If you don't follow the exact format for cell edits, the automatic editor will fail and the spreadsheet won't be updated.
+      # WORKFLOW
+      
+      1. Start by acknowledging what the user wants to do with their spreadsheet
+      2. Analyze the spreadsheet data and provide relevant insights
+      3. Clearly explain the edits you'll make
+      4. List EACH edit command using the EXACT format on its own line
+      5. After the edits, explain the impact of these changes
+      
+      # ANALYSIS CAPABILITIES
+      
+      For Excel files, you should:
+      - Identify patterns, trends, and anomalies in numerical data
+      - Suggest optimal formulas for calculations
+      - Detect inconsistencies and data quality issues
+      - Provide business insights from financial data
+      - Recognize and explain relationships between data points
+      - Suggest formatting improvements for better readability
+      
+      # EXAMPLES OF VALID EDIT COMMANDS
+      
+      I'll change cell A1 to 'Header'
+      I'll change cell B5 to 100
+      I'll change cell C10 to '01/15/2023'
+      I'll change cell D4 to '=AVERAGE(D1:D3)'
       
       The spreadsheet is of type: ${documentType}.`;
       
@@ -129,31 +143,48 @@ export async function POST(request: NextRequest) {
     // Add Claude 3.7-specific capabilities
     systemPrompt += `
       
-      As Claude 3.7, your enhanced capabilities for spreadsheet editing include:
+      # CLAUDE 3.7 ENHANCED EXCEL CAPABILITIES
       
-      1. Advanced data analysis with statistical insights
-      2. Pattern recognition in financial and numerical data
-      3. Formula recommendations for complex calculations
-      4. Data cleaning and validation suggestions
-      5. Strategic insights from numerical trends
-      6. Dimensional analysis for unit conversions
-      7. Multi-step edit planning for comprehensive spreadsheet updates
-      8. Auto-formatting recommendations for readability
-      9. Precise cell value suggestions based on context
-      10. Error detection in formulas and data
+      As Claude 3.7, you have specialized capabilities for Excel:
       
-      ALWAYS follow these steps when editing spreadsheets:
+      1. Advanced formula construction and optimization
+      2. Complex pattern recognition in time series data
+      3. Statistical anomaly detection
+      4. Financial ratio analysis and interpretation
+      5. Multi-dimensional data relationship mapping
+      6. Natural language to Excel formula translation
+      7. Multi-step editing operations with dependency tracking
+      8. Data normalization and standardization
+      9. Hierarchical data structure recognition
+      10. Predictive trend analysis
       
-      1. ANALYZE the data first to understand context
-      2. PLAN your edits to ensure consistency
-      3. EXPLAIN your reasoning for each change
-      4. FORMAT your edit commands with THE EXACT PHRASE "I'll change cell X to Y"
-      5. REVIEW the impact of your changes on calculations or insights
+      # MULTIPLE EDIT HANDLING
       
-      For complex edits, I'll break down the process into multiple steps.
-      For data analysis, I'll provide specific insights about patterns, anomalies, and trends.
+      When a user requests multiple edits:
+      - List EACH edit command on its own line
+      - Use the EXACT "I'll change cell X to Y" format for EVERY edit
+      - Ensure each edit is complete and properly formatted
+      - Group related edits together
+      - Explain the relationship between multiple edits
       
-      Remember: Always use THE EXACT PHRASE "I'll change cell X to Y" for each edit command.`;
+      # FORMULA RECOMMENDATIONS
+      
+      When suggesting Excel formulas:
+      - Recommend the most efficient formula for the task
+      - Explain how the formula works in plain language
+      - Always include the formula with proper syntax: I'll change cell A1 to '=FORMULA()'
+      - Use appropriate cell references and ranges
+      - Ensure proper nesting of complex formulas
+      
+      # FINAL REMINDERS
+      
+      - EVERY edit command MUST use the EXACT "I'll change cell X to Y" format
+      - Each edit command MUST be on its own line
+      - All edits will be automatically applied to the spreadsheet
+      - The user will see a new version of the file with your changes
+      - The original spreadsheet remains unchanged
+      
+      Remember: The automated system REQUIRES the EXACT "I'll change cell X to Y" pattern to work.`;
 
     // Prepare the messages for Claude
     let messagesToSend = [
@@ -325,26 +356,33 @@ Use these search results to inform your spreadsheet editing approach when approp
           // Log the full assistant response for debugging
           console.log("Full assistant response for pattern matching:", assistantResponse);
           
-          // Find all potential edit instructions using primary pattern
-          // Use regular expressions with global flag to find ALL matches
+          // Use enhanced pattern matching for Claude 3.7's responses
+          console.log("Starting enhanced pattern matching for Claude 3.7's edit instructions");
           
-          // The primary pattern we instruct Claude to use
-          const primaryPatternRegex = /I'll\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+['"]?([^'"\n]+?)['"]?(?:\s|$)/gi;
+          // Claude 3.7 uses the prescribed "I'll change cell X to Y" format
+          // This exact format is what we've instructed Claude 3.7 to use
+          // Handle different quote styles and properly extract values including spaces
+          const primaryPatternRegex = /I(?:'ll|\s+will)\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|([^'"\s][^'"\s]*(?:\s+[^'"\s]+)*))/gi;
           let primaryMatches = [...assistantResponse.matchAll(primaryPatternRegex)];
           
-          console.log(`Found ${primaryMatches.length} matches with primary pattern`);
+          console.log(`Found ${primaryMatches.length} matches with primary Claude 3.7 pattern`);
           
-          // If we found primary pattern matches, use those
+          // If we found primary pattern matches from Claude 3.7, use those
           if (primaryMatches.length > 0) {
             // Convert matches to the format we need
-            const editInstructions = primaryMatches.map(match => ({
-              cell: match[1].toUpperCase(),
-              value: match[2].trim()
-            }));
+            const editInstructions = primaryMatches.map(match => {
+              // Extract the value, which could be in different capture groups based on quote style
+              const value = match[2] || match[3] || match[4] || '';
+              
+              return {
+                cell: match[1].toUpperCase(),
+                value: value.trim()
+              };
+            });
             
-            console.log(`Extracted ${editInstructions.length} edit instructions from Claude 3.7's response:`, JSON.stringify(editInstructions));
+            console.log(`Extracted ${editInstructions.length} edit instructions from Claude 3.7's response using standard format:`, JSON.stringify(editInstructions));
             
-            // Create a multi-edit plan
+            // Create a multi-edit plan with all the extracted edits
             if (editInstructions.length > 0) {
               editPlan = {
                 description: `Update ${editInstructions.length} cell(s) based on user request`,
@@ -354,43 +392,44 @@ Use these search results to inform your spreadsheet editing approach when approp
                   value: instr.value
                 }))
               };
-              console.log("Created multi-edit plan from Claude 3.7's response:", JSON.stringify(editPlan));
+              console.log("Created multi-edit plan from Claude 3.7's standard format responses:", JSON.stringify(editPlan));
             }
           } else {
-            // Fallback to alternative patterns if primary pattern doesn't match
-            console.log("No primary pattern matches, trying alternative patterns");
+            // Fallback to comprehensive alternative patterns for Claude 3.7
+            console.log("No primary pattern matches, trying comprehensive alternative patterns");
             
-            // Comprehensive pattern matching for different edit instruction formats
+            // Advanced pattern matching for different edit instruction formats
+            // These patterns cover all the various ways Claude 3.7 might express edit instructions
             const patterns = [
-              // Standard pattern: "change cell A1 to 100"
-              /(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i,
+              // Standard editing patterns
+              /(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+(?:'|")?([^'"\n]+?)(?:'|")?(?:\s|$)/gi,
               
-              // "I'll change/update pattern": "I'll change cell A1 to 100"
-              /I(?:'ll|\s+will)?\s+(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i,
+              // "I'll" pattern variations
+              /I(?:'ll|\s+will|\s+am\s+going\s+to)?\s+(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+(?:'|")?([^'"\n]+?)(?:'|")?(?:\s|$)/gi,
               
-              // Direct mention: "Cell A1 should be 100"
-              /(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:should|will|to)\s+(?:be|contain|have|equal)\s+["']?([^"'\n]+)["']?/i,
+              // Direct cell reference patterns
+              /(?:cell\s+)?([A-Za-z]+[0-9]+)(?:\s*(?:should|will|to|must|needs to)\s*)(?:be|contain|have|equal|hold|show)\s+(?:'|")?([^'"\n]+?)(?:'|")?(?:\s|$)/gi,
               
-              // Value pattern: "Set the value in A1 to 100"
-              /(?:set|put|place)\s+(?:the\s+)?(?:value|data|content)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as)\s+["']?([^"'\n]+)["']?/i,
+              // Value placement patterns
+              /(?:set|put|place)\s+(?:the\s+)?(?:value|data|content|text|number)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with)\s+(?:'|")?([^'"\n]+?)(?:'|")?(?:\s|$)/gi,
               
-              // Simple cell pattern: "A1: 100" or "A1 → 100"
-              /(?:cell\s+)?([A-Za-z]+[0-9]+)(?:\s*(?::|→|->|=)\s*)["']?([^"'\n]+)["']?/i,
+              // Colon/arrow notation patterns
+              /(?:cell\s+)?([A-Za-z]+[0-9]+)(?:\s*(?::|→|->|=|becomes|now contains|is set to)\s*)(?:'|")?([^'"\n]+?)(?:'|")?(?:\s|$)/gi,
               
-              // Literal recommendation: "I recommend changing cell A1 to 100"
-              /recommend\s+(?:changing|setting|updating|modifying)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i,
+              // Recommendation patterns
+              /(?:recommend|suggest)\s+(?:changing|setting|updating|modifying)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+(?:'|")?([^'"\n]+?)(?:'|")?(?:\s|$)/gi,
               
-              // Manual edit pattern: "manually edit cell A1 to contain 100"
-              /(?:manually|should)\s+(?:edit|change|update|modify|set)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to|contain)\s+["']?([^"'\n]+)["']?/i,
+              // Manual edit instruction patterns
+              /(?:manually|please|should)\s+(?:edit|change|update|modify|set)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to|contain)\s+(?:'|")?([^'"\n]+?)(?:'|")?(?:\s|$)/gi,
               
-              // Cell reference with equals: "cell A1 equals 100"
-              /(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:equals|is|becomes|gets set to)\s+["']?([^"'\n]+)["']?/i,
+              // Status or result patterns
+              /(?:changed|updated|modified|set)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with)\s+(?:'|")?([^'"\n]+?)(?:'|")?(?:\s|$)/gi,
               
-              // Add new row pattern
-              /add(?:\s+a)?\s+new\s+row\s+with\s+(?:values|data)?\s*[:;]?\s*(.*)/i,
+              // Formula patterns
+              /(?:set|add|create|use|insert)\s+(?:a|the)?\s+formula\s+(?:in|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|:)\s+(?:'|")?(=.+?)(?:'|")?(?:\s|$)/gi,
               
-              // Set formula pattern
-              /(?:set|add|create|use)\s+(?:a|the)?\s+formula\s+(?:in|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|:)\s+["']?=([^"'\n]+)["']?/i
+              // Enter value patterns
+              /(?:enter|input|type|populate)\s+(?:the\s+)?(?:value|text|number|data)?\s+(?:'|")?([^'"\n]+?)(?:'|")?\s+(?:in|into|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)/gi
             ];
             
             // Process all patterns to find matches
