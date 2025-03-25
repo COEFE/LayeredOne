@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
         error: "Missing required parameters: documentId and editInstructions are required" 
       }, { status: 400 });
     }
+    
+    console.log("Edit instructions received:", editInstructions);
 
     // Get document data from Firestore
     const firestore = getFirestore();
@@ -82,13 +84,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Analyze the edit instructions
-    const editPlan = analyzeEditRequest(editInstructions);
+    let editPlan;
+    
+    // Check if editInstructions is a pre-analyzed plan in JSON string format
+    try {
+      if (typeof editInstructions === 'string' && editInstructions.startsWith('{') && editInstructions.includes('edits')) {
+        console.log("Parsing pre-analyzed edit plan");
+        editPlan = JSON.parse(editInstructions);
+      } else {
+        console.log("Analyzing edit instructions as natural language");
+        editPlan = analyzeEditRequest(editInstructions);
+      }
+    } catch (error) {
+      console.log("Failed to parse as JSON, trying to analyze as text instruction");
+      editPlan = analyzeEditRequest(editInstructions);
+    }
     
     if (!editPlan) {
       return NextResponse.json({ 
         error: "Could not parse edit instructions. Please provide clear instructions like 'Update cell A1 to 100' or 'Change cell B5 to Sales Report'." 
       }, { status: 400 });
     }
+    
+    console.log("Edit plan:", JSON.stringify(editPlan));
 
     // Download the file from Firebase Storage
     const storage = getStorage();

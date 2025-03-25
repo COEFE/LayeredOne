@@ -249,7 +249,18 @@ export function parseEditInstruction(instruction: string): { sheet?: string, cel
     };
   }
   
-  // Case 3: Sheet name specified
+  // Case 3: Find more flexible edit patterns
+  const flexibleCellPattern = /(?:cell|cells|column|row)?\s*([A-Za-z]+[0-9]+)(?:\s*(?:should|must|to|needs to|will)?\s*(?:be|contain|have|equal|set to|updated to|changed to|become))?\s+["']?([^"']+)["']?/i;
+  const flexibleMatch = instruction.match(flexibleCellPattern);
+  
+  if (flexibleMatch && flexibleMatch[1] && flexibleMatch[2]) {
+    return {
+      cell: flexibleMatch[1].toUpperCase(),
+      value: flexibleMatch[2].trim()
+    };
+  }
+  
+  // Case 4: Sheet name specified
   const sheetPattern = /(?:in|on|at)\s+(?:sheet|tab)\s+["']?([^"']+)["']?/i;
   const sheetMatch = instruction.match(sheetPattern);
   
@@ -259,11 +270,28 @@ export function parseEditInstruction(instruction: string): { sheet?: string, cel
   }
   
   // If at least one match was successful and we have a sheet name, add it
-  if ((cellMatch || rowMatch) && sheet) {
+  if ((cellMatch || rowMatch || flexibleMatch) && sheet) {
     return {
       sheet: sheet,
-      cell: cellMatch ? cellMatch[1].toUpperCase() : `A${rowMatch![2].trim()}`,
-      value: cellMatch ? cellMatch[2].trim() : rowMatch![1].trim()
+      cell: cellMatch ? cellMatch[1].toUpperCase() : 
+            rowMatch ? `A${rowMatch[2].trim()}` : 
+            flexibleMatch![1].toUpperCase(),
+      value: cellMatch ? cellMatch[2].trim() : 
+             rowMatch ? rowMatch[1].trim() : 
+             flexibleMatch![2].trim()
+    };
+  }
+  
+  // If at least one match was successful even without sheet name
+  if (cellMatch || rowMatch || (flexibleMatch && flexibleMatch[1] && flexibleMatch[2])) {
+    return {
+      sheet: "Sheet1", // Default sheet name
+      cell: cellMatch ? cellMatch[1].toUpperCase() : 
+            rowMatch ? `A${rowMatch[2].trim()}` : 
+            flexibleMatch![1].toUpperCase(),
+      value: cellMatch ? cellMatch[2].trim() : 
+             rowMatch ? rowMatch[1].trim() : 
+             flexibleMatch![2].trim()
     };
   }
   

@@ -91,17 +91,19 @@ export async function POST(request: NextRequest) {
       
       When responding to a spreadsheet edit request:
       1. Acknowledge the user's request
-      2. Explain clearly what changes they want to make in terms of specific cells (e.g., "cell A1", "cell B5")
-      3. Provide a specific analysis of the edit, such as "set cell A1 to value 100" or "change cell C5 to 'Total Sales'"
+      2. Explicitly include a statement like "I'll change cell A1 to 'Sales Report'" or "I'll update cell B5 to 100" 
+         EXACTLY IN THIS FORMAT in your response. This format is crucial for the automatic editor to recognize.
+      3. Be very direct about cell references - always use the exact cell format (e.g., A1, B5, C10)
       4. Also explain how these changes would be made manually as a backup
       5. If the request is unclear or not possible, politely explain why
       
       The spreadsheet is of type: ${documentType}.
       
-      Examples of edits the system can automatically apply:
+      IMPORTANT: For the automatic editor to work, your response MUST include at least one sentence in one of these formats:
       - "Change cell A1 to 'Sales Report'"
-      - "Update B5 to 1000"
-      - "Set cell C10 to the formula =SUM(C1:C9)"
+      - "Update cell B5 to 1000"
+      - "Set cell C10 to the value 500"
+      - "Modify cell D15 to 'Q4 Results'"
       
       Try to identify specific cells that need to be modified based on the user's request.`;
 
@@ -201,8 +203,19 @@ export async function POST(request: NextRequest) {
       
       // Only attempt automatic edits for spreadsheet files
       if (isSpreadsheet) {
-        // Analyze the user's request for edits
-        const editPlan = analyzeEditRequest(message);
+        // First try to analyze the user's request directly
+        let editPlan = analyzeEditRequest(message);
+        
+        // If that fails, try to extract edit instructions from Claude's response
+        if (!editPlan) {
+          console.log("Trying to extract edit instructions from Claude's response");
+          const editInstructionMatch = assistantResponse.match(/(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"']+)["']?/i);
+          
+          if (editInstructionMatch) {
+            console.log("Found edit instruction in Claude's response:", editInstructionMatch[0]);
+            editPlan = analyzeEditRequest(editInstructionMatch[0]);
+          }
+        }
         
         if (editPlan) {
           try {
@@ -217,7 +230,7 @@ export async function POST(request: NextRequest) {
               },
               body: JSON.stringify({
                 documentId: documentId,
-                editInstructions: message
+                editInstructions: editPlan ? JSON.stringify(editPlan) : message
               })
             });
             
@@ -231,12 +244,13 @@ export async function POST(request: NextRequest) {
                 assistantResponse += `\n\nYou can [view the edited spreadsheet here](${editResult.newDocumentUrl}).`;
               }
             } else {
-              console.log("Could not automatically edit spreadsheet:", await editResponse.text());
-              assistantResponse += `\n\n(Note: I analyzed your edit request but couldn't automatically apply the changes. The instructions above explain how to make these changes manually.)`;
+              const errorText = await editResponse.text();
+              console.log("Could not automatically edit spreadsheet:", errorText);
+              assistantResponse += `\n\n(Note: I analyzed your edit request but couldn't automatically apply the changes. The instructions above explain how to make these changes manually. Technical error: ${errorText})`;
             }
-          } catch (editError) {
+          } catch (editError: any) {
             console.error("Error during automatic spreadsheet editing:", editError);
-            assistantResponse += `\n\n(Note: I tried to automatically apply your changes but encountered an error. The instructions above explain how to make these changes manually.)`;
+            assistantResponse += `\n\n(Note: I tried to automatically apply your changes but encountered an error: ${editError.message}. The instructions above explain how to make these changes manually.)`;
           }
         } else {
           // Could not parse the edit request
