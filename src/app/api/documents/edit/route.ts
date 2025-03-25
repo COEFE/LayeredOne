@@ -90,13 +90,22 @@ export async function POST(request: NextRequest) {
     try {
       if (typeof editInstructions === 'string' && editInstructions.startsWith('{') && editInstructions.includes('edits')) {
         console.log("Parsing pre-analyzed edit plan");
-        editPlan = JSON.parse(editInstructions);
+        const parsedPlan = JSON.parse(editInstructions);
+        
+        // Ensure the parsed plan has the correct format
+        if (parsedPlan && parsedPlan.edits && Array.isArray(parsedPlan.edits)) {
+          editPlan = parsedPlan;
+          console.log("Successfully parsed edit plan:", JSON.stringify(editPlan));
+        } else {
+          console.log("Parsed JSON doesn't have expected format, trying to analyze as text");
+          editPlan = analyzeEditRequest(editInstructions);
+        }
       } else {
         console.log("Analyzing edit instructions as natural language");
         editPlan = analyzeEditRequest(editInstructions);
       }
     } catch (error) {
-      console.log("Failed to parse as JSON, trying to analyze as text instruction");
+      console.log("Failed to parse as JSON, trying to analyze as text instruction:", error);
       editPlan = analyzeEditRequest(editInstructions);
     }
     

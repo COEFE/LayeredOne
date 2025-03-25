@@ -69,14 +69,69 @@ function getCellReference(row: number, col: number): string {
  * @param value The value to set in the cell
  */
 function setCellValue(worksheet: XLSX.WorkSheet, cellReference: string, value: any): void {
-  // Parse the cell reference
-  const { row, col } = parseCellReference(cellReference);
-  
-  // Get the cell address in A1 notation
-  const cellAddress = getCellReference(row, col);
-  
-  // Set cell value
-  XLSX.utils.sheet_add_aoa(worksheet, [[value]], { origin: cellAddress });
+  try {
+    console.log(`Setting value in cell ${cellReference}: ${value}`);
+    
+    // Parse the cell reference
+    const { row, col } = parseCellReference(cellReference);
+    
+    // Get the cell address in A1 notation
+    const cellAddress = getCellReference(row, col);
+    
+    // Convert value to appropriate type if needed
+    let processedValue = value;
+    if (typeof value === 'string') {
+      // Try to convert to number if it looks like one
+      if (/^-?\d+(\.\d+)?$/.test(value.trim())) {
+        processedValue = parseFloat(value);
+      } else if (value.trim().toLowerCase() === 'true') {
+        processedValue = true;
+      } else if (value.trim().toLowerCase() === 'false') {
+        processedValue = false;
+      }
+      // Handle formula
+      else if (value.trim().startsWith('=')) {
+        processedValue = { f: value.trim() };
+      }
+    }
+    
+    console.log(`Processed value type: ${typeof processedValue}, value: ${JSON.stringify(processedValue)}`);
+    
+    // Set cell value directly in the worksheet object
+    const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
+    if (!worksheet[cellRef]) {
+      worksheet[cellRef] = { t: 's', v: '' }; // Create the cell if it doesn't exist
+    }
+    
+    if (typeof processedValue === 'object' && processedValue !== null && 'f' in processedValue) {
+      // It's a formula
+      worksheet[cellRef].f = processedValue.f;
+      delete worksheet[cellRef].v; // Remove any previous value
+      worksheet[cellRef].t = 'n'; // Assume numeric result for formulas
+    } else {
+      // Normal value
+      worksheet[cellRef].v = processedValue;
+      // Set appropriate type
+      if (typeof processedValue === 'number') {
+        worksheet[cellRef].t = 'n';
+      } else if (typeof processedValue === 'boolean') {
+        worksheet[cellRef].t = 'b';
+      } else {
+        worksheet[cellRef].t = 's';
+      }
+    }
+    
+    // Make sure the sheet range includes this cell
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    if (row > range.e.r) range.e.r = row;
+    if (col > range.e.c) range.e.c = col;
+    worksheet['!ref'] = XLSX.utils.encode_range(range);
+    
+    console.log(`Successfully set cell ${cellReference} to ${JSON.stringify(processedValue)}`);
+  } catch (error) {
+    console.error(`Error setting cell ${cellReference} value:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -91,27 +146,55 @@ export async function editExcelFile(buffer: Buffer, edits: Array<{
   value: any;
 }>): Promise<Buffer> {
   try {
+    console.log(`Starting Excel edit: Buffer size ${buffer.length} bytes, Edits: ${JSON.stringify(edits)}`);
+    
+    if (!buffer || buffer.length === 0) {
+      throw new Error('Empty or invalid buffer provided');
+    }
+    
+    if (!edits || !Array.isArray(edits) || edits.length === 0) {
+      throw new Error('No edits provided or invalid edits array');
+    }
+    
     // Parse the Excel file from buffer
     const workbook = XLSX.read(buffer, { type: 'buffer' });
+    console.log(`Successfully parsed workbook. Available sheets: ${workbook.SheetNames.join(', ')}`);
     
     // Apply each edit
     for (const edit of edits) {
       const { sheet, cell, value } = edit;
+      console.log(`Processing edit: Sheet "${sheet}", Cell ${cell}, Value: ${value}`);
       
       // Check if the specified sheet exists
       if (!workbook.SheetNames.includes(sheet)) {
-        throw new Error(`Sheet "${sheet}" not found in the workbook`);
+        // Try case-insensitive match
+        const matchingSheet = workbook.SheetNames.find(
+          s => s.toLowerCase() === sheet.toLowerCase()
+        );
+        
+        if (matchingSheet) {
+          console.log(`Sheet name case mismatch. Using "${matchingSheet}" instead of "${sheet}"`);
+          const worksheet = workbook.Sheets[matchingSheet];
+          setCellValue(worksheet, cell, value);
+        } else {
+          console.error(`Available sheets: ${workbook.SheetNames.join(', ')}`);
+          throw new Error(`Sheet "${sheet}" not found in the workbook`);
+        }
+      } else {
+        const worksheet = workbook.Sheets[sheet];
+        
+        // Apply the edit
+        console.log(`Setting value in cell ${cell}`);
+        setCellValue(worksheet, cell, value);
       }
-      
-      const worksheet = workbook.Sheets[sheet];
-      
-      // Apply the edit
-      setCellValue(worksheet, cell, value);
     }
     
     // Write the modified workbook to a buffer
-    const outputBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    console.log('Creating output buffer...');
+    const options = { type: 'buffer', bookType: 'xlsx' } as XLSX.WritingOptions;
+    const outputBuffer = XLSX.write(workbook, options);
     
+    console.log(`Excel edit complete: Output buffer size ${outputBuffer.length} bytes`);
     return outputBuffer;
   } catch (error) {
     console.error('Error editing Excel file:', error);

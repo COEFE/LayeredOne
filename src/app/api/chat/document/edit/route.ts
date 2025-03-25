@@ -221,6 +221,23 @@ export async function POST(request: NextRequest) {
           try {
             console.log("Auto-editing spreadsheet:", editPlan);
             
+            // Prepare the edit plan for the API
+            // Ensure the edit plan has the correct format
+            if (!editPlan.edits || !Array.isArray(editPlan.edits) || editPlan.edits.length === 0) {
+              console.log("Reconstructing edit plan with proper format");
+              // Create a proper edit plan if it's missing the expected structure
+              editPlan = {
+                description: "Update cell based on user request",
+                edits: [{
+                  sheet: "Sheet1", // Default sheet name
+                  cell: editPlan.cell || "A1",
+                  value: editPlan.value || ""
+                }]
+              };
+            }
+            
+            console.log("Sending edit plan to API:", JSON.stringify(editPlan));
+            
             // Call our document edit API to apply the changes
             const editResponse = await fetch(new URL('/api/documents/edit', request.url).toString(), {
               method: 'POST',
@@ -230,7 +247,7 @@ export async function POST(request: NextRequest) {
               },
               body: JSON.stringify({
                 documentId: documentId,
-                editInstructions: editPlan ? JSON.stringify(editPlan) : message
+                editInstructions: JSON.stringify(editPlan)
               })
             });
             
