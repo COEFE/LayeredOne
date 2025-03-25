@@ -149,14 +149,32 @@ export async function POST(request: NextRequest) {
     const newFilename = `edited_${Date.now()}_${fileName}`;
     const newFilePath = `${filePath.substring(0, filePath.lastIndexOf('/') + 1)}${newFilename}`;
     
-    console.log(`Uploading modified file to: ${newFilePath}`);
+    console.log(`Uploading modified file to: ${newFilePath}, buffer size: ${modifiedBuffer.length} bytes`);
+    
+    // Verify the buffer is valid
+    if (!modifiedBuffer || modifiedBuffer.length === 0) {
+      throw new Error('Invalid modified buffer: Buffer is empty or undefined');
+    }
+    
+    // Ensure buffer is properly converted to a Buffer type
+    const finalBuffer = Buffer.isBuffer(modifiedBuffer) ? modifiedBuffer : Buffer.from(modifiedBuffer);
+    console.log(`Final buffer prepared with size: ${finalBuffer.length} bytes, isBuffer: ${Buffer.isBuffer(finalBuffer)}`);
+    
     const newFileRef = bucket.file(newFilePath);
     
-    await newFileRef.save(modifiedBuffer, {
-      metadata: {
-        contentType: documentData.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      }
-    });
+    try {
+      console.log('Starting upload to Firebase Storage...');
+      await newFileRef.save(finalBuffer, {
+        metadata: {
+          contentType: documentData.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        },
+        resumable: false // Use non-resumable upload for smaller files for simplicity
+      });
+      console.log('Upload to Firebase Storage completed successfully');
+    } catch (uploadError) {
+      console.error('Error uploading to Firebase Storage:', uploadError);
+      throw new Error(`Failed to upload modified file: ${uploadError.message}`);
+    }
 
     // Generate a signed URL for the new file
     const [signedUrl] = await newFileRef.getSignedUrl({

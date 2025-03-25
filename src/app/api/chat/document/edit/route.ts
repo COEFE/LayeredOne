@@ -310,12 +310,30 @@ export async function POST(request: NextRequest) {
           }
         } else {
           // Could not parse the edit request
-          assistantResponse += `\n\n(Note: I couldn't automatically determine the exact cell edits from your request. The instructions above explain how to make these changes manually.)`;
+          assistantResponse += `\n\n(Note: I couldn't automatically determine the exact cell edits from your request. To help me edit Excel files, please include a very specific statement like "Change cell A1 to 'Sales Report'" or "Update cell B5 to 100" in exactly this format.)`;
+          
+          // Add debug information at the end for troubleshooting
+          if (DEBUG) {
+            console.log(`Claude couldn't parse edit request: "${message}"`);
+            console.log(`Claude's response: "${assistantResponse}"`);
+          }
         }
       } else {
         // Not a spreadsheet file
         assistantResponse += `\n\n(Note: Real-time editing is only available for Excel spreadsheets. The instructions above explain how to make these changes manually.)`;
       }
+      
+      // Add debug tracking info to help diagnose issues
+      console.log({
+        userId,
+        documentId,
+        chatId,
+        isSpreadsheet,
+        requestType: 'Excel Edit',
+        messageLength: message.length,
+        responseLength: assistantResponse.length,
+        editPlanCreated: !!editPlan
+      });
 
       // Save assistant's response to chat
       await messagesRef.add({

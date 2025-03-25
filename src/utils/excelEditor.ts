@@ -189,13 +189,42 @@ export async function editExcelFile(buffer: Buffer, edits: Array<{
       }
     }
     
-    // Write the modified workbook to a buffer
-    console.log('Creating output buffer...');
-    const options = { type: 'buffer', bookType: 'xlsx' } as XLSX.WritingOptions;
-    const outputBuffer = XLSX.write(workbook, options);
+    // One of the most common issues with Excel editing is buffer handling
+    // Instead of using XLSX.write, let's try a different approach with a temporary file
     
-    console.log(`Excel edit complete: Output buffer size ${outputBuffer.length} bytes`);
-    return outputBuffer;
+    console.log('Creating output buffer using a more robust method...');
+    
+    // First, write to a temporary file
+    const tmpFileName = `/tmp/tmp_excel_${Date.now()}.xlsx`;
+    try {
+      // Write to a temporary file
+      console.log(`Writing to temporary file: ${tmpFileName}`);
+      XLSX.writeFile(workbook, tmpFileName);
+      
+      // Read the file back as a buffer (avoids issues with direct buffer creation)
+      console.log(`Reading temporary file back as buffer`);
+      const fs = require('fs');
+      const outputBuffer = fs.readFileSync(tmpFileName);
+      
+      // Clean up temporary file
+      try {
+        fs.unlinkSync(tmpFileName);
+      } catch (cleanupError) {
+        console.warn(`Failed to clean up temporary file: ${cleanupError}`);
+      }
+      
+      console.log(`Excel edit complete: Output buffer size ${outputBuffer.length} bytes`);
+      return outputBuffer;
+    } catch (fileError) {
+      console.error(`Error with file-based approach, falling back to direct buffer creation: ${fileError}`);
+      
+      // Fall back to direct buffer creation
+      const options = { type: 'buffer', bookType: 'xlsx' } as XLSX.WritingOptions;
+      const outputBuffer = XLSX.write(workbook, options);
+      
+      console.log(`Excel edit complete (fallback method): Output buffer size ${outputBuffer.length} bytes`);
+      return outputBuffer;
+    }
   } catch (error) {
     console.error('Error editing Excel file:', error);
     throw error;
