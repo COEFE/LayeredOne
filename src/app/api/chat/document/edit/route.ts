@@ -91,21 +91,25 @@ export async function POST(request: NextRequest) {
       
       When responding to a spreadsheet edit request:
       1. Acknowledge the user's request
-      2. Explicitly include a statement like "I'll change cell A1 to 'Sales Report'" or "I'll update cell B5 to 100" 
-         EXACTLY IN THIS FORMAT in your response. This format is crucial for the automatic editor to recognize.
-      3. Be very direct about cell references - always use the exact cell format (e.g., A1, B5, C10)
-      4. Also explain how these changes would be made manually as a backup
-      5. If the request is unclear or not possible, politely explain why
+      2. CRITICAL: You MUST include a cell edit statement USING ONE OF THE EXACT FORMATS below:
+         - "I'll change cell A1 to 'Sales Report'"
+         - "I'll update cell B5 to 100"
+         - "I'll set cell C10 to 500"
+         - "I'll modify cell D15 to 'Q4 Results'"
+      3. Be very explicit about cell references - always use the exact cell format (e.g., A1, B5, C10)
+      4. Provide a clear, unambiguous edit instruction that the automatic editor can detect
       
       The spreadsheet is of type: ${documentType}.
       
-      IMPORTANT: For the automatic editor to work, your response MUST include at least one sentence in one of these formats:
+      CRITICAL: The automatic Excel editor searches for specific patterns in your response to apply edits.
+      Your response MUST include at least one direct edit statement that follows these formats EXACTLY:
       - "Change cell A1 to 'Sales Report'"
       - "Update cell B5 to 1000"
-      - "Set cell C10 to the value 500"
+      - "Set cell C10 to 500"
       - "Modify cell D15 to 'Q4 Results'"
       
-      Try to identify specific cells that need to be modified based on the user's request.`;
+      REMEMBER: Always include the word "cell" followed by the cell reference (like A1, B5) and be 
+      extremely clear about what value to set. This is essential for the editing system to work.`;
 
     // Prepare the messages for Claude
     const messagesToSend = [
@@ -209,11 +213,46 @@ export async function POST(request: NextRequest) {
         // If that fails, try to extract edit instructions from Claude's response
         if (!editPlan) {
           console.log("Trying to extract edit instructions from Claude's response");
-          const editInstructionMatch = assistantResponse.match(/(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"']+)["']?/i);
           
-          if (editInstructionMatch) {
-            console.log("Found edit instruction in Claude's response:", editInstructionMatch[0]);
-            editPlan = analyzeEditRequest(editInstructionMatch[0]);
+          // Try multiple patterns to extract edit instructions from Claude's response
+          const patternMatches = [
+            // Standard pattern: "change cell A1 to 100"
+            assistantResponse.match(/(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"']+)["']?/i),
+            
+            // "I'll change/update pattern": "I'll change cell A1 to 100"
+            assistantResponse.match(/I(?:'ll|\s+will)?\s+(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"']+)["']?/i),
+            
+            // Direct mention: "Cell A1 should be 100"
+            assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:should|will|to)\s+(?:be|contain|have|equal)\s+["']?([^"']+)["']?/i),
+            
+            // Value pattern: "Set the value in A1 to 100"
+            assistantResponse.match(/(?:set|put|place)\s+(?:the\s+)?(?:value|data|content)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as)\s+["']?([^"']+)["']?/i)
+          ];
+          
+          // Find the first successful match
+          const firstMatch = patternMatches.find(match => match !== null);
+          
+          if (firstMatch) {
+            console.log("Found edit instruction in Claude's response:", firstMatch[0]);
+            const editInstruction = firstMatch[0];
+            const cell = firstMatch[1];
+            const value = firstMatch[2];
+            
+            console.log(`Extracted cell: ${cell}, value: ${value}`);
+            
+            // Create an edit plan directly
+            editPlan = {
+              description: `Update cell ${cell} to value "${value}"`,
+              edits: [{
+                sheet: "Sheet1", // Default sheet name
+                cell: cell,
+                value: value
+              }]
+            };
+            
+            console.log("Created edit plan:", JSON.stringify(editPlan));
+          } else {
+            console.log("No edit instructions found in Claude's response");
           }
         }
         
