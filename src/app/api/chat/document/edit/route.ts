@@ -83,14 +83,14 @@ export async function POST(request: NextRequest) {
     const documentUrl = documentData.url || '';
 
     // Create system prompt specifically for spreadsheet editing
-    const systemPrompt = `You are a spreadsheet editing assistant. The user wants to edit a spreadsheet called "${documentName}".
+    const systemPrompt = `You are an advanced spreadsheet data analyst and editor. The user wants to work with a spreadsheet called "${documentName}".
       You CAN DIRECTLY EDIT this Excel file by including specific edit commands in your response.
       
       CRITICAL INSTRUCTIONS FOR EDITING EXCEL:
       
-      1. Begin your response with a clear acknowledgment of what the user wants to change.
+      1. Begin your response with a clear acknowledgment of what the user wants to do with their spreadsheet.
       
-      2. YOU MUST INCLUDE THIS EXACT PATTERN IN YOUR RESPONSE:
+      2. YOU MUST INCLUDE THIS EXACT PATTERN IN YOUR RESPONSE FOR EACH EDIT:
          "I'll change cell [CELL_REFERENCE] to [NEW_VALUE]"
          
          For example: 
@@ -107,30 +107,56 @@ export async function POST(request: NextRequest) {
          For numeric values, write: I'll change cell B5 to 100
          For formulas, write: I'll change cell C1 to '=SUM(A1:A10)'
       
-      5. Put the edit statement ON ITS OWN LINE, not embedded in a paragraph.
+      5. Put EACH edit statement ON ITS OWN LINE, not embedded in a paragraph.
       
-      WARNING: If you don't follow this exact format, the automatic editor will fail and the spreadsheet won't be updated.
+      6. For multiple edits, list each one on a separate line using the exact format.
+      
+      7. ALWAYS perform the following types of analysis when appropriate:
+         - Summarize key information from the spreadsheet
+         - Extract entities (people, organizations, dates, etc.)
+         - Identify trends, patterns, or relationships in the data
+         - Generate insights based on the spreadsheet content
+         - Provide recommendations based on data analysis
+      
+      WARNING: If you don't follow the exact format for cell edits, the automatic editor will fail and the spreadsheet won't be updated.
       
       The spreadsheet is of type: ${documentType}.
       
       EXAMPLE CORRECT RESPONSE:
-      "I understand you want to update the sales figure.
+      "I understand you want to update the sales figures for Q1 and add a formula for the total.
+      
+      Based on my analysis of your spreadsheet, I can see that column B contains quarterly sales data.
       
       I'll change cell B5 to 1000
+      I'll change cell B6 to 1250
+      I'll change cell B7 to '=SUM(B5:B6)'
       
-      This will update the sales value in cell B5 to 1000."
+      These changes will update the Q1 and Q2 sales figures and add a formula in B7 to calculate the total.
       
-      EXAMPLE INCORRECT RESPONSE:
-      "I'll update B5 with the value 1000."
-      (WRONG: missing the word "cell" and exact format)`;
+      Analysis of your data shows that these new figures represent a 15% increase over previous values,
+      which aligns with the growth trends visible in columns C and D for other product categories.
+      "`;
       
       // Add extra emphasis with Claude-3.7 specific details
       if (model?.includes('3.7') || model?.includes('claude-3-7')) {
         systemPrompt += `
         
-        As Claude 3.7, you have enhanced capabilities that allow you to interact with this spreadsheet editing system.
-        When working with spreadsheets, always use THE EXACT PHRASE "I'll change cell X to Y" to ensure the automatic
-        editor can properly process your instructions. Please be extremely literal about this format.`;
+        As Claude 3.7, you have enhanced capabilities that allow you to:
+        
+        1. Parse tabular data more effectively, understanding relationships between rows and columns
+        2. Detect patterns and anomalies in numerical and categorical data
+        3. Provide predictive insights based on historical data trends
+        4. Recommend actions based on comprehensive data analysis
+        5. Execute precise edits through the spreadsheet editing system
+        
+        When editing spreadsheets, always use THE EXACT PHRASE "I'll change cell X to Y" to ensure the automatic
+        editor can properly process your instructions. You can include multiple edit statements, each on its own line.
+        
+        In addition to making edits, always provide analytical context about:
+        - What the data represents
+        - How your edits will impact calculations or insights
+        - Key observations about the spreadsheet structure and content
+        - Potential data quality issues or improvements`;
       }
 
     // Prepare the messages for Claude
@@ -239,65 +265,106 @@ export async function POST(request: NextRequest) {
           // Log the full assistant response for debugging
           console.log("Full assistant response for pattern matching:", assistantResponse);
           
-          // Try multiple patterns to extract edit instructions from Claude's response
-          // Be as comprehensive as possible with pattern matching
-          const patternMatches = [
-            // Standard pattern: "change cell A1 to 100"
-            assistantResponse.match(/(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
-            
-            // "I'll change/update pattern": "I'll change cell A1 to 100"
-            assistantResponse.match(/I(?:'ll|\s+will)?\s+(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
-            
-            // Direct mention: "Cell A1 should be 100"
-            assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:should|will|to)\s+(?:be|contain|have|equal)\s+["']?([^"'\n]+)["']?/i),
-            
-            // Value pattern: "Set the value in A1 to 100"
-            assistantResponse.match(/(?:set|put|place)\s+(?:the\s+)?(?:value|data|content)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as)\s+["']?([^"'\n]+)["']?/i),
-            
-            // Simple cell pattern: "A1: 100" or "A1 → 100"
-            assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)(?:\s*(?::|→|->|=)\s*)["']?([^"'\n]+)["']?/i),
-            
-            // Literal recommendation: "I recommend changing cell A1 to 100"
-            assistantResponse.match(/recommend\s+(?:changing|setting|updating|modifying)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
-            
-            // Manual edit pattern: "manually edit cell A1 to contain 100"
-            assistantResponse.match(/(?:manually|should)\s+(?:edit|change|update|modify|set)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to|contain)\s+["']?([^"'\n]+)["']?/i),
-            
-            // Cell reference with equals: "cell A1 equals 100"
-            assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:equals|is|becomes|gets set to)\s+["']?([^"'\n]+)["']?/i)
-          ];
+          // Find all potential edit instructions using multiple patterns
+          // Use regular expressions with global flag to find ALL matches
           
-          // Log all matches for debugging
-          patternMatches.forEach((match, index) => {
-            if (match) {
-              console.log(`Pattern ${index + 1} matched:`, match[0], `Cell: ${match[1]}, Value: ${match[2]}`);
+          // The primary pattern we instruct Claude to use (highest priority)
+          const primaryPatternRegex = /I'll\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+['"]?([^'"\n]+?)['"]?(?:\s|$)/gi;
+          let primaryMatches = [...assistantResponse.matchAll(primaryPatternRegex)];
+          
+          console.log(`Found ${primaryMatches.length} matches with primary pattern`);
+          
+          // If we found primary pattern matches, use those
+          if (primaryMatches.length > 0) {
+            // Convert matches to the format we need
+            const editInstructions = primaryMatches.map(match => ({
+              cell: match[1].toUpperCase(),
+              value: match[2].trim()
+            }));
+            
+            console.log(`Extracted ${editInstructions.length} edit instructions:`, JSON.stringify(editInstructions));
+            
+            // Create a multi-edit plan
+            if (editInstructions.length > 0) {
+              editPlan = {
+                description: `Update ${editInstructions.length} cell(s) based on user request`,
+                edits: editInstructions.map(instr => ({
+                  sheet: "Sheet1", // Default sheet name
+                  cell: instr.cell,
+                  value: instr.value
+                }))
+              };
+              console.log("Created multi-edit plan:", JSON.stringify(editPlan));
             }
-          });
-          
-          // Find the first successful match
-          const firstMatch = patternMatches.find(match => match !== null);
-          
-          if (firstMatch) {
-            console.log("Found edit instruction in Claude's response:", firstMatch[0]);
-            const editInstruction = firstMatch[0];
-            const cell = firstMatch[1];
-            const value = firstMatch[2];
-            
-            console.log(`Extracted cell: ${cell}, value: ${value}`);
-            
-            // Create an edit plan directly
-            editPlan = {
-              description: `Update cell ${cell} to value "${value}"`,
-              edits: [{
-                sheet: "Sheet1", // Default sheet name
-                cell: cell,
-                value: value
-              }]
-            };
-            
-            console.log("Created edit plan:", JSON.stringify(editPlan));
           } else {
-            console.log("No edit instructions found in Claude's response");
+            // Fallback to alternative patterns if primary pattern doesn't match
+            console.log("No primary pattern matches, trying alternative patterns");
+            
+            // Try multiple patterns to extract edit instructions from Claude's response
+            // Be as comprehensive as possible with pattern matching
+            let patternMatches = [
+              // Standard pattern: "change cell A1 to 100"
+              assistantResponse.match(/(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
+              
+              // "I'll change/update pattern": "I'll change cell A1 to 100"
+              assistantResponse.match(/I(?:'ll|\s+will)?\s+(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
+              
+              // Direct mention: "Cell A1 should be 100"
+              assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:should|will|to)\s+(?:be|contain|have|equal)\s+["']?([^"'\n]+)["']?/i),
+              
+              // Value pattern: "Set the value in A1 to 100"
+              assistantResponse.match(/(?:set|put|place)\s+(?:the\s+)?(?:value|data|content)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as)\s+["']?([^"'\n]+)["']?/i),
+              
+              // Simple cell pattern: "A1: 100" or "A1 → 100"
+              assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)(?:\s*(?::|→|->|=)\s*)["']?([^"'\n]+)["']?/i),
+              
+              // Literal recommendation: "I recommend changing cell A1 to 100"
+              assistantResponse.match(/recommend\s+(?:changing|setting|updating|modifying)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
+              
+              // Manual edit pattern: "manually edit cell A1 to contain 100"
+              assistantResponse.match(/(?:manually|should)\s+(?:edit|change|update|modify|set)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to|contain)\s+["']?([^"'\n]+)["']?/i),
+              
+              // Cell reference with equals: "cell A1 equals 100"
+              assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:equals|is|becomes|gets set to)\s+["']?([^"'\n]+)["']?/i),
+              
+              // Add new row pattern
+              assistantResponse.match(/add(?:\s+a)?\s+new\s+row\s+with\s+(?:values|data)?\s*[:;]?\s*(.*)/i),
+              
+              // Set formula pattern
+              assistantResponse.match(/(?:set|add|create|use)\s+(?:a|the)?\s+formula\s+(?:in|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|:)\s+["']?=([^"'\n]+)["']?/i)
+            ];
+            
+            // Log all matches for debugging
+            patternMatches.forEach((match, index) => {
+              if (match) {
+                console.log(`Pattern ${index + 1} matched:`, match[0], `Cell: ${match[1]}, Value: ${match[2]}`);
+              }
+            });
+            
+            // Find the first successful match
+            const firstMatch = patternMatches.find(match => match !== null);
+            
+            if (firstMatch) {
+              console.log("Found edit instruction in Claude's response:", firstMatch[0]);
+              const cell = firstMatch[1];
+              const value = firstMatch[2];
+              
+              console.log(`Extracted cell: ${cell}, value: ${value}`);
+              
+              // Create an edit plan directly
+              editPlan = {
+                description: `Update cell ${cell} to value "${value}"`,
+                edits: [{
+                  sheet: "Sheet1", // Default sheet name
+                  cell: cell,
+                  value: value
+                }]
+              };
+              
+              console.log("Created edit plan:", JSON.stringify(editPlan));
+            } else {
+              console.log("No edit instructions found in Claude's response");
+            }
           }
         }
         

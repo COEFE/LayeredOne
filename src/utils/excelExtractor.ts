@@ -215,7 +215,7 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
       extractedText += '\n\n';
     });
     
-    // Add a usage guide at the end
+    // Add comprehensive usage guide and advanced analysis capabilities at the end
     extractedText += `
 ## How to Reference Cells
 
@@ -225,10 +225,25 @@ When referring to specific cells in your queries, use the standard Excel cell re
 - Columns are lettered: A, B, C, ... , Z, AA, AB, etc.
 - Rows are numbered starting from 1
 
-Examples:
-- "What's the value in cell B3?"
-- "Sum the values in column C"
-- "Compare cells A5 and D5"
+## Editing Instructions
+
+You can edit this spreadsheet! Use any of these formats:
+- "Change cell A1 to 'Sales Report'"
+- "Set cell B5 to 500"
+- "Update cell C7 to '=SUM(C1:C6)'" (for formulas)
+- "Add a new row with values: John, 35, Manager" 
+- "I need to correct the value in D12 to 78.5%"
+
+## Analysis Capabilities
+
+You can request advanced analysis of this data:
+- "Provide a summary of this spreadsheet"
+- "What are the key trends in this data?"
+- "Extract all entities (people, organizations, dates) from this document"
+- "Calculate statistics for column B"
+- "Generate 3 insights about this data"
+- "Compare the values between columns C and D"
+- "What's the highest value in row 5?"
 `;
     
     return extractedText.trim();
