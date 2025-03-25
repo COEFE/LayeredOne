@@ -5,7 +5,9 @@ import { getStorage } from 'firebase-admin/storage';
 
 // Import environment variables
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+const BRAVE_API_KEY = process.env.BRAVE_API_KEY;
 const DEFAULT_MODEL = 'claude-3-7-sonnet-20250219';
+const PDF_MODEL = 'claude-3-7-sonnet-20250219'; // Force Claude 3.7 for PDFs
 
 // Debug flag to log detailed information
 const DEBUG = process.env.NODE_ENV === 'development' || true;
@@ -103,7 +105,12 @@ export async function POST(request: NextRequest) {
       
       When referring to specific sections, try to mention page numbers if available (e.g., "On page 5...").
       If you're asked about figures, charts, or images, explain that as an AI assistant, you can only access 
-      the text content that was extracted from the PDF, not the visual elements.`;
+      the text content that was extracted from the PDF, not the visual elements.
+      
+      You have access to Brave Search to complement your PDF analysis and provide additional context.
+      When the user asks a question that might benefit from more recent or external information related
+      to the PDF content, you should perform a search to supplement your answer. When you do this,
+      clearly indicate what information comes from the PDF versus from your search.`;
     }
     
     // Add specific instructions for spreadsheets
@@ -116,10 +123,79 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare the messages for Claude
-    const messagesToSend = [
-      { role: 'user', content: `Here is the document content:\n\n${documentContent}` },
-      { role: 'user', content: message }
-    ];
+    const messagesToSend = [];
+    
+    // For PDFs, check if we should perform a web search first
+    let webSearchResults = null;
+    
+    if (isPDF && BRAVE_API_KEY) {
+      try {
+        console.log('Performing Brave search for PDF-related query:', message);
+        
+        // Create search query by extracting key terms from the user message
+        // and combining with document title for context
+        const searchQuery = `${message} ${documentName} pdf`;
+        
+        // Create URL with search parameters
+        const searchUrl = new URL('https://api.search.brave.com/res/v1/web/search');
+        searchUrl.searchParams.append('q', searchQuery);
+        searchUrl.searchParams.append('count', '5');  // Limit to top 5 results
+        searchUrl.searchParams.append('freshness', 'recent'); // Focus on recent results
+        
+        // Call Brave Search API
+        const braveSearchResponse = await fetch(searchUrl.toString(), {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip',
+            'X-Subscription-Token': BRAVE_API_KEY
+          }
+        });
+        
+        if (braveSearchResponse.ok) {
+          const searchData = await braveSearchResponse.json();
+          
+          if (searchData && searchData.web && searchData.web.results) {
+            // Format search results 
+            webSearchResults = searchData.web.results.map((result: any) => {
+              return {
+                title: result.title,
+                url: result.url,
+                description: result.description || ''
+              };
+            });
+            
+            console.log(`Found ${webSearchResults.length} search results`);
+          }
+        } else {
+          console.error('Error performing Brave search:', await braveSearchResponse.text());
+        }
+      } catch (error) {
+        console.error('Error during Brave search:', error);
+      }
+    }
+    
+    // Add the document content message
+    messagesToSend.push({ role: 'user', content: `Here is the document content:\n\n${documentContent}` });
+    
+    // Add search results if available
+    if (webSearchResults && webSearchResults.length > 0) {
+      const searchResultsMessage = `Here are some relevant web search results that might help answer questions about this PDF:
+      
+${webSearchResults.map((result: any, index: number) => {
+  return `[${index + 1}] ${result.title}
+URL: ${result.url}
+${result.description}
+`;
+}).join('\n')}
+
+Please use these search results to supplement your analysis of the PDF when appropriate.`;
+
+      messagesToSend.push({ role: 'user', content: searchResultsMessage });
+    }
+    
+    // Add the user's actual message
+    messagesToSend.push({ role: 'user', content: message });
 
     // Check for API key
     if (!ANTHROPIC_API_KEY) {
@@ -141,7 +217,9 @@ export async function POST(request: NextRequest) {
 
     // Call Claude API
     try {
-      console.log(`Calling Claude API with model: ${model || DEFAULT_MODEL}`);
+      // Force Claude 3.7 for PDFs, otherwise use selected model
+      const modelToUse = isPDF ? PDF_MODEL : (model || DEFAULT_MODEL);
+      console.log(`Calling Claude API with model: ${modelToUse}`);
       
       // Claude API call
       const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -152,7 +230,7 @@ export async function POST(request: NextRequest) {
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: model || DEFAULT_MODEL,
+          model: modelToUse,
           messages: messagesToSend,
           system: systemPrompt,
           max_tokens: 2000

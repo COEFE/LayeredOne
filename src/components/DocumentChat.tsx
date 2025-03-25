@@ -53,6 +53,7 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState('claude-3-7-sonnet-20250219');
+  const [modelLocked, setModelLocked] = useState(false); // To prevent model switching for PDFs
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
@@ -73,6 +74,19 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
             setError('You do not have permission to view this document');
             setLoading(false);
             return;
+          }
+          
+          const docContentType = docData.contentType || '';
+          const docName = docData.name || '';
+          
+          // Check if document is a PDF to force Claude 3.7
+          const isPDF = docContentType.includes('pdf') || 
+                       docName.toLowerCase().endsWith('.pdf');
+                       
+          if (isPDF) {
+            console.log('PDF document detected - locking model to Claude 3.7 Sonnet');
+            setSelectedModel('claude-3-7-sonnet-20250219');
+            setModelLocked(true);
           }
           
           setDocument({
@@ -375,6 +389,7 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
       {/* Model selector in compact form */}
       <div className={`${compactMode ? 'px-2 py-1' : 'px-3 py-2'} border-b flex justify-between items-center bg-gray-50`}>
         <div className="flex-shrink-0">
+          {/* Show appropriate indicator based on document type */}
           {(document.contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
             document.contentType === 'application/vnd.ms-excel' ||
             document.contentType === 'text/csv') && (
@@ -383,21 +398,38 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
               {compactMode ? 'Excel edits' : 'Spreadsheet editing enabled'}
             </div>
           )}
+          
+          {(document.contentType?.includes('pdf') || 
+            document.name?.toLowerCase().endsWith('.pdf')) && (
+            <div className="text-xs text-blue-600 flex items-center">
+              <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mr-1"></span>
+              {compactMode ? 'PDF mode' : 'PDF mode with Brave search'}
+            </div>
+          )}
         </div>
-        <ModelSelector
-          selectedModel={selectedModel}
-          onSelectModel={(model) => {
-            setSelectedModel(model);
-            // Clear any existing errors
-            setError(null);
-            
-            // Check if switching to OpenAI models
-            if (model.startsWith('chatgpt') || model.startsWith('gpt')) {
-              setError('Note: OpenAI models require a valid API key. If you encounter errors, try using a Claude model.');
-            }
-          }}
-          compact={true}
-        />
+        
+        {/* Model selector with lock for PDFs */}
+        {modelLocked ? (
+          <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded flex items-center">
+            <FiCpu className="mr-1 h-3 w-3" />
+            <span>Using Claude 3.7 for PDFs</span>
+          </div>
+        ) : (
+          <ModelSelector
+            selectedModel={selectedModel}
+            onSelectModel={(model) => {
+              setSelectedModel(model);
+              // Clear any existing errors
+              setError(null);
+              
+              // Check if switching to OpenAI models
+              if (model.startsWith('chatgpt') || model.startsWith('gpt')) {
+                setError('Note: OpenAI models require a valid API key. If you encounter errors, try using a Claude model.');
+              }
+            }}
+            compact={true}
+          />
+        )}
       </div>
       
       {/* Messages container */}
