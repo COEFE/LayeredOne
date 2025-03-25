@@ -32,7 +32,7 @@ export default function LoginPage() {
       console.error('Login error:', err);
       
       // Provide user-friendly error messages
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError('Invalid email or password');
       } else if (err.code === 'auth/too-many-requests') {
         setError('Too many failed login attempts. Please try again later.');

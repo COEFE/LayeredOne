@@ -211,6 +211,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else if (err.code === 'auth/network-request-failed') {
         // Network issues
         setError('Network error during authentication. Please check your internet connection and try again.');
+      } else if (err.code === 'auth/invalid-credential') {
+        // Invalid credentials (commonly occurs with expired tokens or credential issues)
+        setError('Authentication failed. Please try again or use a different sign-in method.');
+        console.error('Invalid credential error during Google sign-in. This may be due to an expired token or authentication configuration issue.');
       } else {
         setError(err.message || 'An unexpected error occurred during Google sign-in');
       }
