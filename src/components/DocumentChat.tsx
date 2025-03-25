@@ -79,12 +79,24 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
           const docContentType = docData.contentType || '';
           const docName = docData.name || '';
           
-          // Check if document is a PDF to force Claude 3.7
+          // Check if document is a PDF or Excel file to force Claude 3.7
           const isPDF = docContentType.includes('pdf') || 
                        docName.toLowerCase().endsWith('.pdf');
                        
+          const isSpreadsheet = docContentType.includes('spreadsheet') || 
+                                docContentType.includes('excel') || 
+                                docName.endsWith('.xlsx') || 
+                                docName.endsWith('.xls') ||
+                                docContentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                                docContentType === 'application/vnd.ms-excel' ||
+                                docContentType === 'text/csv';
+                       
           if (isPDF) {
             console.log('PDF document detected - locking model to Claude 3.7 Sonnet');
+            setSelectedModel('claude-3-7-sonnet-20250219');
+            setModelLocked(true);
+          } else if (isSpreadsheet) {
+            console.log('Excel/spreadsheet document detected - locking model to Claude 3.7 Sonnet for optimal editing');
             setSelectedModel('claude-3-7-sonnet-20250219');
             setModelLocked(true);
           }
@@ -408,11 +420,15 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
           )}
         </div>
         
-        {/* Model selector with lock for PDFs */}
+        {/* Model selector with lock for PDFs or Excel files */}
         {modelLocked ? (
           <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded flex items-center">
             <FiCpu className="mr-1 h-3 w-3" />
-            <span>Using Claude 3.7 for PDFs</span>
+            {(document.contentType?.includes('pdf') || document.name?.toLowerCase().endsWith('.pdf')) ? (
+              <span>Using Claude 3.7 for PDFs</span>
+            ) : (
+              <span>Using Claude 3.7 for Excel editing</span>
+            )}
           </div>
         ) : (
           <ModelSelector

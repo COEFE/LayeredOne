@@ -6,6 +6,7 @@ import { getStorage } from 'firebase-admin/storage';
 // Import environment variables and utilities
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
 const DEFAULT_MODEL = 'claude-3-7-sonnet-20250219';
+const BRAVE_API_KEY = process.env.BRAVE_API_KEY;
 import { analyzeEditRequest } from '@/utils/excelEditor';
 
 // Debug flag to log detailed information
@@ -82,8 +83,8 @@ export async function POST(request: NextRequest) {
     const documentType = documentData.type || 'application/octet-stream';
     const documentUrl = documentData.url || '';
 
-    // Create system prompt specifically for spreadsheet editing
-    const systemPrompt = `You are an advanced spreadsheet data analyst and editor. The user wants to work with a spreadsheet called "${documentName}".
+    // Create system prompt specifically for spreadsheet editing with Claude 3.7
+    let systemPrompt = `You are an advanced spreadsheet data analyst and editor. The user wants to work with a spreadsheet called "${documentName}".
       You CAN DIRECTLY EDIT this Excel file by including specific edit commands in your response.
       
       CRITICAL INSTRUCTIONS FOR EDITING EXCEL:
@@ -120,50 +121,109 @@ export async function POST(request: NextRequest) {
       
       WARNING: If you don't follow the exact format for cell edits, the automatic editor will fail and the spreadsheet won't be updated.
       
-      The spreadsheet is of type: ${documentType}.
+      The spreadsheet is of type: ${documentType}.`;
       
-      EXAMPLE CORRECT RESPONSE:
-      "I understand you want to update the sales figures for Q1 and add a formula for the total.
+    // Force the use of Claude 3.7 model for Excel editing
+    const editorModel = 'claude-3-7-sonnet-20250219';
       
-      Based on my analysis of your spreadsheet, I can see that column B contains quarterly sales data.
+    // Add Claude 3.7-specific capabilities
+    systemPrompt += `
       
-      I'll change cell B5 to 1000
-      I'll change cell B6 to 1250
-      I'll change cell B7 to '=SUM(B5:B6)'
+      As Claude 3.7, your enhanced capabilities for spreadsheet editing include:
       
-      These changes will update the Q1 and Q2 sales figures and add a formula in B7 to calculate the total.
+      1. Advanced data analysis with statistical insights
+      2. Pattern recognition in financial and numerical data
+      3. Formula recommendations for complex calculations
+      4. Data cleaning and validation suggestions
+      5. Strategic insights from numerical trends
+      6. Dimensional analysis for unit conversions
+      7. Multi-step edit planning for comprehensive spreadsheet updates
+      8. Auto-formatting recommendations for readability
+      9. Precise cell value suggestions based on context
+      10. Error detection in formulas and data
       
-      Analysis of your data shows that these new figures represent a 15% increase over previous values,
-      which aligns with the growth trends visible in columns C and D for other product categories.
-      "`;
+      ALWAYS follow these steps when editing spreadsheets:
       
-      // Add extra emphasis with Claude-3.7 specific details
-      if (model?.includes('3.7') || model?.includes('claude-3-7')) {
-        systemPrompt += `
-        
-        As Claude 3.7, you have enhanced capabilities that allow you to:
-        
-        1. Parse tabular data more effectively, understanding relationships between rows and columns
-        2. Detect patterns and anomalies in numerical and categorical data
-        3. Provide predictive insights based on historical data trends
-        4. Recommend actions based on comprehensive data analysis
-        5. Execute precise edits through the spreadsheet editing system
-        
-        When editing spreadsheets, always use THE EXACT PHRASE "I'll change cell X to Y" to ensure the automatic
-        editor can properly process your instructions. You can include multiple edit statements, each on its own line.
-        
-        In addition to making edits, always provide analytical context about:
-        - What the data represents
-        - How your edits will impact calculations or insights
-        - Key observations about the spreadsheet structure and content
-        - Potential data quality issues or improvements`;
-      }
+      1. ANALYZE the data first to understand context
+      2. PLAN your edits to ensure consistency
+      3. EXPLAIN your reasoning for each change
+      4. FORMAT your edit commands with THE EXACT PHRASE "I'll change cell X to Y"
+      5. REVIEW the impact of your changes on calculations or insights
+      
+      For complex edits, I'll break down the process into multiple steps.
+      For data analysis, I'll provide specific insights about patterns, anomalies, and trends.
+      
+      Remember: Always use THE EXACT PHRASE "I'll change cell X to Y" for each edit command.`;
 
     // Prepare the messages for Claude
-    const messagesToSend = [
+    let messagesToSend = [
       { role: 'user', content: `Here is the current content of the spreadsheet:\n\n${documentContent}` },
       { role: 'user', content: message }
     ];
+
+    // For spreadsheets, add web search context if Brave API key is available
+    let webSearchResults = null;
+    
+    if (BRAVE_API_KEY) {
+      try {
+        console.log('Performing Brave search for additional context around the spreadsheet editing query');
+        
+        // Create search query using key terms from the message and document context
+        const searchQuery = `${message} excel spreadsheet edit ${documentName.split('.')[0]}`;
+        
+        // Create URL with search parameters
+        const searchUrl = new URL('https://api.search.brave.com/res/v1/web/search');
+        searchUrl.searchParams.append('q', searchQuery);
+        searchUrl.searchParams.append('count', '3');  // Limit to top 3 results
+        
+        // Call Brave Search API
+        const braveSearchResponse = await fetch(searchUrl.toString(), {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip',
+            'X-Subscription-Token': BRAVE_API_KEY
+          }
+        });
+        
+        if (braveSearchResponse.ok) {
+          const searchData = await braveSearchResponse.json();
+          
+          if (searchData && searchData.web && searchData.web.results) {
+            // Format search results 
+            webSearchResults = searchData.web.results.map((result: any) => {
+              return {
+                title: result.title,
+                url: result.url,
+                description: result.description || ''
+              };
+            });
+            
+            console.log(`Found ${webSearchResults.length} search results to enhance spreadsheet editing context`);
+          }
+        } else {
+          console.error('Error performing Brave search:', await braveSearchResponse.text());
+        }
+      } catch (error) {
+        console.error('Error during Brave search:', error);
+      }
+    }
+
+    // Add search results to messages if available
+    if (webSearchResults && webSearchResults.length > 0) {
+      const searchResultsMessage = `Here are some relevant web search results that might help with this spreadsheet editing task:
+      
+${webSearchResults.map((result: any, index: number) => {
+  return `[${index + 1}] ${result.title}
+URL: ${result.url}
+${result.description}
+`;
+}).join('\n')}
+
+Use these search results to inform your spreadsheet editing approach when appropriate.`;
+
+      messagesToSend.push({ role: 'user', content: searchResultsMessage });
+    }
 
     // Check for API key
     if (!ANTHROPIC_API_KEY) {
@@ -185,7 +245,7 @@ export async function POST(request: NextRequest) {
 
     // Call Claude API
     try {
-      console.log(`Calling Claude API with model: ${model || DEFAULT_MODEL}`);
+      console.log(`Calling Claude API with model: ${editorModel} for spreadsheet editing`);
       
       // Claude API call
       const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -196,14 +256,14 @@ export async function POST(request: NextRequest) {
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: model || DEFAULT_MODEL,
+          model: editorModel, // Always use Claude 3.7 for spreadsheet editing
           messages: messagesToSend,
           system: systemPrompt,
           max_tokens: 2000
         })
       });
       
-      console.log(`API request sent with model: ${model || DEFAULT_MODEL}`);
+      console.log(`API request sent with model: ${editorModel}`);
       
       if (!response.ok) {
         let errorInfo = '';
@@ -230,7 +290,7 @@ export async function POST(request: NextRequest) {
 
       const result = await response.json();
       
-      console.log("Claude API response success");
+      console.log("Claude 3.7 API response success for spreadsheet editing");
       
       // Extract assistant's response
       let assistantResponse = '';
@@ -260,15 +320,15 @@ export async function POST(request: NextRequest) {
         
         // If that fails, try to extract edit instructions from Claude's response
         if (!editPlan) {
-          console.log("Trying to extract edit instructions from Claude's response");
+          console.log("Trying to extract edit instructions from Claude 3.7's response");
           
           // Log the full assistant response for debugging
           console.log("Full assistant response for pattern matching:", assistantResponse);
           
-          // Find all potential edit instructions using multiple patterns
+          // Find all potential edit instructions using primary pattern
           // Use regular expressions with global flag to find ALL matches
           
-          // The primary pattern we instruct Claude to use (highest priority)
+          // The primary pattern we instruct Claude to use
           const primaryPatternRegex = /I'll\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+['"]?([^'"\n]+?)['"]?(?:\s|$)/gi;
           let primaryMatches = [...assistantResponse.matchAll(primaryPatternRegex)];
           
@@ -282,7 +342,7 @@ export async function POST(request: NextRequest) {
               value: match[2].trim()
             }));
             
-            console.log(`Extracted ${editInstructions.length} edit instructions:`, JSON.stringify(editInstructions));
+            console.log(`Extracted ${editInstructions.length} edit instructions from Claude 3.7's response:`, JSON.stringify(editInstructions));
             
             // Create a multi-edit plan
             if (editInstructions.length > 0) {
@@ -294,83 +354,94 @@ export async function POST(request: NextRequest) {
                   value: instr.value
                 }))
               };
-              console.log("Created multi-edit plan:", JSON.stringify(editPlan));
+              console.log("Created multi-edit plan from Claude 3.7's response:", JSON.stringify(editPlan));
             }
           } else {
             // Fallback to alternative patterns if primary pattern doesn't match
             console.log("No primary pattern matches, trying alternative patterns");
             
-            // Try multiple patterns to extract edit instructions from Claude's response
-            // Be as comprehensive as possible with pattern matching
-            let patternMatches = [
+            // Comprehensive pattern matching for different edit instruction formats
+            const patterns = [
               // Standard pattern: "change cell A1 to 100"
-              assistantResponse.match(/(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
+              /(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i,
               
               // "I'll change/update pattern": "I'll change cell A1 to 100"
-              assistantResponse.match(/I(?:'ll|\s+will)?\s+(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
+              /I(?:'ll|\s+will)?\s+(?:change|set|update|modify)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i,
               
               // Direct mention: "Cell A1 should be 100"
-              assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:should|will|to)\s+(?:be|contain|have|equal)\s+["']?([^"'\n]+)["']?/i),
+              /(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:should|will|to)\s+(?:be|contain|have|equal)\s+["']?([^"'\n]+)["']?/i,
               
               // Value pattern: "Set the value in A1 to 100"
-              assistantResponse.match(/(?:set|put|place)\s+(?:the\s+)?(?:value|data|content)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as)\s+["']?([^"'\n]+)["']?/i),
+              /(?:set|put|place)\s+(?:the\s+)?(?:value|data|content)\s+(?:in|of|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as)\s+["']?([^"'\n]+)["']?/i,
               
               // Simple cell pattern: "A1: 100" or "A1 → 100"
-              assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)(?:\s*(?::|→|->|=)\s*)["']?([^"'\n]+)["']?/i),
+              /(?:cell\s+)?([A-Za-z]+[0-9]+)(?:\s*(?::|→|->|=)\s*)["']?([^"'\n]+)["']?/i,
               
               // Literal recommendation: "I recommend changing cell A1 to 100"
-              assistantResponse.match(/recommend\s+(?:changing|setting|updating|modifying)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i),
+              /recommend\s+(?:changing|setting|updating|modifying)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to)\s+["']?([^"'\n]+)["']?/i,
               
               // Manual edit pattern: "manually edit cell A1 to contain 100"
-              assistantResponse.match(/(?:manually|should)\s+(?:edit|change|update|modify|set)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to|contain)\s+["']?([^"'\n]+)["']?/i),
+              /(?:manually|should)\s+(?:edit|change|update|modify|set)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|with|value\s+to|contain)\s+["']?([^"'\n]+)["']?/i,
               
               // Cell reference with equals: "cell A1 equals 100"
-              assistantResponse.match(/(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:equals|is|becomes|gets set to)\s+["']?([^"'\n]+)["']?/i),
+              /(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:equals|is|becomes|gets set to)\s+["']?([^"'\n]+)["']?/i,
               
               // Add new row pattern
-              assistantResponse.match(/add(?:\s+a)?\s+new\s+row\s+with\s+(?:values|data)?\s*[:;]?\s*(.*)/i),
+              /add(?:\s+a)?\s+new\s+row\s+with\s+(?:values|data)?\s*[:;]?\s*(.*)/i,
               
               // Set formula pattern
-              assistantResponse.match(/(?:set|add|create|use)\s+(?:a|the)?\s+formula\s+(?:in|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|:)\s+["']?=([^"'\n]+)["']?/i)
+              /(?:set|add|create|use)\s+(?:a|the)?\s+formula\s+(?:in|at)\s+(?:cell\s+)?([A-Za-z]+[0-9]+)\s+(?:to|as|:)\s+["']?=([^"'\n]+)["']?/i
             ];
             
-            // Log all matches for debugging
-            patternMatches.forEach((match, index) => {
-              if (match) {
-                console.log(`Pattern ${index + 1} matched:`, match[0], `Cell: ${match[1]}, Value: ${match[2]}`);
-              }
+            // Process all patterns to find matches
+            let allMatches: Array<{pattern: number, match: RegExpMatchArray}> = [];
+            
+            patterns.forEach((pattern, index) => {
+              // Find all matches using the global flag
+              const regex = new RegExp(pattern.source, pattern.flags + 'g');
+              const matches = [...assistantResponse.matchAll(regex)];
+              
+              matches.forEach(match => {
+                if (match[1] && match[2]) {
+                  allMatches.push({
+                    pattern: index,
+                    match: match as RegExpMatchArray
+                  });
+                }
+              });
             });
             
-            // Find the first successful match
-            const firstMatch = patternMatches.find(match => match !== null);
+            console.log(`Found ${allMatches.length} matches with alternative patterns`);
             
-            if (firstMatch) {
-              console.log("Found edit instruction in Claude's response:", firstMatch[0]);
-              const cell = firstMatch[1];
-              const value = firstMatch[2];
+            // Extract all edit instructions from alternative pattern matches
+            if (allMatches.length > 0) {
+              const editInstructions = allMatches.map(({pattern, match}) => {
+                return {
+                  cell: match[1].toUpperCase(),
+                  value: match[2].trim()
+                };
+              });
               
-              console.log(`Extracted cell: ${cell}, value: ${value}`);
+              console.log(`Extracted ${editInstructions.length} edit instructions from alternative patterns`);
               
-              // Create an edit plan directly
+              // Create a multi-edit plan
               editPlan = {
-                description: `Update cell ${cell} to value "${value}"`,
-                edits: [{
+                description: `Update ${editInstructions.length} cell(s) based on user request`,
+                edits: editInstructions.map(instr => ({
                   sheet: "Sheet1", // Default sheet name
-                  cell: cell,
-                  value: value
-                }]
+                  cell: instr.cell,
+                  value: instr.value
+                }))
               };
               
-              console.log("Created edit plan:", JSON.stringify(editPlan));
-            } else {
-              console.log("No edit instructions found in Claude's response");
+              console.log("Created multi-edit plan from alternative patterns:", JSON.stringify(editPlan));
             }
           }
         }
         
         if (editPlan) {
           try {
-            console.log("Auto-editing spreadsheet:", editPlan);
+            console.log("Auto-editing spreadsheet with Claude 3.7:", editPlan);
             
             // Prepare the edit plan for the API
             // Ensure the edit plan has the correct format
@@ -387,7 +458,7 @@ export async function POST(request: NextRequest) {
               };
             }
             
-            console.log("Sending edit plan to API:", JSON.stringify(editPlan));
+            console.log("Sending Claude 3.7 generated edit plan to API:", JSON.stringify(editPlan));
             
             // Call our document edit API to apply the changes
             const editResponse = await fetch(new URL('/api/documents/edit', request.url).toString(), {
@@ -413,11 +484,11 @@ export async function POST(request: NextRequest) {
               }
             } else {
               const errorText = await editResponse.text();
-              console.log("Could not automatically edit spreadsheet:", errorText);
+              console.log("Claude 3.7 could not automatically edit spreadsheet:", errorText);
               assistantResponse += `\n\n(Note: I analyzed your edit request but couldn't automatically apply the changes. The instructions above explain how to make these changes manually. Technical error: ${errorText})`;
             }
           } catch (editError: any) {
-            console.error("Error during automatic spreadsheet editing:", editError);
+            console.error("Error during automatic spreadsheet editing with Claude 3.7:", editError);
             assistantResponse += `\n\n(Note: I tried to automatically apply your changes but encountered an error: ${editError.message}. The instructions above explain how to make these changes manually.)`;
           }
         } else {
@@ -426,8 +497,8 @@ export async function POST(request: NextRequest) {
           
           // Add debug information at the end for troubleshooting
           if (DEBUG) {
-            console.log(`Claude couldn't parse edit request: "${message}"`);
-            console.log(`Claude's response: "${assistantResponse}"`);
+            console.log(`Claude 3.7 couldn't parse edit request: "${message}"`);
+            console.log(`Claude 3.7's response: "${assistantResponse}"`);
           }
         }
       } else {
@@ -441,7 +512,7 @@ export async function POST(request: NextRequest) {
         documentId,
         chatId,
         isSpreadsheet,
-        requestType: 'Excel Edit',
+        requestType: 'Excel Edit with Claude 3.7',
         messageLength: message.length,
         responseLength: assistantResponse.length,
         editPlanCreated: !!editPlan
@@ -462,7 +533,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
       
     } catch (err: any) {
-      console.error("Error calling Claude API:", err);
+      console.error("Error calling Claude 3.7 API for spreadsheet editing:", err);
       
       // Make sure we've saved an error message to the chat
       if (err.message && !err.message.includes('already saved')) {
@@ -476,7 +547,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json(
         { 
-          error: `Error calling Claude API: ${err.message}`,
+          error: `Error calling Claude 3.7 API for spreadsheet editing: ${err.message}`,
           errorDetail: err.toString() 
         },
         { status: 500 }
