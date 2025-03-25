@@ -81,10 +81,39 @@ export async function POST(request: NextRequest) {
     const documentType = documentData.type || 'application/octet-stream';
 
     // Create system prompt
-    const systemPrompt = `You are an AI assistant helping with document analysis. 
+    const isPDF = documentType.includes('pdf') || documentName.toLowerCase().endsWith('.pdf');
+    const isSpreadsheet = documentType.includes('spreadsheet') || 
+        documentType.includes('excel') || 
+        documentName.endsWith('.xlsx') || 
+        documentName.endsWith('.xls') ||
+        documentType.includes('sheet');
+        
+    let systemPrompt = `You are an AI assistant helping with document analysis. 
       You are analyzing a document titled "${documentName}" with file type "${documentType}". 
       Please provide helpful, accurate answers based on the document content.
       Only answer questions based on information from the document. If the answer cannot be determined from the document, say so clearly.`;
+      
+    // Add specific instructions for PDF documents
+    if (isPDF) {
+      systemPrompt += `
+      
+      This document is a PDF. The content has been extracted as text and page markers have been added.
+      Be aware that the extracted text might not perfectly preserve the formatting of the original PDF.
+      If there are tables or complex layouts in the PDF, they may appear as continuous text.
+      
+      When referring to specific sections, try to mention page numbers if available (e.g., "On page 5...").
+      If you're asked about figures, charts, or images, explain that as an AI assistant, you can only access 
+      the text content that was extracted from the PDF, not the visual elements.`;
+    }
+    
+    // Add specific instructions for spreadsheets
+    else if (isSpreadsheet) {
+      systemPrompt += `
+      
+      This document is a spreadsheet. The content has been extracted as text with cell references (A1 notation).
+      Cell references like A1, B2, etc. indicate the position of data in the spreadsheet grid.
+      If asked about specific cells or ranges, use these references in your answers.`;
+    }
 
     // Prepare the messages for Claude
     const messagesToSend = [

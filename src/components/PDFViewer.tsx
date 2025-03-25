@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { FiZoomIn, FiZoomOut, FiMinimize2 } from 'react-icons/fi';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 // This component is specifically for PDF viewing and will be dynamically imported
 // to prevent canvas-related errors during server-side rendering
@@ -113,8 +115,9 @@ const PDFViewer = ({ fileUrl, fileName }: { fileUrl: string, fileName: string })
           <Page 
             pageNumber={currentPage} 
             scale={scale}
-            renderTextLayer={false}
-            renderAnnotationLayer={false}
+            renderTextLayer={true}
+            renderAnnotationLayer={true}
+            className="pdf-page"
           />
         </Document>
       </div>
@@ -149,7 +152,7 @@ const PDFViewer = ({ fileUrl, fileName }: { fileUrl: string, fileName: string })
       )}
       
       <p className="mt-2 text-sm text-gray-500">
-        PDF document • Use zoom controls to adjust the document size for better reading
+        PDF document • Use zoom controls to adjust the document size for better reading • Text can be selected and copied
       </p>
     </div>
   );

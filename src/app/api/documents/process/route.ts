@@ -3,6 +3,7 @@ import { auth, db } from '@/firebase/admin-config';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { extractTextFromExcel } from '@/utils/excelExtractor';
+import { extractTextFromPDF } from '@/utils/pdfExtractor';
 
 // Debug flag
 const DEBUG = process.env.NODE_ENV === 'development' || true;
@@ -104,10 +105,17 @@ export async function POST(request: NextRequest) {
       // Process Excel file
       console.log('Processing Excel document...');
       extractedText = await extractTextFromExcel(fileBuffer);
-    } else {
+    } 
+    else if (contentType.includes('pdf') || 
+             fileName.toLowerCase().endsWith('.pdf')) {
+      // Process PDF file
+      console.log('Processing PDF document...');
+      extractedText = await extractTextFromPDF(fileBuffer);
+    }
+    else {
       // For other file types - return a message that we can't process this type yet
       return NextResponse.json({ 
-        error: "Unsupported file type. Currently only Excel files are supported." 
+        error: "Unsupported file type. Currently only Excel and PDF files are supported." 
       }, { status: 400 });
     }
 
