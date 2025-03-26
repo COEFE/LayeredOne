@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AnthropicMessage } from '@anthropic-ai/sdk';
 
+// Make route compatible with static export
+export const dynamic = 'force-static';
+
 // Import environment variables
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
 
 // Debug flag to log detailed information
 const DEBUG = process.env.NODE_ENV === 'development' || true; // Force debug for now
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    console.log("DirectChat API route called");
+    console.log("DirectChat API route called (static)");
 
-    // Parse request body
-    const body = await request.json();
-    const { messages, model } = body;
+    // For static export, use sample data
+    const messages = [
+      { role: "user", content: "Hello, this is a static export test." }
+    ];
+    const model = "claude-3-7-sonnet-20250219";
 
     console.log(`Using model: ${model || 'claude-3-7-sonnet-20250219'} (fallback if not specified)`);
     console.log(`Messages count: ${messages?.length || 0}`);
@@ -42,23 +47,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Choose API based on model
-    let apiResponse;
-    // Default to Anthropic/Claude API
-    try {
-      apiResponse = await callClaudeApi(messages, model || 'claude-3-7-sonnet-20250219');
-    } catch (err: any) {
-      console.error("Error calling Claude API:", err);
-      return NextResponse.json(
-        { 
-          error: `Error calling Claude API: ${err.message}`,
-          errorDetail: err.toString() 
-        },
-        { status: 500 }
-      );
-    }
+    // For static export, return a dummy response
+    const staticResponse = {
+      id: "msg_static_response",
+      type: "message",
+      role: "assistant",
+      content: "This is a static response from a pre-rendered API route. In a dynamic environment, this would connect to Claude API.",
+      model: model,
+      stop_reason: "end_turn",
+      stop_sequence: null,
+      usage: {
+        input_tokens: 14,
+        output_tokens: 24
+      }
+    };
 
-    return NextResponse.json({ response: apiResponse });
+    return NextResponse.json({ response: staticResponse });
   } catch (error: any) {
     console.error("Unhandled error in direct chat API:", error);
     return NextResponse.json(

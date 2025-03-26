@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Make route compatible with static export
+// For static export, we need to provide static data
 export const dynamic = 'force-static';
 
-export async function GET(request: NextRequest) {
-  // Extract headers from the request
-  const headers: Record<string, string> = {};
-  request.headers.forEach((value, key) => {
-    headers[key] = value;
-  });
+export async function GET() {
+  // For static export, return a predefined response
+  // instead of using request.headers which is dynamic
+  const staticHeaders = {
+    'user-agent': 'Static Export',
+    'host': 'github-pages-deployment',
+    'accept': 'application/json',
+    'content-type': 'application/json',
+  };
 
-  // Return the headers as JSON
-  return NextResponse.json({ headers });
+  // Return the static headers as JSON
+  return NextResponse.json({ headers: staticHeaders });
 }

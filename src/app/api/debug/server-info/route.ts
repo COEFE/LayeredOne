@@ -1,34 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import os from 'os';
 import process from 'process';
 
 // Make route compatible with static export
 export const dynamic = 'force-static';
 
-export async function GET(request: NextRequest) {
-  // Get environment information
+export async function GET() {
+  // Get static environment information
   const serverInfo = {
     nextConfig: {
       // Add Next.js config information that's available
-      version: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'Unknown',
-      environment: process.env.NODE_ENV || 'Unknown',
+      version: 'Static Export',
+      environment: process.env.NODE_ENV || 'production',
     },
     vercel: {
-      environment: process.env.VERCEL_ENV || 'Not deployed on Vercel',
-      region: process.env.VERCEL_REGION || 'Unknown',
-      url: process.env.VERCEL_URL || 'Unknown',
+      environment: 'GitHub Pages',
+      region: 'GitHub Pages',
+      url: 'github-pages',
     },
     system: {
       platform: os.platform(),
       release: os.release(),
       nodeVersion: process.version,
       uptime: os.uptime(),
-      memoryUsage: process.memoryUsage(),
+      memoryUsage: {
+        rss: 0,
+        heapTotal: 0,
+        heapUsed: 0,
+        external: 0,
+        arrayBuffers: 0
+      },
     },
     routing: {
-      requestPath: request.nextUrl.pathname,
-      hasTrailingSlash: request.nextUrl.pathname.endsWith('/'),
-      params: Object.fromEntries(request.nextUrl.searchParams.entries()),
+      requestPath: '/api/debug/server-info',
+      hasTrailingSlash: false,
+      params: {}
     }
   };
 
