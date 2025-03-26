@@ -2,6 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+
+// Generate static paths for known document IDs
+export function generateStaticParams() {
+  return [
+    { id: 'example-doc-1' },
+    { id: 'example-doc-2' },
+    { id: 'sample-document' },
+  ];
+}
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';

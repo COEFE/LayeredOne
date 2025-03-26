@@ -3,6 +3,17 @@
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
+// This function is required for static site generation with dynamic routes
+// It runs at build time to generate the static paths
+export function generateStaticParams() {
+  // Generate a few example chat test IDs for static pages
+  return [
+    { id: 'test-1' },
+    { id: 'test-2' },
+    { id: 'example' },
+  ];
+}
+
 export default function ChatTestPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
