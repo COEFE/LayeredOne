@@ -1,0 +1,10 @@
+{
+  "name": "layered-one-vercel-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "vercel-build": "npm run build",
+    "build": "next build",
+    "start": "next start"
+  }
+}
