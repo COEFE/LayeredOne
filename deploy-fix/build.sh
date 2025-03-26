@@ -57,6 +57,11 @@ fi
 
 # Setup proper next.config.js
 echo "Creating next.config.js to support src directory..."
+
+# Check if we're building for GitHub Pages
+if [ "$GITHUB_PAGES" = "true" ]; then
+  echo "Building for GitHub Pages: API routes will be excluded from the build"
+fi
 cat > next.config.js << 'EOL'
 /** @type {import('next').NextConfig} */
 const nextConfig = {

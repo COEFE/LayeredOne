@@ -43,6 +43,37 @@ const nextConfig = {
   // Set output based on deployment target
   output: process.env.GITHUB_PAGES === 'true' ? 'export' : 'standalone',
   distDir: process.env.GITHUB_PAGES === 'true' ? 'out' : '.next',
+  
+  // For GitHub Pages, we need to exclude API routes from the build
+  ...(process.env.GITHUB_PAGES === 'true' ? {
+    // This configuration excludes API routes from the build for GitHub Pages
+    exportPathMap: async function() {
+      const paths = {
+        '/': { page: '/' },
+        '/documents': { page: '/documents' },
+        '/chat': { page: '/chat' },
+        '/chat/new': { page: '/chat/new' },
+        '/debug': { page: '/debug' },
+        '/login': { page: '/login' },
+        '/signup': { page: '/signup' },
+      };
+      
+      // Add routes with static params
+      for (const id of ['test-1', 'test-2', 'example', 'example-1', 'example-2']) {
+        paths[`/chat-test/${id}`] = { page: '/chat-test/[id]', query: { id } };
+      }
+      
+      for (const id of ['new', 'example-1', 'example-2', 'chat-test-1', 'chat-test-2']) {
+        paths[`/chat/${id}`] = { page: '/chat/[id]', query: { id } };
+      }
+      
+      for (const id of ['example-doc-1', 'example-doc-2', 'sample-document']) {
+        paths[`/documents/${id}`] = { page: '/documents/[id]', query: { id } };
+      }
+      
+      return paths;
+    }
+  } : {}),
   // Make sure dynamic routes work in production
   generateBuildId: async () => {
     // Return a unique build ID based on timestamp to avoid stale builds

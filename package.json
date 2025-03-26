@@ -10,7 +10,7 @@
     "dev:env": "./start-dev.sh",
     "build": "next build --no-lint",
     "ci": "npm ci --legacy-peer-deps",
-    "build:github": "GITHUB_PAGES=true next build --no-lint && touch out/.nojekyll && node scripts/github-pages-fix.js",
+    "build:github": "GITHUB_PAGES=true next build --no-lint && touch out/.nojekyll && node scripts/github-pages-fix.js && echo 'API routes are not supported in static exports, but client-side apps will handle this gracefully'",
     "start": "next start",
     "lint": "next lint",
     "deploy": "next build --no-lint && firebase deploy --only hosting",

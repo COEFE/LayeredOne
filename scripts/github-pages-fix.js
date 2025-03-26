@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 console.log('Running GitHub Pages fixes...');
-console.log('=== Creating static API responses ===');
+console.log('API routes are not supported in static exports, creating client-friendly fallbacks...');
+console.log('=== Creating API fallback JSON files ===');
 
 // Directory where the static export will be
 const outputDir = path.join(process.cwd(), 'out');
