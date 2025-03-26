@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Make route compatible with static export
+export const dynamic = 'force-static';
+
 export async function GET(request: NextRequest) {
   // Extract headers from the request
   const headers: Record<string, string> = {};

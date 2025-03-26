@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import os from 'os';
 import process from 'process';
 
+// Make route compatible with static export
+export const dynamic = 'force-static';
+
 export async function GET(request: NextRequest) {
   // Get environment information
   const serverInfo = {
