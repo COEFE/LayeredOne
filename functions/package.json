@@ -1,7 +1,7 @@
 {
   "name": "functions",
   "description": "Firebase Cloud Functions",
-  "main": "lib/index.js",
+  "main": "src/index.js",
   "scripts": {
     "lint": "eslint .",
     "serve": "firebase emulators:start --only functions",
@@ -9,7 +9,7 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "build": "tsc"
+    "build": "echo 'Skipping build'"
   },
   "engines": {
     "node": "18"
