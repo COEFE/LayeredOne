@@ -91,22 +91,35 @@ export async function POST(request: NextRequest) {
       
       # CRITICAL INSTRUCTIONS FOR EXCEL EDITING
       
-      YOU MUST FOLLOW THIS EXACT FORMAT FOR ANY CELL EDITS:
+      I need you to EXACTLY follow this format for ALL cell edits:
       
-      ✅ "I'll change cell [CELL_REFERENCE] to [NEW_VALUE]"
+      ✅ I'll change cell [CELL_REFERENCE] to [NEW_VALUE]
       
-      For example: 
-      - I'll change cell A1 to 'Sales Report'
-      - I'll change cell B5 to 100
-      - I'll change cell C10 to 500
-      - I'll change cell D1 to '=SUM(D2:D10)'
+      EXAMPLES (EXACTLY as they should appear):
+      I'll change cell A1 to 'Sales Report'
+      I'll change cell B5 to 100
+      I'll change cell C10 to 500
+      I'll change cell D1 to '=SUM(D2:D10)'
       
-      ### IMPORTANT: I WILL NOT BE ABLE TO EDIT THE SPREADSHEET IF YOU DON'T USE THE EXACT PATTERN "I'll change cell X to Y" FOR EACH EDIT! ###
+      ### ⚠️ EXTREMELY IMPORTANT ⚠️ 
       
-      This formula is DETECTED BY AN AUTOMATED SYSTEM. If you don't use this EXACT pattern, the edits WILL NOT WORK.
+      1. I CANNOT EDIT THE SPREADSHEET if you use ANY variation of this pattern.
+      2. The EXACT TEXT "I'll change cell" MUST be used - not "I will change" or any variation.
+      3. DO NOT add any extra characters, spaces, or formatting to this pattern.
+      4. Each edit instruction MUST be on its own line.
+      5. Text values MUST be in single quotes: I'll change cell A1 to 'Sales Report'
+      6. Numbers need NO quotes: I'll change cell B5 to 100
+      7. Formulas MUST be in single quotes: I'll change cell D1 to '=SUM(D2:D10)'
       
-      DO NOT use variations like "I will change", "Let's change", or other similar phrases.
-      ALWAYS use "I'll change cell" followed by the cell reference and then "to" followed by the value.
+      INCORRECT (will fail):
+      - "I will change cell A1 to 'Sales Report'"
+      - "Let's change cell B5 to 100"
+      - "Set cell C10 to 'Customer Name'"
+      
+      CORRECT (will work):
+      I'll change cell A1 to 'Sales Report'
+      I'll change cell B5 to 100
+      I'll change cell C10 to 'Customer Name'
       
       # FORMAT RULES
       
@@ -174,6 +187,20 @@ export async function POST(request: NextRequest) {
       - Ensure each edit is complete and properly formatted
       - Group related edits together
       - Explain the relationship between multiple edits
+      
+      When making multiple edits, structure your response like this:
+
+      ```
+      [Your explanation of what changes you'll make]
+
+      I'll change cell A1 to 'Header'
+      I'll change cell B2 to 100
+      I'll change cell C3 to '=SUM(C1:C2)'
+
+      [Your explanation of what these changes accomplish]
+      ```
+
+      Again, it's CRITICAL that you use EXACTLY the format "I'll change cell X to Y" with NO variations.
       
       # EXAMPLE OF CORRECT EXCEL EDITS FORMAT
       
@@ -385,34 +412,73 @@ Use these search results to inform your spreadsheet editing approach when approp
           // This exact format is what we've instructed Claude 3.7 to use
           // Handle different quote styles and properly extract values including spaces
           
-          // Create a more lenient pattern that can handle various spacing and quote formats
-          // This is critical for capturing Claude 3.7's formatting variations
-          const primaryPatternRegex = /I(?:'ll|\s+will)\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|(=\S+(?:\([^)]*\))?)|(\d+(?:\.\d+)?)|([^'"\s][^'"\s]*(?:\s+[^'"\s]+)*))/gi;
+          // DEBUG: Output the raw assistantResponse to see what Claude 3.7 is actually producing
+          console.log("=== RAW CLAUDE 3.7 RESPONSE START ===");
+          console.log(assistantResponse);
+          console.log("=== RAW CLAUDE 3.7 RESPONSE END ===");
           
-          // Also look for a simpler version of the pattern which might be what Claude is using
-          const simplePatternRegex = /I'll\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|(=\S+(?:\([^)]*\))?)|(\d+(?:\.\d+)?)|([^\s].*))/gmi;
+          // ISSUE: Claude 3.7 may be using different apostrophe characters or escaping quotes
+          // Try matching with broader apostrophe options and multiple quote handling approaches
           
-          // Process both patterns for maximum coverage
+          // First pattern: Standard pattern with flexible apostrophe handling
+          const primaryPatternRegex = /I(?:'|'|`|'|"|'|'|´)ll\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(?:'([^']*)'|"([^"]*)"|(=\S+(?:\([^)]*\))?)|(\d+(?:\.\d+)?)|([^'"\s][^'"\s]*(?:\s+[^'"\s]+)*))/gi;
+          
+          // Second pattern: Simpler with extremely lenient quote/apostrophe handling
+          const simplePatternRegex = /I[''`''""´]ll\s+change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+([^,\n\r;]+)/gmi;
+          
+          // Third pattern: Direct pattern for specific known formats
+          const directPatternRegex = /I'll change cell ([A-Za-z]+[0-9]+) to '([^']*)'/gi;
+          
+          // Fourth pattern: Ultra simple pattern for last resort
+          const lastResortPatternRegex = /change\s+cell\s+([A-Za-z]+[0-9]+)\s+to\s+(.+?)(?:\s*[\n\r]|$)/gmi;
+          
+          // Process all patterns for maximum coverage
           let primaryMatches = [...assistantResponse.matchAll(primaryPatternRegex)];
           let simpleMatches = [...assistantResponse.matchAll(simplePatternRegex)];
+          let directMatches = [...assistantResponse.matchAll(directPatternRegex)];
+          let lastResortMatches = [...assistantResponse.matchAll(lastResortPatternRegex)];
           
           // Log search results for debugging
           console.log(`Found ${primaryMatches.length} matches with primary Claude 3.7 pattern`);
           console.log(`Found ${simpleMatches.length} matches with simplified Claude 3.7 pattern`);
+          console.log(`Found ${directMatches.length} matches with direct pattern`);
+          console.log(`Found ${lastResortMatches.length} matches with last resort pattern`);
           
-          // Combine matches from both patterns, avoiding duplicates
+          // Check each match type in more detail
+          if (primaryMatches.length > 0) {
+            console.log("Primary pattern matches:", JSON.stringify(primaryMatches));
+          }
+          if (simpleMatches.length > 0) {
+            console.log("Simple pattern matches:", JSON.stringify(simpleMatches));
+          }
+          if (directMatches.length > 0) {
+            console.log("Direct pattern matches:", JSON.stringify(directMatches));
+          }
+          if (lastResortMatches.length > 0) {
+            console.log("Last resort matches:", JSON.stringify(lastResortMatches));
+          }
+          
+          // Combine matches from all patterns, avoiding duplicates
           const combinedMatches = [...primaryMatches];
           
-          // Add simple matches that don't overlap with existing ones
-          if (simpleMatches.length > 0) {
-            simpleMatches.forEach(match => {
-              // Only add if we don't already have a match for this cell
-              const cellRef = match[1]?.toUpperCase();
-              if (cellRef && !combinedMatches.some(m => m[1]?.toUpperCase() === cellRef)) {
-                combinedMatches.push(match);
-              }
-            });
-          }
+          // Function to add unique matches
+          const addUniqueMatches = (matches, source) => {
+            if (matches.length > 0) {
+              matches.forEach(match => {
+                // Only add if we don't already have a match for this cell
+                const cellRef = match[1]?.toUpperCase();
+                if (cellRef && !combinedMatches.some(m => m[1]?.toUpperCase() === cellRef)) {
+                  console.log(`Adding unique ${source} match for cell ${cellRef}:`, match);
+                  combinedMatches.push(match);
+                }
+              });
+            }
+          };
+          
+          // Add matches from all patterns
+          addUniqueMatches(simpleMatches, 'simple pattern');
+          addUniqueMatches(directMatches, 'direct pattern');
+          addUniqueMatches(lastResortMatches, 'last resort pattern');
           
           console.log(`Combined total: ${combinedMatches.length} unique edit instructions found`);
           
@@ -420,31 +486,52 @@ Use these search results to inform your spreadsheet editing approach when approp
           if (combinedMatches.length > 0) {
             // Convert matches to the format we need, with improved value extraction
             const editInstructions = combinedMatches.map(match => {
-              // Extract the value, which could be in different capture groups based on quote style
-              // match[2]: single-quoted value
-              // match[3]: double-quoted value
-              // match[4]: formula value (starting with =)
-              // match[5]: numeric value
-              // match[6]: unquoted text value
-              const value = match[2] !== undefined ? match[2] : 
-                            match[3] !== undefined ? match[3] : 
-                            match[4] !== undefined ? match[4] : 
-                            match[5] !== undefined ? match[5] : 
-                            match[6] !== undefined ? match[6] : '';
+              // Different patterns have different capture group structures
+              // Primary pattern: match[2-6] for different value types
+              // Simple pattern: match[2] for the value
+              // Direct pattern: match[2] for the value
+              // Last resort: match[2] for the value
               
               const cell = match[1]?.toUpperCase() || '';
-              
-              console.log(`Raw match for cell ${cell}:`, match);
-              console.log(`Extracted value for cell ${cell}: "${value}"`);
-              
               if (!cell) {
                 console.warn("Warning: Extracted a match without a valid cell reference");
                 return null;
               }
               
+              // Get the match length to determine which pattern was used
+              const matchLength = match.length;
+              
+              // Initialize value with direct access to likely value position
+              let value = '';
+              
+              // Handle all possible value positions
+              if (matchLength > 6) {
+                // Primary pattern with many capture groups
+                value = match[2] !== undefined ? match[2] : 
+                        match[3] !== undefined ? match[3] : 
+                        match[4] !== undefined ? match[4] : 
+                        match[5] !== undefined ? match[5] : 
+                        match[6] !== undefined ? match[6] : '';
+              } else {
+                // Simpler patterns where value is in position 2
+                value = match[2] || '';
+              }
+              
+              // Clean up the value - handle special cases
+              value = value.trim();
+              
+              // Special case: if the value starts and ends with quotes, strip them
+              if ((value.startsWith("'") && value.endsWith("'")) || 
+                  (value.startsWith('"') && value.endsWith('"'))) {
+                value = value.substring(1, value.length - 1);
+              }
+              
+              console.log(`Raw match for cell ${cell}:`, match);
+              console.log(`Extracted value for cell ${cell}: "${value}"`);
+              
               return {
                 cell: cell,
-                value: value.trim()
+                value: value
               };
             }).filter(Boolean); // Remove any null entries
             
