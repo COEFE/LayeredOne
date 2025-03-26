@@ -3,7 +3,7 @@
   "buildCommand": "chmod +x deploy-fix/build.sh && ./deploy-fix/build.sh",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps",
+  "installCommand": "npm run ci",
   "functions": {
     "api/**/*": {
       "memory": 3008,
