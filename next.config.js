@@ -40,8 +40,9 @@ const nextConfig = {
     // Reduce unnecessary preloads
     optimisticClientCache: true
   },
-  // Always generate 404 page
-  output: 'standalone',
+  // Set output based on deployment target
+  output: process.env.GITHUB_PAGES === 'true' ? 'export' : 'standalone',
+  distDir: process.env.GITHUB_PAGES === 'true' ? 'out' : '.next',
   // Make sure dynamic routes work in production
   generateBuildId: async () => {
     // Return a unique build ID based on timestamp to avoid stale builds
