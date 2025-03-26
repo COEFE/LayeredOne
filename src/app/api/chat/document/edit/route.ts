@@ -650,20 +650,48 @@ Use these search results to inform your spreadsheet editing approach when approp
               };
             }
             
-            console.log("Sending Claude 3.7 generated edit plan to API:", JSON.stringify(editPlan));
+            console.log("Sending Claude 3.7 generated edit plan to cloud function:", JSON.stringify(editPlan));
             
-            // Call our document edit API to apply the changes
-            const editResponse = await fetch(new URL('/api/documents/edit', request.url).toString(), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                documentId: documentId,
-                editInstructions: JSON.stringify(editPlan)
-              })
-            });
+            // Import the Firebase Cloud Function utility
+            const { processExcelEditsWithCloudFunction } = await import('@/utils/firebase-functions');
+            
+            console.log('Using Firebase Cloud Function for Excel editing to avoid timeouts');
+            
+            // Define the editResponse variable at a higher scope
+            let editResponse;
+            
+            // Use the Firebase Cloud Function to avoid serverless function timeout
+            try {
+              // Call the Firebase Cloud Function
+              const cloudFunctionResult = await processExcelEditsWithCloudFunction(
+                documentId, 
+                JSON.stringify(editPlan)
+              );
+              
+              console.log('Firebase Cloud Function completed successfully:', cloudFunctionResult);
+              
+              // Create a response from the cloud function result
+              editResponse = {
+                ok: true,
+                json: async () => cloudFunctionResult
+              };
+            } catch (cloudFunctionError) {
+              console.error('Error calling Excel edit Cloud Function:', cloudFunctionError);
+              console.log('Falling back to regular API due to Cloud Function error');
+              
+              // Fall back to the original API if the cloud function fails
+              editResponse = await fetch(new URL('/api/documents/edit', request.url).toString(), {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  documentId: documentId,
+                  editInstructions: JSON.stringify(editPlan)
+                })
+              });
+            }
             
             if (editResponse.ok) {
               const editResult = await editResponse.json();
