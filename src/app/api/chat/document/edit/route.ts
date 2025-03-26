@@ -190,15 +190,13 @@ export async function POST(request: NextRequest) {
       
       When making multiple edits, structure your response like this:
 
-      ```
-      [Your explanation of what changes you'll make]
+      First explain what changes you'll make.
 
       I'll change cell A1 to 'Header'
       I'll change cell B2 to 100
       I'll change cell C3 to '=SUM(C1:C2)'
 
-      [Your explanation of what these changes accomplish]
-      ```
+      Then explain what these changes accomplish.
 
       Again, it's CRITICAL that you use EXACTLY the format "I'll change cell X to Y" with NO variations.
       
