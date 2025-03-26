@@ -4,9 +4,6 @@
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "./install.sh",
-  "public": false,
-  "rootDirectory": ".",
-  "sourceDirectory": ".",
   "framework": "nextjs",
   "regions": ["sfo1"],
   "env": {

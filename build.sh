@@ -3,16 +3,17 @@ echo "Current working directory: $(pwd)"
 echo "Listing files in current directory:"
 ls -la
 
-# Check if src/app directory exists and ensure app directory exists at root
-if [ -d "src/app" ] && [ ! -d "app" ]; then
-  echo "Creating symbolic link for app directory at root"
-  ln -s src/app app
+# Create app and pages directories at root level if they exist in src
+if [ -d "src/app" ]; then
+  echo "Creating app directory at root with content from src/app"
+  mkdir -p app
+  cp -r src/app/* app/
 fi
 
-# Check if src/pages directory exists and ensure pages directory exists at root
-if [ -d "src/pages" ] && [ ! -d "pages" ]; then
-  echo "Creating symbolic link for pages directory at root"
-  ln -s src/pages pages
+if [ -d "src/pages" ]; then
+  echo "Creating pages directory at root with content from src/pages"
+  mkdir -p pages
+  cp -r src/pages/* pages/
 fi
 
 # If neither exists, create an empty pages directory
