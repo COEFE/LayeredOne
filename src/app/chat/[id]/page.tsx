@@ -17,9 +17,13 @@ export async function generateStaticParams() {
   // Return known static paths
   return [
     { id: 'new' },
-    // Add any known chat IDs here if applicable
+    { id: 'example-1' },
+    { id: 'example-2' },
+    { id: 'example-3' },
+    { id: 'chat-test-1' },
+    { id: 'chat-test-2' },
   ];
 }
 
-// This tells Next.js to render dynamic paths not returned by generateStaticParams on-demand
-export const dynamicParams = true;
+// For static export, we must set dynamicParams to false
+export const dynamicParams = false;
