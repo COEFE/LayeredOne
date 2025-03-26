@@ -6,8 +6,8 @@ import { extractTextFromExcel } from '@/utils/excelExtractor';
 import { extractTextFromPDF } from '@/utils/pdfExtractor';
 
 // Import optimized Firebase config and timeout middleware
-import { db, getDataWithCache } from '../../../../deploy-fix/firebase-config';
-import withTimeout, { processInChunks } from '../../../../deploy-fix/timeout-middleware';
+import { db, getDataWithCache } from '@/utils/optimizations/firebase-config';
+import withTimeout, { processInChunks } from '@/utils/optimizations/timeout-middleware';
 
 // Debug flag
 const DEBUG = process.env.NODE_ENV === 'development' || true;

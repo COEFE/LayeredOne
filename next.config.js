@@ -28,12 +28,15 @@ const nextConfig = {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     NEXT_PUBLIC_CLAUDE_KEY_CHECK: !!process.env.CLAUDE_API_KEY || !!process.env.ANTHROPIC_API_KEY ? "true" : "false",
   },
+  // Server packages configuration
+  serverExternalPackages: [
+    'firebase-admin',
+    '@anthropic-ai/sdk',
+    'pdf-parse',
+    'pdf-parse-debugging-disabled'
+  ],
   // Configure for App Router
   experimental: {
-    appDir: true,
-    serverComponentsExternalPackages: ['firebase-admin'],
-    // Disable CSS optimization to prevent critters issues
-    // optimizeCss: true,
     // Reduce unnecessary preloads
     optimisticClientCache: true
   },
@@ -46,8 +49,6 @@ const nextConfig = {
   },
   // Improve resource loading
   poweredByHeader: false,
-  // Optimize asset loading
-  optimizeFonts: true,
 };
 
 module.exports = nextConfig;
