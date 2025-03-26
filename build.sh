@@ -3,24 +3,77 @@ echo "Current working directory: $(pwd)"
 echo "Listing files in current directory:"
 ls -la
 
-# Create app and pages directories at root level if they exist in src
+# Don't create duplicate app/pages directories - instead modify next.config.js to point to the right location
+echo "Setting up Next.js configuration..."
+
+# Remove placeholder pages directory if it exists (to avoid conflicts)
+if [ -d "pages" ] && [ -f "pages/index.js" ]; then
+  grep -q "placeholder page" pages/index.js && rm -rf pages
+fi
+
+# Check if the src directory exists and is a proper Next.js project
 if [ -d "src/app" ]; then
-  echo "Creating app directory at root with content from src/app"
-  mkdir -p app
-  cp -r src/app/* app/
-fi
+  echo "Found src/app directory, configuring Next.js to use it"
 
-if [ -d "src/pages" ]; then
-  echo "Creating pages directory at root with content from src/pages"
-  mkdir -p pages
-  cp -r src/pages/* pages/
-fi
+  # Create or update next.config.js to point to the src directory
+  cat > next.config.js << EOL
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+  reactStrictMode: true,
+  swcMinify: true,
+  images: {
+    domains: ['firebasestorage.googleapis.com'],
+  },
+  experimental: {
+    serverComponentsExternalPackages: [
+      '@anthropic-ai/sdk',
+      'pdf-parse',
+      'pdf-parse-debugging-disabled'
+    ],
+  },
+  // This is the key configuration to make it work with src directory
+  distDir: '.next',
+  pageExtensions: ['js', 'jsx', 'ts', 'tsx']
+};
 
-# If neither exists, create an empty pages directory
-if [ ! -d "app" ] && [ ! -d "pages" ]; then
-  echo "No app or pages directory found, creating empty pages directory"
-  mkdir -p pages
-  echo 'export default function Page() { return <div>Hello World</div> }' > pages/index.js
+module.exports = nextConfig;
+EOL
+
+elif [ -d "src/pages" ]; then
+  echo "Found src/pages directory, configuring Next.js to use it"
+  # Create or update next.config.js to point to the src directory
+  cat > next.config.js << EOL
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+  reactStrictMode: true,
+  swcMinify: true,
+  images: {
+    domains: ['firebasestorage.googleapis.com'],
+  },
+  experimental: {
+    serverComponentsExternalPackages: [
+      '@anthropic-ai/sdk',
+      'pdf-parse',
+      'pdf-parse-debugging-disabled'
+    ],
+  },
+  // This is the key configuration to make it work with src directory
+  distDir: '.next',
+  pageExtensions: ['js', 'jsx', 'ts', 'tsx']
+};
+
+module.exports = nextConfig;
+EOL
+
+else
+  echo "No src/app or src/pages directory found, checking for app or pages at root"
+  if [ ! -d "app" ] && [ ! -d "pages" ]; then
+    echo "No app or pages directory found at root either, creating a temporary pages directory"
+    mkdir -p pages
+    echo 'export default function Page() { return <div><h1>Temporary Page</h1><p>This is a placeholder page. Your actual application may be in a different directory structure.</p></div> }' > pages/index.js
+  fi
 fi
 
 # Make sure package.json exists and has Next.js
