@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin-config';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { auth } from '@/firebase/admin-config';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { extractTextFromExcel } from '@/utils/excelExtractor';
 import { extractTextFromPDF } from '@/utils/pdfExtractor';
+
+// Import optimized Firebase config and timeout middleware
+import { db, getDataWithCache } from '../../../../deploy-fix/firebase-config';
+import withTimeout, { processInChunks } from '../../../../deploy-fix/timeout-middleware';
 
 // Debug flag
 const DEBUG = process.env.NODE_ENV === 'development' || true;
@@ -12,7 +16,7 @@ const DEBUG = process.env.NODE_ENV === 'development' || true;
  * Process a document that has been uploaded to Firebase Storage
  * Extracts text and metadata based on document type
  */
-export async function POST(request: NextRequest) {
+async function handler(request: NextRequest) {
   try {
     console.log("Document processing API route called");
 
@@ -45,16 +49,12 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get document data from Firestore
-    const firestore = getFirestore();
-    const documentRef = firestore.collection('documents').doc(documentId);
-    const documentSnapshot = await documentRef.get();
+    // Get document data from Firestore using cached version
+    const documentData = await getDataWithCache('documents', documentId);
 
-    if (!documentSnapshot.exists) {
+    if (!documentData) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
-
-    const documentData = documentSnapshot.data();
 
     // Check if the user has access to this document
     if (documentData?.userId !== userId) {
@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update the document with extracted text
+    const documentRef = db.collection('documents').doc(documentId);
     await documentRef.update({
       extractedText: extractedText,
       processed: true,
@@ -145,3 +146,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Export with timeout wrapper - 30 second timeout for document processing
+export const POST = withTimeout(handler, 30000);
