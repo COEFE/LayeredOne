@@ -6,17 +6,34 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     // Handle only basic environment settings
     if (isServer) {
-      // Add any server-only externals if needed
+      // Add Firebase Admin as an external dependency to prevent bundling
       config.externals = [
         ...(config.externals || []),
+        'firebase-admin',
+        '@google-cloud/firestore',
+        '@google-cloud/storage'
       ];
       
-      // Resolve @google-cloud/firestore module correctly
-      config.resolve.alias = {
-        ...(config.resolve.alias || {}),
-        '@google-cloud/firestore/build/src/path': path.join(__dirname, 'src/utils/firebase-path-utils')
+      // Don't try to resolve the path module in webpack - we'll handle it with our custom implementation
+      if (config.resolve.alias) {
+        delete config.resolve.alias['@google-cloud/firestore/build/src/path'];
+      }
+      
+      // Fix modules that use Node.js-specific features
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false
       };
     }
+    
+    // Fix for PostCSS issues
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'autoprefixer': require.resolve('autoprefixer'),
+      'postcss': require.resolve('postcss'),
+    };
     
     return config;
   },
@@ -50,10 +67,17 @@ const nextConfig = {
   serverExternalPackages: [
     'xlsx',
     'firebase-admin',
+    '@firebase/app',
+    '@firebase/auth',
+    '@firebase/firestore',
+    '@firebase/storage',
     '@anthropic-ai/sdk',
     'pdf-parse',
     'pdf-parse-debugging-disabled',
-    '@google-cloud/firestore'
+    '@google-cloud/firestore',
+    '@google-cloud/storage',
+    'is-set',
+    'is-regexp'
   ],
   
   // Environment variables
