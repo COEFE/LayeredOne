@@ -3,7 +3,7 @@
   "buildCommand": "./fix-firebase-vercel.sh && node scripts/vercel-deploy.js && SIMPLE_PDF=true npm run build",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
-  "installCommand": "npm install --omit=optional --no-package-lock",
+  "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs",
   "regions": ["sfo1"],
   "env": {

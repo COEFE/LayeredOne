@@ -13,6 +13,10 @@ npm install firebase-admin@latest @google-cloud/firestore@latest @google-cloud/s
 echo "📦 Installing critical sub-dependencies..."
 npm install is-set is-regexp node-abort-controller sort-keys kind-of --save
 
+# Install Tailwind CSS and its dependencies
+echo "📦 Installing Tailwind CSS and its dependencies..."
+npm install tailwindcss@latest postcss@latest autoprefixer@latest --save
+
 # Create the folder structure for the missing path module
 echo "📁 Creating folder structure for path module..."
 mkdir -p node_modules/@google-cloud/firestore/build/src/path
@@ -115,6 +119,47 @@ class FirestoreDataConverter {
 module.exports = { FirestoreDataConverter };
 EOF
 
+# Ensure Tailwind CSS configuration files exist
+echo "📝 Ensuring Tailwind CSS configuration files exist..."
+
+# Check if tailwind.config.js exists, if not create it
+if [ ! -f tailwind.config.js ]; then
+  echo "Creating tailwind.config.js..."
+  cat > tailwind.config.js << 'EOF'
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+      },
+    },
+  },
+  plugins: [],
+}
+EOF
+fi
+
+# Check if postcss.config.js exists, if not create it
+if [ ! -f postcss.config.js ]; then
+  echo "Creating postcss.config.js..."
+  cat > postcss.config.js << 'EOF'
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+EOF
+fi
+
 # Create a special environment file for Next.js
 echo "📝 Creating .env.production file to ensure proper Firebase configuration..."
 cat > .env.production << 'EOF'
@@ -152,12 +197,37 @@ if (!dependencies['is-set']) {
 if (!dependencies['is-regexp']) {
   dependencies['is-regexp'] = '^2.1.0';
 }
+
+// Ensure Tailwind CSS dependencies
+if (!dependencies['tailwindcss']) {
+  dependencies['tailwindcss'] = '^3.3.0';
+}
+if (!dependencies['postcss']) {
+  dependencies['postcss'] = '^8.4.23';
+}
+if (!dependencies['autoprefixer']) {
+  dependencies['autoprefixer'] = '^10.4.14';
+}
+
 pkg.dependencies = dependencies;
 
 // Write the updated package.json
 fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
 "
 
-echo "✅ Firebase fix for Vercel completed!"
+# Create tailwindcss symlink if needed
+echo "📝 Ensuring tailwindcss module is accessible..."
+if [ ! -d "node_modules/tailwindcss" ] && [ -d "../tailwindcss" ]; then
+  echo "Creating symlink to tailwindcss in node_modules..."
+  ln -sf ../tailwindcss node_modules/tailwindcss
+fi
+
+# Run npx tailwindcss init to make sure tailwind is properly set up
+echo "📝 Initializing Tailwind CSS..."
+if [ -x "$(command -v npx)" ]; then
+  npx tailwindcss --help > /dev/null 2>&1 || echo "Tailwind CLI not found, but continuing anyway"
+fi
+
+echo "✅ Firebase and Tailwind CSS fix for Vercel completed!"
 echo "ℹ️ Now run the following command to deploy to Vercel:"
 echo "   npx vercel"
