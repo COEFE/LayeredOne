@@ -3,13 +3,23 @@ const nextConfig = {
   // Handle problematic modules that use browser-only APIs
   webpack: (config, { isServer }) => {
     // Exclude certain modules from SSR/static build
-    if (isServer || process.env.GITHUB_PAGES === 'true') {
+    if (isServer) {
+      // For Vercel and GitHub Pages: handle canvas-dependent modules
       config.externals = [...(config.externals || []), {
         'canvas': 'canvas',
-        // Add any other problematic modules here
+        'pdfjs-dist': 'pdfjs-dist',
         'react-pdf': 'react-pdf'
       }];
     }
+    
+    // For Vercel specifically: mock canvas module
+    if (process.env.VERCEL) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        canvas: false, // Mock the canvas module
+      };
+    }
+    
     return config;
   },
   // Disable ESLint in the build process
