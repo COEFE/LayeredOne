@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "node scripts/vercel-deploy.js && SIMPLE_PDF=true npm run build",
+  "buildCommand": "./fix-firebase-vercel.sh && node scripts/vercel-deploy.js && SIMPLE_PDF=true npm run build",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install --omit=optional --no-package-lock",
@@ -11,6 +11,8 @@
     "NEXT_TELEMETRY_DISABLED": "1",
     "VERCEL": "true",
     "NEXT_PUBLIC_VERCEL_DEPLOYMENT": "true",
+    "NEXT_PUBLIC_USE_REAL_FIREBASE": "true",
+    "FIREBASE_USE_PRODUCTION_CONFIG": "true",
     "SIMPLE_PDF": "true"
   },
   "cleanUrls": true,
