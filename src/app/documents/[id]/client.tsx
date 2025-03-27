@@ -110,7 +110,9 @@ export default function DocumentClientPage({ id }: { id: string }) {
         </div>
         <div className="mt-2 flex justify-between items-center">
           <div className="text-sm text-blue-700">
-            {new Date(document.createdAt?.toDate()).toLocaleString()}
+            {document.createdAt && typeof document.createdAt.toDate === 'function' 
+              ? new Date(document.createdAt.toDate()).toLocaleString() 
+              : new Date(document.createdAt).toLocaleString()}
             <span className="mx-2">•</span>
             {(document.size / 1024 / 1024).toFixed(2)} MB
             {document.extractedText && (

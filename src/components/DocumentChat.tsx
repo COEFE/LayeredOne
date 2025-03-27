@@ -507,7 +507,7 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
                     </div>
                     {message.createdAt && !compactMode && (
                       <div className={`text-right text-xs mt-1 ${message.role === 'user' ? 'text-blue-200' : 'text-gray-400'}`}>
-                        {message.createdAt.toDate ? 
+                        {message.createdAt && typeof message.createdAt.toDate === 'function' ? 
                           new Date(message.createdAt.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 
                           ''}
                       </div>
