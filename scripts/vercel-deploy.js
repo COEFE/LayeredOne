@@ -1,5 +1,5 @@
 // This script modifies package.json for Vercel deployment
-// to remove problematic dependencies like PDF libraries
+// to remove problematic dependencies like PDF libraries and UI components that cause issues
 const fs = require('fs');
 const path = require('path');
 
@@ -23,7 +23,8 @@ console.log('📦 Original package.json saved as package.json.bak');
 const problematicDeps = [
   'react-pdf',
   'pdfjs-dist', 
-  '@react-pdf/renderer'
+  '@react-pdf/renderer',
+  'react-icons' // Added react-icons to the list of problematic dependencies
 ];
 
 // Filter out the problematic dependencies

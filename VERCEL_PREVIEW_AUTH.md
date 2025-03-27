@@ -1,109 +1,69 @@
-# Handling Firebase Authentication with Vercel Preview Deployments
+# Vercel Deployment Troubleshooting Guide
 
-This document explains how to handle Firebase Authentication with dynamic Vercel preview deployments.
+## Creating a New Vercel Project
 
-## The Challenge
+If you're experiencing persistent deployment issues with Vercel, follow these steps to create a new Vercel project:
 
-Vercel generates unique URLs for each preview deployment (e.g., `project-name-git-branch-username.vercel.app`). 
-Firebase Authentication requires all domains to be explicitly authorized in the Firebase Console.
+1. Go to the [Vercel Dashboard](https://vercel.com/dashboard)
+2. Click "Add New" → "Project"
+3. Import your GitHub repository (LayeredOne)
+4. Configure the following settings:
+   - Framework Preset: **Next.js**
+   - Build Command: `SIMPLE_PDF=true npm run build`
+   - Output Directory: `.next`
+   - Environment Variables:
+     - `NEXT_PUBLIC_VERCEL_DEPLOYMENT`: `true`
+     - `NODE_ENV`: `production`
 
-This creates a conflict: 
-- You can't pre-authorize Vercel preview URLs because they're dynamically generated
-- Firebase rejects authentication requests from unauthorized domains
+5. Click "Deploy"
 
-## Solutions
+## Current Troubleshooting Approach
 
-### Short-term solution
+The application employs several strategies to ensure compatibility with Vercel's serverless environment:
 
-For each Vercel preview deployment:
+1. **Dependency Management**:
+   - The `scripts/vercel-deploy.js` script automatically removes problematic dependencies during build:
+     - PDF-related libraries (`react-pdf`, `pdfjs-dist`, `@react-pdf/renderer`)
+     - UI component libraries with compilation issues (`react-icons`)
 
-1. When deploying, note the preview URL Vercel generates
-2. Go to [Firebase Console](https://console.firebase.google.com/) > Select your project
-3. Go to Authentication > Settings > Authorized Domains
-4. Add the specific preview URL domain (e.g., `project-name-git-branch-username.vercel.app`)
-5. Wait a few minutes for the changes to propagate
-6. Test authentication on the preview URL
+2. **PDF Viewer Implementation**:
+   - Uses an ultra-minimal HTML5-based PDF viewer on Vercel deployments
+   - No external dependencies, just relies on browser's built-in PDF rendering capabilities
+   - Falls back to download link if viewing fails
 
-### Medium-term solution
+3. **Environment Detection**:
+   - Uses `NEXT_PUBLIC_VERCEL_DEPLOYMENT` environment variable to conditionally load components
+   - Different component implementations for different environments (Vercel vs. non-Vercel)
 
-Use a fixed custom domain for all preview deployments:
+4. **Build Configuration**:
+   - Uses `SIMPLE_PDF=true` flag to trigger simplified builds
+   - Externalized problematic packages in webpack configuration
+   - Disabled ESLint and TypeScript checking during build to bypass non-critical errors
 
-1. Configure a custom domain in Vercel (e.g., `preview.yourdomain.com`)
-2. Set up the DNS records as instructed by Vercel
-3. Configure Vercel to use this domain for all preview deployments
-4. Add `preview.yourdomain.com` to Firebase's authorized domains list
-5. All preview deployments will now use this authorized domain
+## Authentication in Vercel Preview Deployments
 
-### Long-term solution
+When using Vercel preview deployments, you need to configure Firebase Authentication to allow the Vercel preview URLs:
 
-Create separate Firebase projects for different environments:
+1. Go to the [Firebase Console](https://console.firebase.google.com/)
+2. Navigate to Authentication → Settings → Authorized Domains
+3. Add your Vercel preview URLs (e.g., `layered-one-git-main-your-username.vercel.app`)
 
-1. Create separate Firebase projects for:
-   - Production
-   - Staging/QA
-   - Development
-   
-2. Configure each environment with the appropriate authentication domains
-   - Production: `yourapp.com`
-   - Staging: `staging.yourapp.com`
-   - Development: `localhost`, `dev.yourapp.com`, etc.
-   
-3. Use environment variables to select the correct Firebase config based on the deployment environment
+Without this configuration, Firebase Authentication will block sign-in attempts from preview deployments.
 
-## Implementation Notes
+## Additional Troubleshooting
 
-In this application, we have implemented the following approach:
+If you continue to experience issues:
 
-1. Dynamic domain detection in `src/firebase/config.ts`:
-   ```javascript
-   // Dynamically set authDomain based on environment
-   if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
-     firebaseConfig.authDomain = window.location.hostname;
-   }
-   ```
+- Check the Vercel build logs for specific error messages
+- Test locally with `SIMPLE_PDF=true npm run build` to simulate Vercel build
+- Consider creating a minimal reproduction of the issue in a separate repository
+- Review Vercel's [Troubleshooting Guide](https://vercel.com/docs/concepts/deployments/troubleshooting) for common issues
 
-2. Enhanced error messaging in `src/context/AuthContext.tsx` that:
-   - Detects Vercel preview URLs
-   - Provides clear error messages for unauthorized domains
-   - Logs detailed troubleshooting steps in the console
+## Contact Support
 
-3. Custom client-side navigation in authentication pages to avoid React Server Components issues:
-   ```javascript
-   <a 
-     href="/login" 
-     onClick={(e) => {
-       e.preventDefault();
-       window.location.href = "/login";
-     }}
-     className="text-blue-500 hover:text-blue-600"
-   >
-     Log in
-   </a>
-   ```
+If you've tried the steps above and still encounter issues, please:
 
-## Common Issues
-
-### "auth/unauthorized-domain" error
-
-This error occurs when Firebase rejects authentication from an unauthorized domain.
-
-**Solution:** Add the domain to Firebase Console > Authentication > Settings > Authorized Domains.
-
-### "auth/popup-blocked" error
-
-This error occurs when the browser blocks the authentication popup.
-
-**Solution:** Users should allow popups from your domain, or you can implement a fallback to redirect authentication.
-
-### 404 errors after authentication
-
-This can happen if React Server Components navigation is used with authentication.
-
-**Solution:** Use client-side navigation with `window.location.href` instead of Next.js `<Link>` components for authentication flows.
-
-## Best Practices
-
-1. Always test authentication on both production and preview deployments
-2. Log authentication errors clearly for users with actionable steps
-3. Consider using a fixed domain strategy for preview environments
-4. Keep authorized domains list up to date in Firebase Console
+1. Gather the complete build logs from Vercel
+2. Note any error messages or warnings
+3. Document the steps you've taken to troubleshoot
+4. File an issue in the GitHub repository or contact Vercel support

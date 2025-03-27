@@ -1,9 +1,9 @@
 'use client';
-// Minimal PDF Viewer without any external dependencies
+// Ultra Minimal PDF Viewer without any external dependencies
 // Uses browser's built-in PDF viewing capabilities
 
 import React from 'react';
-import { FiDownload, FiExternalLink } from 'react-icons/fi';
+// Removed react-icons dependency
 
 interface PDFViewerMinimalProps {
   fileUrl: string;
@@ -23,7 +23,7 @@ const PDFViewerMinimal: React.FC<PDFViewerMinimalProps> = ({ fileUrl, fileName }
             rel="noopener noreferrer"
             className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm font-medium flex items-center"
           >
-            <FiExternalLink className="mr-1.5" />
+            <span className="mr-1.5">↗</span>
             Open in New Tab
           </a>
           
@@ -32,7 +32,7 @@ const PDFViewerMinimal: React.FC<PDFViewerMinimalProps> = ({ fileUrl, fileName }
             download={fileName}
             className="px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm font-medium flex items-center"
           >
-            <FiDownload className="mr-1.5" />
+            <span className="mr-1.5">↓</span>
             Download PDF
           </a>
         </div>
