@@ -147,9 +147,26 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// Initialize Firebase only if not already initialized
+// Initialize Firebase only if not already initialized with improved error handling
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+// Configure Auth with custom settings for better reliability
 const auth = getAuth(app);
+
+// Apply additional settings to make auth more resilient
+if (typeof window !== 'undefined') {
+  // Set longer timeout for auth operations (10 seconds)
+  (auth as any)._networkTimeout = 10000;
+  
+  // Add connection status monitoring
+  window.addEventListener('online', () => {
+    console.log('Network connection restored. Firebase services should resume.');
+  });
+  
+  window.addEventListener('offline', () => {
+    console.warn('Network connection lost. Firebase services may be unavailable.');
+  });
+}
 
 // Create safer versions of Firebase services with error handling
 let db;

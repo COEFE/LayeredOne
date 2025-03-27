@@ -102,13 +102,63 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
+  // Helper function to retry auth operations with exponential backoff
+  const retryOperation = async (operation: () => Promise<any>, maxRetries = 3): Promise<any> => {
+    let lastError;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Try the operation
+        return await operation();
+      } catch (err: any) {
+        console.log(`Authentication attempt ${attempt + 1} failed:`, err.code);
+        lastError = err;
+        
+        // Only retry network errors, don't retry auth errors like wrong password
+        if (err.code !== 'auth/network-request-failed') {
+          throw err;
+        }
+        
+        // If not the last attempt, wait before retrying
+        if (attempt < maxRetries - 1) {
+          // Exponential backoff: 1s, 2s, 4s, ...
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    // If we got here, all attempts failed
+    throw lastError;
+  };
+  
   const signIn = async (email: string, password: string) => {
     try {
       setError(null);
-      await signInWithEmailAndPassword(auth, email, password);
+      
+      // Use the retry mechanism
+      await retryOperation(
+        () => signInWithEmailAndPassword(auth, email, password),
+        3 // maximum 3 attempts
+      );
+      
+      console.log('Sign in successful');
     } catch (err: any) {
       console.error('Sign in error:', err);
-      setError(err.message);
+      
+      // Provide more user-friendly error messages
+      if (err.code === 'auth/network-request-failed') {
+        setError('Network connection error. Please check your internet connection and try again.');
+      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        setError('Invalid email or password. Please check your credentials.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many unsuccessful login attempts. Please try again later or reset your password.');
+      } else if (err.code === 'auth/user-disabled') {
+        setError('This account has been disabled. Please contact support.');
+      } else {
+        setError(err.message || 'An error occurred during sign in.');
+      }
+      
       throw err;
     }
   };
@@ -116,10 +166,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (email: string, password: string) => {
     try {
       setError(null);
-      await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Use the retry mechanism
+      await retryOperation(
+        () => createUserWithEmailAndPassword(auth, email, password),
+        3 // maximum 3 attempts
+      );
+      
+      console.log('Sign up successful');
     } catch (err: any) {
       console.error('Sign up error:', err);
-      setError(err.message);
+      
+      // Provide user-friendly error messages
+      if (err.code === 'auth/network-request-failed') {
+        setError('Network connection error. Please check your internet connection and try again.');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('This email is already registered. Please use a different email or try logging in.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password is too weak. Please use a stronger password.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Invalid email address. Please check the email format.');
+      } else {
+        setError(err.message || 'An error occurred during sign up.');
+      }
+      
       throw err;
     }
   };
@@ -127,10 +197,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     try {
       setError(null);
-      await signOut(auth);
+      
+      // Use the retry mechanism
+      await retryOperation(
+        () => signOut(auth),
+        3 // maximum 3 attempts
+      );
+      
+      console.log('Logout successful');
     } catch (err: any) {
       console.error('Logout error:', err);
-      setError(err.message);
+      setError('Error signing out. Please try again.');
       throw err;
     }
   };
@@ -160,7 +237,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log("Recommended authorized domains:", getRecommendedAuthorizedDomains());
       }
       
-      await signInWithPopup(auth, provider);
+      // Use the retry mechanism for Google sign-in
+      await retryOperation(
+        () => signInWithPopup(auth, provider),
+        2 // maximum 2 attempts for popup-based operations
+      );
+      
+      console.log('Google sign-in successful');
     } catch (err: any) {
       console.error('Google sign in error:', err);
       
@@ -209,8 +292,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Multiple popup requests - not a critical error
         setError('Authentication process was interrupted. Please try again.');
       } else if (err.code === 'auth/network-request-failed') {
-        // Network issues
-        setError('Network error during authentication. Please check your internet connection and try again.');
+        // Network issues - suggest alternatives
+        setError('Network error during authentication. Please check your internet connection and try again. You can also try using email login instead.');
+        console.warn('Network request failed during Google sign-in. This may be due to network connectivity issues, firewall settings, or CORS configuration.');
       } else if (err.code === 'auth/invalid-credential') {
         // Invalid credentials (commonly occurs with expired tokens or credential issues)
         setError('Authentication failed. Please try again or use a different sign-in method.');
@@ -231,11 +315,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
-      const token = await auth.currentUser.getIdToken(forceRefresh);
+      // Use retry mechanism for token fetching
+      const token = await retryOperation(
+        () => auth.currentUser!.getIdToken(forceRefresh),
+        3 // maximum 3 attempts
+      );
+      
+      // Cache the token in localStorage for API requests
       localStorage.setItem('authToken', token);
       return token;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting token:', error);
+      
+      // Only set error state if this is a network error (not a token refresh during api call)
+      if (error.code === 'auth/network-request-failed') {
+        setError('Network error while refreshing authentication. Please check your connection and try again.');
+      }
+      
       return null;
     }
   };
