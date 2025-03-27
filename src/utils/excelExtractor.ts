@@ -7,6 +7,93 @@
 import * as XLSX from 'xlsx';
 
 /**
+ * Extract text content from an Excel file for Claude AI processing
+ * @param buffer The Excel file buffer
+ * @returns A formatted string representation of the Excel content
+ */
+export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
+  try {
+    console.log('Extracting text content from Excel file for Claude AI...');
+    
+    // Parse the Excel file with optimized options
+    const workbook = XLSX.read(buffer, { 
+      type: 'buffer',
+      cellDates: true,
+      cellNF: false,
+      cellStyles: true,
+      WTF: false,
+    });
+    
+    // Get information about all sheets
+    const sheetInfo = workbook.SheetNames.map(name => {
+      const worksheet = workbook.Sheets[name];
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      return {
+        name,
+        rowCount: range.e.r + 1,
+        columnCount: range.e.c + 1
+      };
+    });
+    
+    // Build a comprehensive text representation of the Excel file
+    let extractedText = `EXCEL DOCUMENT\n\n`;
+    
+    // Add document overview
+    extractedText += `This Excel document contains ${workbook.SheetNames.length} sheet(s):\n`;
+    workbook.SheetNames.forEach(sheetName => {
+      const sheet = sheetInfo.find(s => s.name === sheetName);
+      extractedText += `- ${sheetName}: ${sheet?.rowCount || 0} rows x ${sheet?.columnCount || 0} columns\n`;
+    });
+    extractedText += '\n';
+    
+    // Process each sheet
+    for (const sheetName of workbook.SheetNames) {
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Convert sheet to array of arrays (2D array)
+      const data = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1,
+        defval: '',
+        blankrows: true
+      }) as any[][];
+      
+      extractedText += `SHEET: ${sheetName}\n\n`;
+      
+      // Create a compact representation of the table with cell references
+      const nonEmptyRows = data.filter(row => row.some(cell => cell !== ''));
+      
+      // Limit to a reasonable number of rows/cols for Claude's context
+      const maxRows = Math.min(nonEmptyRows.length, 500);
+      const maxCols = Math.min(
+        Math.max(...nonEmptyRows.map(row => row.length)),
+        50
+      );
+      
+      // Add cell references and values in a readable format
+      for (let rowIdx = 0; rowIdx < maxRows; rowIdx++) {
+        const row = nonEmptyRows[rowIdx] || [];
+        for (let colIdx = 0; colIdx < maxCols; colIdx++) {
+          if (colIdx < row.length && row[colIdx] !== '') {
+            // Convert column index to letter (0=A, 1=B, etc.)
+            const colLetter = XLSX.utils.encode_col(colIdx);
+            const cellRef = `${colLetter}${rowIdx + 1}`;
+            extractedText += `${cellRef}: ${row[colIdx]}\n`;
+          }
+        }
+      }
+      
+      extractedText += '\n';
+    }
+    
+    console.log(`Excel text extraction complete: ${extractedText.length} characters`);
+    return extractedText;
+  } catch (error) {
+    console.error('Error extracting text from Excel:', error);
+    return 'Error extracting Excel content: ' + (error instanceof Error ? error.message : String(error));
+  }
+}
+
+/**
  * Extract data from an Excel file as a 2D array
  * @param buffer The Excel file buffer
  * @param sheetName Optional sheet name to extract (extracts the first sheet if not specified)
