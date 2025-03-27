@@ -2,7 +2,7 @@
  * Excel Editor Utility
  * 
  * This utility provides functions to modify Excel spreadsheets (.xlsx, .xls) using the xlsx library.
- * It allows for cell editing and other spreadsheet modifications.
+ * It allows for cell editing and other spreadsheet modifications with enhanced Claude 3.7 parsing capabilities.
  */
 import * as XLSX from 'xlsx';
 
@@ -371,6 +371,7 @@ export async function updateColumn(
 
 /**
  * Parse natural language edit instruction to extract cell references and values
+ * Enhanced to handle Claude 3.7 outputs
  * @param instruction Natural language instruction describing the edit
  * @returns An object with sheet, cell, and value properties if the instruction can be parsed
  */
@@ -400,10 +401,10 @@ export function parseEditInstruction(instruction: string): { sheet?: string, cel
     // match[5]: numeric value
     // match[6]: unquoted text value
     const value = match[2] !== undefined ? match[2] : 
-                match[3] !== undefined ? match[3] : 
-                match[4] !== undefined ? match[4] : 
-                match[5] !== undefined ? match[5] : 
-                match[6] !== undefined ? match[6] : '';
+               match[3] !== undefined ? match[3] : 
+               match[4] !== undefined ? match[4] : 
+               match[5] !== undefined ? match[5] : 
+               match[6] !== undefined ? match[6] : '';
     
     console.log("Extracted cell:", match[1].toUpperCase());
     console.log("Extracted value:", value);
@@ -659,4 +660,76 @@ export function analyzeEditRequest(editRequest: string): {
       value: parsedEdit.value
     }]
   };
+}
+
+/**
+ * Process multiple edits from a Claude 3.7 response
+ * @param response The full text response from Claude 3.7
+ * @returns Array of edit operations or null if no edits were found
+ */
+export function processClaudeResponse(response: string): Array<{sheet: string, cell: string, value: any}> | null {
+  // Split the response into lines to detect multiple edits
+  const lines = response.split('\n');
+  const edits: Array<{sheet: string, cell: string, value: any}> = [];
+  
+  // Process each line for potential edit instructions
+  for (const line of lines) {
+    const parsedEdit = parseEditInstruction(line.trim());
+    if (parsedEdit && parsedEdit.cell && parsedEdit.value) {
+      edits.push({
+        sheet: parsedEdit.sheet || 'Sheet1',
+        cell: parsedEdit.cell,
+        value: parsedEdit.value
+      });
+    }
+  }
+  
+  return edits.length > 0 ? edits : null;
+}
+
+/**
+ * Handle a natural language Excel editing request with Claude 3.7
+ * @param buffer The Excel file buffer to modify
+ * @param editRequest The natural language edit request from the user
+ * @param claudeResponse The response from Claude 3.7
+ * @returns A new buffer with the modified Excel file and summary of changes
+ */
+export async function handleClaudeExcelEdit(
+  buffer: Buffer,
+  editRequest: string,
+  claudeResponse: string
+): Promise<{buffer: Buffer, summary: string}> {
+  try {
+    // First try to process the Claude response to extract edits
+    let edits = processClaudeResponse(claudeResponse);
+    
+    // If no edits found in the response, try to analyze the original request
+    if (!edits || edits.length === 0) {
+      const editPlan = analyzeEditRequest(editRequest);
+      if (editPlan) {
+        edits = editPlan.edits;
+      }
+    }
+    
+    // If still no edits found, return an error
+    if (!edits || edits.length === 0) {
+      throw new Error('Could not determine any valid Excel edits from the request or response');
+    }
+    
+    // Apply the edits to the Excel file
+    const newBuffer = await editExcelFile(buffer, edits);
+    
+    // Create a summary of the changes
+    const editSummary = edits.map(edit => 
+      `Changed ${edit.cell} in "${edit.sheet}" to ${typeof edit.value === 'string' && edit.value.startsWith('=') ? 'formula' : 'value'} "${edit.value}"`
+    ).join('\n');
+    
+    return {
+      buffer: newBuffer,
+      summary: `Applied ${edits.length} edit${edits.length > 1 ? 's' : ''}:\n${editSummary}`
+    };
+  } catch (error) {
+    console.error('Error handling Claude Excel edit:', error);
+    throw error;
+  }
 }

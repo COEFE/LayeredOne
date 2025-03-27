@@ -1,263 +1,412 @@
 /**
- * Excel Text Extraction Utility
+ * Excel Data Extractor Utility
  * 
- * This utility extracts text content from Excel spreadsheets (.xlsx, .xls) using the xlsx library.
- * It includes A1 cell references to help identify specific cells in the spreadsheet.
+ * This utility provides functions to extract data from Excel spreadsheets (.xlsx, .xls)
+ * using the xlsx library, optimized for use with Claude AI for analysis and editing.
  */
 import * as XLSX from 'xlsx';
 
 /**
- * Convert a column index to Excel column letter (e.g., 0 -> A, 25 -> Z, 26 -> AA)
- * @param columnIndex The 0-based column index
- * @returns The Excel column letter(s)
+ * Extract data from an Excel file as a 2D array
+ * @param buffer The Excel file buffer
+ * @param sheetName Optional sheet name to extract (extracts the first sheet if not specified)
+ * @returns A 2D array of the sheet data
  */
-function getColumnLetter(columnIndex: number): string {
-  let columnLetter = '';
-  let temp = columnIndex;
-  
-  while (temp >= 0) {
-    columnLetter = String.fromCharCode(65 + (temp % 26)) + columnLetter;
-    temp = Math.floor(temp / 26) - 1;
-  }
-  
-  return columnLetter;
-}
-
-/**
- * Get the A1 cell reference for a given row and column index
- * @param rowIndex The 0-based row index
- * @param columnIndex The 0-based column index
- * @returns The A1 cell reference (e.g., "A1", "B2", "AA10")
- */
-function getCellReference(rowIndex: number, columnIndex: number): string {
-  return `${getColumnLetter(columnIndex)}${rowIndex + 1}`;
-}
-
-/**
- * Extract text content from an Excel buffer with cell references
- * @param buffer The file buffer containing Excel data
- * @returns A formatted string representation of the Excel data with cell references
- */
-export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
+export function extractExcelData(buffer: Buffer, sheetName?: string): any[][] {
   try {
-    // Parse the Excel file from buffer with additional options for larger sheets
+    console.log(`Extracting Excel data${sheetName ? ` from sheet "${sheetName}"` : ''}`);
+    
+    // Parse the Excel file - with enhanced options for better data extraction
     const workbook = XLSX.read(buffer, { 
       type: 'buffer',
-      cellFormula: true,   // parse and include formulas
-      cellNF: true,        // parse number formats
-      cellStyles: true,    // include cell styles
-      rawNumbers: false    // convert raw numbers to strings
+      cellDates: true, // Convert date values to JavaScript Date objects
+      cellNF: false,   // Don't parse number formats (better performance)
+      cellStyles: true, // Keep cell styles for better representation
+      WTF: false,      // Don't show formulae (better for Claude)
     });
     
-    // Initialize text extraction result
-    let extractedText = '';
+    console.log(`Available sheets: ${workbook.SheetNames.join(', ')}`);
     
-    // Process each sheet in the workbook
-    workbook.SheetNames.forEach((sheetName) => {
-      const worksheet = workbook.Sheets[sheetName];
-      
-      // Get the sheet range - expand range if necessary
-      let range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-      
-      // Add sheet name as a header
-      extractedText += `## Sheet: ${sheetName}\n\n`;
-      extractedText += `Range: ${worksheet['!ref'] || 'A1'}\n\n`;
-      
-      // Add raw cell listing first as it's the most reliable method
-      extractedText += `## Complete Cell Listing for Sheet "${sheetName}":\n\n`;
-      
-      // List all non-empty cells with their references
-      const cellAddresses = Object.keys(worksheet)
-        .filter(key => key !== '!ref' && key !== '!margins' && !key.startsWith('!'));
-      
-      if (cellAddresses.length > 0) {
-        // Find the maximum column and row to ensure we have the complete range
-        let maxCol = 0;
-        let maxRow = 0;
-        
-        cellAddresses.forEach(addr => {
-          const cellRef = XLSX.utils.decode_cell(addr);
-          maxCol = Math.max(maxCol, cellRef.c);
-          maxRow = Math.max(maxRow, cellRef.r);
-        });
-        
-        // Update range if larger cells were found
-        if (maxCol > range.e.c || maxRow > range.e.r) {
-          range.e.c = Math.max(range.e.c, maxCol);
-          range.e.r = Math.max(range.e.r, maxRow);
-          console.log(`Expanded range to include all cells: ${XLSX.utils.encode_range(range)}`);
-        }
-        
-        // Group cells by row for better organization
-        const rowGroups: {[key: number]: string[]} = {};
-        
-        cellAddresses.forEach(addr => {
-          const cellRef = XLSX.utils.decode_cell(addr);
-          const cellValue = XLSX.utils.format_cell(worksheet[addr]);
-          const rowNum = cellRef.r + 1; // Convert to 1-based
-          
-          if (!rowGroups[rowNum]) {
-            rowGroups[rowNum] = [];
-          }
-          
-          rowGroups[rowNum].push(`Cell ${addr}: ${cellValue}`);
-        });
-        
-        // Output cells grouped by row
-        const rows = Object.keys(rowGroups).map(Number).sort((a, b) => a - b);
-        
-        rows.forEach(rowNum => {
-          extractedText += `Row ${rowNum}:\n`;
-          rowGroups[rowNum].sort(); // Sort cells within row alphabetically
-          rowGroups[rowNum].forEach(cell => {
-            extractedText += `- ${cell}\n`;
-          });
-          extractedText += '\n';
-        });
-      } else {
-        extractedText += 'No data cells found in this sheet.\n\n';
-      }
-      
-      // Only show full grid for reasonable sized sheets (limit to 50x26 for readability)
-      if (range.e.r < 50 && range.e.c < 26) {
-        extractedText += '\n## Grid View (Column/Row Format):\n\n';
-        
-        // Add a row with column headers (A, B, C, etc.)
-        extractedText += '| Cell Ref | ';
-        for (let c = 0; c <= range.e.c; c++) {
-          extractedText += `Column ${getColumnLetter(c)} | `;
-        }
-        extractedText += '\n';
-        
-        // Add separator row
-        extractedText += '| --- | ';
-        for (let c = 0; c <= range.e.c; c++) {
-          extractedText += '--- | ';
-        }
-        extractedText += '\n';
-        
-        // Process each row
-        for (let r = 0; r <= range.e.r; r++) {
-          // Add row number
-          extractedText += `| Row ${r + 1} | `;
-          
-          // Process each cell in the row
-          for (let c = 0; c <= range.e.c; c++) {
-            const cellRef = getCellReference(r, c);
-            const cell = worksheet[cellRef];
-            
-            // Get formatted cell value or empty string
-            const cellValue = cell ? XLSX.utils.format_cell(cell) : '';
-            
-            // Add cell value with its reference in a comment
-            extractedText += `${cellValue} (${cellRef}) | `;
-          }
-          
-          extractedText += '\n';
-        }
-      } else {
-        extractedText += '\n## Grid View Omitted (Sheet too large)\n';
-        extractedText += `This sheet has ${range.e.r + 1} rows and ${range.e.c + 1} columns, which is too large to display as a grid.\n`;
-        extractedText += 'Please refer to the complete cell listing above or use specific cell references in your queries.\n\n';
-      }
-      
-      // Add a more traditional tabular representation using the JSON data
-      extractedText += '\n## Tabular Data View:\n\n';
-      
-      // Convert sheet to JSON for tabular display with all options for max compatibility
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-        header: 1,
-        raw: false,
-        defval: '',
-        blankrows: true
-      });
-      
-      if (jsonData.length > 0) {
-        // Get the headers (first row)
-        const headers = jsonData[0] as any[];
-        if (headers && headers.length > 0) {
-          // Add column headers with letters
-          extractedText += '| Cell | ' + headers.map((h, idx) => 
-            `${getColumnLetter(idx)}: ${String(h || '')}`).join(' | ') + ' |\n';
-          
-          // Add separator row
-          extractedText += '| --- | ' + headers.map(() => '---').join(' | ') + ' |\n';
-          
-          // Add data rows with row numbers (limit to 100 rows for readability)
-          const maxRows = Math.min(jsonData.length, 100);
-          for (let i = 1; i < maxRows; i++) {
-            const row = jsonData[i] as any[];
-            if (row) {
-              // Create row with row number prefix
-              let rowContent = `| Row ${i + 1} | `;
-              for (let j = 0; j < headers.length; j++) {
-                const cellRef = getCellReference(i, j);
-                const cellValue = j < row.length ? String(row[j] || '') : '';
-                rowContent += `${cellValue} [${cellRef}] | `;
-              }
-              extractedText += rowContent.trim() + '\n';
-            }
-          }
-          
-          // Note if rows were truncated
-          if (jsonData.length > 100) {
-            extractedText += '\n*Note: Table truncated to 100 rows for readability. See complete cell listing for all data.*\n';
-          }
-        } else {
-          // Special case for empty sheets or non-tabular data
-          extractedText += 'Sheet appears to be empty or does not contain tabular data.\n';
-        }
-      } else {
-        extractedText += 'Empty sheet\n';
-      }
-
-      // Add spacing between sheets
-      extractedText += '\n\n';
-    });
+    // Determine which sheet to extract
+    const targetSheet = sheetName && workbook.SheetNames.includes(sheetName)
+      ? sheetName
+      : workbook.SheetNames[0];
     
-    // Add comprehensive usage guide and advanced analysis capabilities at the end
-    extractedText += `
-## How to Reference Cells
-
-When referring to specific cells in your queries, use the standard Excel cell reference notation:
-- Column letters followed by row numbers (e.g., A1, B5, C10)
-- Cells are referenced as [COLUMN][ROW] (e.g., A1 is column A, row 1)
-- Columns are lettered: A, B, C, ... , Z, AA, AB, etc.
-- Rows are numbered starting from 1
-
-## Editing Instructions
-
-You can edit this spreadsheet! Use any of these formats:
-- "Change cell A1 to 'Sales Report'"
-- "Set cell B5 to 500"
-- "Update cell C7 to '=SUM(C1:C6)'" (for formulas)
-- "Add a new row with values: John, 35, Manager" 
-- "I need to correct the value in D12 to 78.5%"
-
-## Analysis Capabilities
-
-You can request advanced analysis of this data:
-- "Provide a summary of this spreadsheet"
-- "What are the key trends in this data?"
-- "Extract all entities (people, organizations, dates) from this document"
-- "Calculate statistics for column B"
-- "Generate 3 insights about this data"
-- "Compare the values between columns C and D"
-- "What's the highest value in row 5?"
-`;
+    console.log(`Extracting from sheet "${targetSheet}"`);
     
-    return extractedText.trim();
+    // Get the worksheet
+    const worksheet = workbook.Sheets[targetSheet];
+    
+    // Convert to 2D array with better parsing options
+    const data = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,          // Return an array of arrays
+      defval: null,       // Default value for empty cells
+      rawNumbers: false,  // Keep formatted numbers
+      dateNF: 'yyyy-mm-dd', // Date format
+    }) as any[][];
+    
+    console.log(`Extracted ${data.length} rows of data`);
+    return data;
   } catch (error) {
-    console.error('Error extracting text from Excel:', error);
-    return `Error extracting text from Excel file: ${error instanceof Error ? error.message : String(error)}`;
+    console.error('Error extracting Excel data:', error);
+    throw error;
   }
 }
 
 /**
- * Process an Excel file and extract meaningful text representation with cell references
- * @param buffer The file buffer
- * @returns Formatted text content from the Excel file with cell references
+ * Extract structured data from an Excel file, including column headers
+ * @param buffer The Excel file buffer
+ * @param sheetName Optional sheet name to extract (extracts the first sheet if not specified)
+ * @returns An object with headers and rows properties
  */
-export async function processExcelFile(buffer: Buffer): Promise<string> {
-  return extractTextFromExcel(buffer);
+export function extractStructuredExcelData(buffer: Buffer, sheetName?: string): {
+  headers: string[];
+  rows: any[][];
+  sheetName: string;
+} {
+  try {
+    // Parse the Excel file with enhanced options
+    const workbook = XLSX.read(buffer, { 
+      type: 'buffer',
+      cellDates: true,
+      cellNF: false,
+      cellStyles: true,
+      WTF: false,
+    });
+    
+    // Determine which sheet to extract
+    const targetSheet = sheetName && workbook.SheetNames.includes(sheetName)
+      ? sheetName
+      : workbook.SheetNames[0];
+    
+    console.log(`Extracting structured data from sheet "${targetSheet}"`);
+    
+    // Get the worksheet
+    const worksheet = workbook.Sheets[targetSheet];
+    
+    // Convert to array of objects with better parsing options
+    const data = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      defval: null,
+      rawNumbers: false,
+      dateNF: 'yyyy-mm-dd',
+    }) as any[][];
+    
+    // Separate headers and rows
+    const headers = data.length > 0 ? data[0].map(h => h?.toString() || '') : [];
+    const rows = data.slice(1);
+    
+    console.log(`Extracted ${headers.length} columns and ${rows.length} data rows`);
+    
+    return {
+      headers,
+      rows,
+      sheetName: targetSheet
+    };
+  } catch (error) {
+    console.error('Error extracting structured Excel data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Extract sheet information from an Excel file
+ * @param buffer The Excel file buffer
+ * @returns An array of sheet names and properties
+ */
+export function getExcelSheetInfo(buffer: Buffer): Array<{
+  name: string;
+  rowCount: number;
+  columnCount: number;
+  hasMergedCells: boolean;
+  hasFormulas: boolean;
+}> {
+  try {
+    console.log('Extracting Excel sheet information');
+    
+    // Parse the Excel file
+    const workbook = XLSX.read(buffer, { 
+      type: 'buffer',
+      cellDates: true,
+      cellNF: false,
+      cellStyles: true,
+      WTF: false,
+    });
+    
+    // Get info for each sheet
+    const sheetInfo = workbook.SheetNames.map(name => {
+      const worksheet = workbook.Sheets[name];
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      
+      // Check for merged cells
+      const mergedCells = worksheet['!merges'] && worksheet['!merges'].length > 0;
+      
+      // Check for formulas
+      let hasFormulas = false;
+      Object.keys(worksheet).forEach(key => {
+        if (key[0] !== '!' && worksheet[key].f) {
+          hasFormulas = true;
+        }
+      });
+      
+      return {
+        name,
+        rowCount: range.e.r + 1,
+        columnCount: range.e.c + 1,
+        hasMergedCells: mergedCells,
+        hasFormulas
+      };
+    });
+    
+    console.log(`Extracted info for ${sheetInfo.length} sheets`);
+    return sheetInfo;
+  } catch (error) {
+    console.error('Error getting Excel sheet info:', error);
+    throw error;
+  }
+}
+
+/**
+ * Extract a specific cell value from an Excel file
+ * @param buffer The Excel file buffer
+ * @param sheetName The sheet name
+ * @param cellReference The A1-style cell reference (e.g., "A1", "B5")
+ * @returns The cell value
+ */
+export function getExcelCellValue(buffer: Buffer, sheetName: string, cellReference: string): any {
+  try {
+    console.log(`Extracting cell ${cellReference} from sheet "${sheetName}"`);
+    
+    // Parse the Excel file
+    const workbook = XLSX.read(buffer, { 
+      type: 'buffer',
+      cellDates: true,
+      cellNF: false,
+      cellStyles: false,
+    });
+    
+    // Check if the sheet exists
+    if (!workbook.SheetNames.includes(sheetName)) {
+      throw new Error(`Sheet "${sheetName}" not found in workbook`);
+    }
+    
+    // Get the worksheet
+    const worksheet = workbook.Sheets[sheetName];
+    
+    // Get the cell value
+    const cell = worksheet[cellReference];
+    if (!cell) {
+      console.log(`Cell ${cellReference} is empty or undefined`);
+      return null;
+    }
+    
+    // Return the value based on type
+    if (cell.t === 'n') {
+      return cell.v; // Number
+    } else if (cell.t === 's') {
+      return cell.v; // String
+    } else if (cell.t === 'b') {
+      return cell.v; // Boolean
+    } else if (cell.t === 'd') {
+      return cell.v; // Date
+    } else if (cell.t === 'e') {
+      return null; // Error
+    } else if (cell.f) {
+      return `=${cell.f}`; // Formula
+    } else {
+      return cell.v; // Any other type
+    }
+  } catch (error) {
+    console.error(`Error getting Excel cell ${cellReference}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Extract a range of cells from an Excel file as a 2D array
+ * @param buffer The Excel file buffer
+ * @param sheetName The sheet name
+ * @param range The range in A1 notation (e.g., "A1:B5")
+ * @returns A 2D array of the range values
+ */
+export function getExcelRange(buffer: Buffer, sheetName: string, range: string): any[][] {
+  try {
+    console.log(`Extracting range ${range} from sheet "${sheetName}"`);
+    
+    // Parse the Excel file
+    const workbook = XLSX.read(buffer, { 
+      type: 'buffer',
+      cellDates: true,
+      cellNF: false,
+      cellStyles: false,
+    });
+    
+    // Check if the sheet exists
+    if (!workbook.SheetNames.includes(sheetName)) {
+      throw new Error(`Sheet "${sheetName}" not found in workbook`);
+    }
+    
+    // Get the worksheet
+    const worksheet = workbook.Sheets[sheetName];
+    
+    // Parse the range
+    const rangeRef = range.split(':');
+    if (rangeRef.length !== 2) {
+      throw new Error(`Invalid range format: ${range}. Expected format like "A1:B5".`);
+    }
+    
+    // Get the range values as an array
+    const rangeOptions = { range: range };
+    const data = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      range: range,
+      defval: null
+    }) as any[][];
+    
+    console.log(`Extracted ${data.length} rows from range ${range}`);
+    return data;
+  } catch (error) {
+    console.error(`Error getting Excel range ${range}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Format Excel data for Claude AI analysis
+ * @param data The Excel data as a 2D array
+ * @param options Optional formatting options
+ * @returns A formatted string representation of the Excel data
+ */
+export function formatExcelForClaude(
+  data: any[][], 
+  options?: {
+    maxRows?: number;
+    maxCols?: number;
+    includeHeaders?: boolean;
+    formatAsMarkdown?: boolean;
+  }
+): string {
+  try {
+    const { 
+      maxRows = 100,
+      maxCols = 20,
+      includeHeaders = true,
+      formatAsMarkdown = true 
+    } = options || {};
+    
+    // Limit the number of rows and columns
+    const limitedData = data.slice(0, maxRows).map(row => 
+      row.slice(0, maxCols).map(cell => 
+        cell === null || cell === undefined ? '' : String(cell)
+      )
+    );
+    
+    // Format as markdown table if requested
+    if (formatAsMarkdown) {
+      let markdown = '';
+      
+      // Add headers
+      if (includeHeaders && limitedData.length > 0) {
+        markdown += '| ' + limitedData[0].join(' | ') + ' |\n';
+        markdown += '| ' + limitedData[0].map(() => '---').join(' | ') + ' |\n';
+        
+        // Add data rows
+        for (let i = includeHeaders ? 1 : 0; i < limitedData.length; i++) {
+          markdown += '| ' + limitedData[i].join(' | ') + ' |\n';
+        }
+      } else {
+        // No headers, just data
+        for (const row of limitedData) {
+          markdown += '| ' + row.join(' | ') + ' |\n';
+        }
+      }
+      
+      return markdown;
+    } else {
+      // Format as plain text
+      return limitedData.map(row => row.join('\t')).join('\n');
+    }
+  } catch (error) {
+    console.error('Error formatting Excel data for Claude:', error);
+    return 'Error formatting Excel data: ' + error.message;
+  }
+}
+
+/**
+ * Generate a Claude-friendly analysis prompt for Excel data
+ * @param data The Excel data or structured data
+ * @returns A prompt for Claude to analyze the Excel data
+ */
+export function generateClaudeExcelPrompt(
+  data: any[][] | { headers: string[], rows: any[][], sheetName: string }
+): string {
+  try {
+    // Determine if we have structured data or raw data
+    const isStructured = !Array.isArray(data);
+    
+    // Get the data in the right format
+    const rows = isStructured ? data.rows : data;
+    const headers = isStructured ? data.headers : (rows.length > 0 ? rows[0] : []);
+    const sheetName = isStructured ? data.sheetName : 'Sheet1';
+    
+    // Format a small sample of the data for the prompt
+    const dataSample = formatExcelForClaude(
+      [headers].concat(rows.slice(0, 5)), 
+      { maxRows: 6, maxCols: 10, includeHeaders: true, formatAsMarkdown: true }
+    );
+    
+    // Generate a prompt for Claude to analyze
+    return `
+You are examining an Excel spreadsheet called "${sheetName}" with ${rows.length} rows and ${headers.length} columns.
+
+The column headers are:
+${headers.join(', ')}
+
+Here's a sample of the data:
+${dataSample}
+
+Please analyze this Excel data for insights, patterns, and potential improvements. You can:
+1. Describe the overall structure and purpose of the data
+2. Identify any patterns or trends in the data
+3. Suggest potential calculations or formulas that might be useful
+4. Recommend any formatting or structural improvements
+5. Provide specific edit suggestions if you see issues with the data
+
+After your analysis, if the user asks for edits, you can suggest specific cell changes using the format "I'll change cell X1 to Y" which will be automatically detected and applied.
+`;
+  } catch (error) {
+    console.error('Error generating Claude Excel prompt:', error);
+    return 'Error generating prompt: ' + error.message;
+  }
+}
+
+/**
+ * Prepare an Excel file for Claude AI, extracting key information
+ * @param buffer The Excel file buffer
+ * @returns An object with structured data and a prompt for Claude
+ */
+export function prepareExcelForClaude(buffer: Buffer): {
+  structuredData: { headers: string[], rows: any[][], sheetName: string };
+  sheetInfo: Array<{ name: string, rowCount: number, columnCount: number, hasMergedCells: boolean, hasFormulas: boolean }>;
+  samplePrompt: string;
+} {
+  try {
+    // Extract structured data
+    const structuredData = extractStructuredExcelData(buffer);
+    
+    // Get sheet info
+    const sheetInfo = getExcelSheetInfo(buffer);
+    
+    // Generate a sample prompt
+    const samplePrompt = generateClaudeExcelPrompt(structuredData);
+    
+    return {
+      structuredData,
+      sheetInfo,
+      samplePrompt
+    };
+  } catch (error) {
+    console.error('Error preparing Excel for Claude:', error);
+    throw error;
+  }
 }
