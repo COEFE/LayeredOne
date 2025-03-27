@@ -61,6 +61,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
             [{ value: 'Loading spreadsheet data...' }]
           ];
           setSpreadsheetData(exampleData);
+          // This ensures the spreadsheet viewer will be rendered
           setViewableData(exampleData);
           
           // The actual parsing will be done in the SpreadsheetViewer component
@@ -238,13 +239,16 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
   }
   
   // For Excel/CSV files, use a lazy-loaded dedicated viewer component
-  if (viewableData && (
+  if (
     mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
     mimeType === 'application/vnd.ms-excel' ||
     mimeType === 'application/x-excel' ||
     mimeType === 'application/x-msexcel' ||
-    mimeType === 'text/csv'
-  )) {
+    mimeType === 'text/csv' ||
+    fileName.endsWith('.xlsx') ||
+    fileName.endsWith('.xls') ||
+    fileName.endsWith('.csv')
+  ) {
     // Import the SpreadsheetViewer dynamically to handle SSR issues
     const SpreadsheetViewer = dynamic(
       () => import('./SpreadsheetViewer').catch(err => {

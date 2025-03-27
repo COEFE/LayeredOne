@@ -64,14 +64,26 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   useEffect(() => {
     const loadSpreadsheetData = async () => {
       try {
+        console.log('Loading spreadsheet data, fileType:', fileType, 'fileName:', fileName);
+        
         if (fileType === 'excel') {
+          console.log('Loading Excel file:', fileUrl);
           // Dynamically import xlsx only on client-side
           const xlsx = await import('xlsx');
           
           // Fetch and process Excel file
-          const response = await fetch(fileUrl);
-          const arrayBuffer = await response.arrayBuffer();
-          const workbook = xlsx.read(arrayBuffer);
+          console.log('Fetching Excel file from:', fileUrl);
+        const response = await fetch(fileUrl);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch Excel file: ${response.status} ${response.statusText}`);
+        }
+        
+        console.log('Converting to array buffer');
+        const arrayBuffer = await response.arrayBuffer();
+        
+        console.log('Parsing Excel file with SheetJS');
+        const workbook = xlsx.read(arrayBuffer);
           
           // Store sheet names
           setWorkbookSheets(workbook.SheetNames);
@@ -211,6 +223,13 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
         }
       } catch (err) {
         console.error("Error loading spreadsheet data:", err);
+        // Add a visible error message for the user
+        setCurrentData([
+          [{ 
+            value: `Error loading spreadsheet: ${err.message || 'Unknown error'}. Please try refreshing the page or downloading the file instead.`,
+            style: 'error'
+          }]
+        ]);
       }
     };
     
