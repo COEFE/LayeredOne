@@ -115,12 +115,6 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
                     sheetStyles[r][c] = 'date';
                   } else {
                     sheetStyles[r][c] = 'number';
-                  }$') || cell.z.includes('€') || cell.z.includes('£'))) {
-                    sheetStyles[r][c] = 'currency';
-                  } else if (cell.z && cell.z.includes('/')) {
-                    sheetStyles[r][c] = 'date';
-                  } else {
-                    sheetStyles[r][c] = 'number';
                   }
                 }
                 
