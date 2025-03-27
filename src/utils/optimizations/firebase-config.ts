@@ -1,18 +1,26 @@
 // Firebase configuration optimizations for Vercel deployment
-import { getFirestore } from 'firebase-admin/firestore';
-import { auth, db as originalDb, getApp } from '@/firebase/admin-config';
+import { auth, db as originalDb } from '@/firebase/admin-config';
 
-// Optimized Firestore settings to prevent timeouts
-const db = originalDb || getFirestore(getApp());
+// Detect Vercel environment
+const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
 
-// Make sure the settings are applied
-try {
-  db.settings({
-    ignoreUndefinedProperties: true,
-    timestampsInSnapshots: true
-  });
-} catch (error) {
-  console.error('Error configuring Firestore settings:', error);
+// Use existing database connection instead of creating a new one
+const db = originalDb;
+
+// Only apply settings in non-Vercel environments
+if (!isVercel) {
+  try {
+    // Dynamically import to prevent Vercel build errors
+    // We only need to apply settings in non-Vercel environments
+    if (db && typeof db.settings === 'function') {
+      db.settings({
+        ignoreUndefinedProperties: true,
+        timestampsInSnapshots: true
+      });
+    }
+  } catch (error) {
+    console.error('Error configuring Firestore settings:', error);
+  }
 }
 
 // Cache implementation for Firebase data

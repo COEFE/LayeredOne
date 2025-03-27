@@ -1,13 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/firebase/admin-config';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
+import { auth, db } from '@/firebase/admin-config';
 import { extractTextFromExcel } from '@/utils/excelExtractor';
 import { extractTextFromPDF } from '@/utils/pdfExtractor';
-
-// Import optimized Firebase config and timeout middleware
-import { db, getDataWithCache } from '@/utils/optimizations/firebase-config';
 import withTimeout, { processInChunks } from '@/utils/optimizations/timeout-middleware';
+
+// Create a safe FieldValue for Vercel compatibility
+const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
+
+// Declare FieldValue type to be compatible with both real and mock implementations
+let FieldValue: any = {
+  serverTimestamp: () => new Date().toISOString()
+};
+
+// Import optimized Firebase config if not in Vercel environment
+let getDataWithCache: any = async (collectionPath: string, docId: string) => {
+  const doc = await db.collection(collectionPath).doc(docId).get();
+  return doc.data();
+};
+
+// Only import Firebase Admin modules when not in Vercel environment
+if (!isVercel) {
+  try {
+    // Dynamic import to avoid Vercel build issues
+    const firestoreModule = require('firebase-admin/firestore');
+    FieldValue = firestoreModule.FieldValue;
+    
+    // Import optimized Firebase config only if not in Vercel
+    const firebaseConfig = require('@/utils/optimizations/firebase-config');
+    getDataWithCache = firebaseConfig.getDataWithCache;
+  } catch (error) {
+    console.error('Error importing Firebase Admin modules:', error);
+  }
+}
 
 // Debug flag
 const DEBUG = process.env.NODE_ENV === 'development' || true;
