@@ -634,7 +634,9 @@ Use these search results to inform your spreadsheet editing approach when approp
             
             patterns.forEach((pattern, index) => {
               // Find all matches using the global flag
-              const regex = new RegExp(pattern.source, pattern.flags + 'g');
+              // Extract existing flags, remove 'g' if present as we'll add it explicitly
+              const flags = pattern.flags.replace(/g/g, '');
+              const regex = new RegExp(pattern.source, flags + 'g');
               const matches = [...assistantResponse.matchAll(regex)];
               
               matches.forEach(match => {
