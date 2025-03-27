@@ -65,35 +65,9 @@ fi
 cat > next.config.js << 'EOL'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Handle problematic modules that use browser-only APIs
+  // Simple webpack config
   webpack: (config, { isServer }) => {
-    // Handle browser-only dependencies in server code
-    if (isServer) {
-      // Externalize PDFs, canvas, etc. on server
-      config.externals = [
-        ...(config.externals || []),
-        'canvas',
-        'react-pdf',
-        'pdfjs-dist',
-      ];
-    }
-
-    // Mock modules that cause problems in any environment
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      canvas: false,
-      'pdfjs-dist': isServer ? false : require.resolve('pdfjs-dist'),
-    };
-
-    // For security or problematic npm modules
-    config.resolve.symlinks = false;
-    
-    // Skip issues with dynamic imports
-    config.ignoreWarnings = [
-      { module: /node_modules\/react-pdf/ },
-      { module: /node_modules\/pdfjs-dist/ },
-    ];
-    
+    // Basic configuration with no special handling required
     return config;
   },
   // For production builds
@@ -124,8 +98,6 @@ const nextConfig = {
       'pdf-parse-debugging-disabled',
       'firebase-admin',
       'xlsx',
-      'canvas',
-      'pdfjs-dist',
     ],
     optimisticClientCache: true,
   },

@@ -1,33 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Handle problematic modules that use browser-only APIs
+  // Simplified webpack config without PDF.js/react-pdf handling
   webpack: (config, { isServer }) => {
-    // Handle browser-only dependencies in server code
+    // Handle only basic environment settings
     if (isServer) {
-      // Externalize PDFs, canvas, etc. on server
+      // Add any server-only externals if needed
       config.externals = [
         ...(config.externals || []),
-        'canvas',
-        'react-pdf',
-        'pdfjs-dist',
       ];
     }
-
-    // Mock modules that cause problems in any environment
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      canvas: false,
-      'pdfjs-dist': isServer ? false : require.resolve('pdfjs-dist'),
-    };
-
-    // For security or problematic npm modules
-    config.resolve.symlinks = false;
-    
-    // Skip issues with dynamic imports
-    config.ignoreWarnings = [
-      { module: /node_modules\/react-pdf/ },
-      { module: /node_modules\/pdfjs-dist/ },
-    ];
     
     return config;
   },
@@ -63,10 +44,7 @@ const nextConfig = {
     'firebase-admin',
     '@anthropic-ai/sdk',
     'pdf-parse',
-    'pdf-parse-debugging-disabled',
-    'canvas',
-    'pdfjs-dist',
-    'react-pdf'
+    'pdf-parse-debugging-disabled'
   ],
   
   // Environment variables

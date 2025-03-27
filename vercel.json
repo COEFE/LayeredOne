@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "chmod +x deploy-fix/build.sh && ./deploy-fix/build.sh",
+  "buildCommand": "SIMPLE_PDF=true npm run build",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install --legacy-peer-deps",

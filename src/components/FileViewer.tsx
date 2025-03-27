@@ -167,11 +167,11 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
     );
   }
 
-  // For PDF files, use our proxy component that loads the real viewer only on client-side
+  // For PDF files, use our simple HTML5-based viewer with no external dependencies
   if (mimeType === 'application/pdf') {
-    // Import the PDFViewerProxy - this is a simple component with no problematic imports
-    const PDFViewerProxy = dynamic(
-      () => import('./PDFViewerProxy'),
+    // Import the SimplePDFViewer - uses native browser capabilities (iframe/object)
+    const SimplePDFViewer = dynamic(
+      () => import('./SimplePDFViewer'),
       { 
         ssr: false,
         loading: () => (
@@ -182,7 +182,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
       }
     );
     
-    return <PDFViewerProxy fileUrl={fileUrl} fileName={fileName} />;
+    return <SimplePDFViewer fileUrl={fileUrl} fileName={fileName} />;
   }
 
   // For image files, use a lazy-loaded dedicated viewer component
