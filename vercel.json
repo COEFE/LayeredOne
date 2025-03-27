@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "npm install autoprefixer postcss tailwindcss --no-save && npm run vercel-build",
+  "buildCommand": "bash ./build-fixed.sh",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps && npm install autoprefixer@9 postcss tailwindcss --save-dev",
+  "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs",
   "regions": ["sfo1"],
   "env": {
