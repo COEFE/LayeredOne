@@ -1,7 +1,52 @@
 import React, { useEffect, useState } from 'react';
-import { ReactGrid, Column, Row, CellChange, TextCell, NumberCell, HeaderCell, DefaultCellTypes } from '@silevis/reactgrid';
-// Import styles in a way compatible with Next.js
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/context/AuthContext';
+
+// Dynamically import ReactGrid to avoid build issues
+const ReactGridPackage = dynamic(
+  () => import('@silevis/reactgrid').then((mod) => ({
+    // Export what we need from the package
+    ReactGrid: mod.ReactGrid,
+    DefaultCellTypes: mod.DefaultCellTypes,
+    TextCell: mod.TextCell,
+    NumberCell: mod.NumberCell,
+    HeaderCell: mod.HeaderCell,
+  })),
+  { ssr: false }
+);
+
+// Define the types here as we can't import them directly
+type Column = {
+  columnId: string;
+  resizable?: boolean;
+  width?: number;
+};
+
+type Row = {
+  rowId: string;
+  height?: number;
+  cells: any[];
+};
+
+type TextCell = {
+  type: 'text';
+  text: string;
+  className?: string;
+};
+
+type NumberCell = {
+  type: 'number';
+  value: number;
+  nanToZero?: boolean;
+  format?: string;
+};
+
+type HeaderCell = {
+  type: 'header';
+  text: string;
+};
+
+type DefaultCellTypes = TextCell | NumberCell | HeaderCell;
 
 interface ReactGridSpreadsheetViewerProps {
   fileUrl: string;
@@ -1146,16 +1191,22 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
       
       {/* The Excel Grid */}
       <div className="react-grid-Container border border-gray-300 rounded-lg overflow-hidden">
-        <ReactGrid
-          rows={rows}
-          columns={columns}
-          enableRangeSelection
-          enableColumnSelection
-          enableRowSelection
-          stickyTopRows={1}
-          stickyLeftColumns={1}
-          focusCellOnClick
-        />
+        {ReactGridPackage ? (
+          <ReactGridPackage.ReactGrid
+            rows={rows}
+            columns={columns}
+            enableRangeSelection
+            enableColumnSelection
+            enableRowSelection
+            stickyTopRows={1}
+            stickyLeftColumns={1}
+            focusCellOnClick
+          />
+        ) : (
+          <div className="p-4 text-center text-gray-600">
+            Loading spreadsheet viewer...
+          </div>
+        )}
       </div>
     </div>
   );

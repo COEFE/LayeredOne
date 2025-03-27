@@ -33,6 +33,11 @@ module.exports = function() {
 module.exports.postcss = true;
 EOF
 
+# Make sure ReactGrid is properly installed and fix any issues
+echo "📦 Installing and fixing ReactGrid..."
+npm install @silevis/reactgrid@4.1.16 --save-exact
+npm run fix-reactgrid
+
 # Run React Icons fix script 
 echo "🔧 Running React Icons fixes..."
 npm run fix-icons
