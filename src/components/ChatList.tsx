@@ -165,23 +165,36 @@ export default function ChatList() {
   const formatDate = (date: any) => {
     if (!date) return '';
     
-    const d = date.toDate();
-    const now = new Date();
-    
-    // Today
-    if (d.toDateString() === now.toDateString()) {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let d;
+    try {
+      // Check if the date has a toDate function (Firestore Timestamp)
+      if (typeof date.toDate === 'function') {
+        d = date.toDate();
+      } else {
+        // Handle regular Date objects or timestamps
+        d = new Date(date);
+      }
+      
+      const now = new Date();
+      
+      // Today
+      if (d.toDateString() === now.toDateString()) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      
+      // Within last 7 days
+      const daysDiff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff < 7) {
+        const options: Intl.DateTimeFormatOptions = { weekday: 'short' };
+        return d.toLocaleDateString(undefined, options);
+      }
+      
+      // Older chats
+      return d.toLocaleDateString();
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return '';
     }
-    
-    // Within last 7 days
-    const daysDiff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff < 7) {
-      const options: Intl.DateTimeFormatOptions = { weekday: 'short' };
-      return d.toLocaleDateString(undefined, options);
-    }
-    
-    // Older chats
-    return d.toLocaleDateString();
   };
 
   // Toggle selection of a chat

@@ -217,9 +217,9 @@ export default function DocumentAnalysis({ documentId }: DocumentAnalysisProps) 
           <h1 className="text-2xl font-bold">{document.name}</h1>
           <p className="text-gray-500">
             {document.contentType} • {(document.size / 1024 / 1024).toFixed(2)} MB • 
-            {document.createdAt?.toDate ? 
+            {document.createdAt && typeof document.createdAt.toDate === 'function' ? 
               ` Uploaded ${document.createdAt.toDate().toLocaleDateString()}` : 
-              ' Recently uploaded'}
+              document.createdAt ? ` Uploaded ${new Date(document.createdAt).toLocaleDateString()}` : ' Recently uploaded'}
           </p>
         </div>
       </div>
@@ -233,9 +233,9 @@ export default function DocumentAnalysis({ documentId }: DocumentAnalysisProps) 
           {/* Analysis metadata */}
           <div className="bg-gray-50 p-3 rounded-md mb-4 text-sm text-gray-500">
             <p>Analyzed with {document.aiAnalysis.model} • 
-              {document.aiAnalysis.analyzedAt?.toDate ? 
+              {document.aiAnalysis.analyzedAt && typeof document.aiAnalysis.analyzedAt.toDate === 'function' ? 
                 ` ${document.aiAnalysis.analyzedAt.toDate().toLocaleString()}` : 
-                ' Recently'}
+                document.aiAnalysis.analyzedAt ? ` ${new Date(document.aiAnalysis.analyzedAt).toLocaleString()}` : ' Recently'}
             </p>
             {document.aiAnalysis.analyzedLength && (
               <p>{document.aiAnalysis.analyzedLength < document.extractedText?.length ? 

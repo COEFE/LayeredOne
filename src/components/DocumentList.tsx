@@ -847,7 +847,7 @@ export default function DocumentList() {
                         <div className="text-sm text-blue-800">{formatFileSize(doc.size)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-blue-800">{new Date(doc.createdAt?.toDate()).toLocaleDateString()}</div>
+                        <div className="text-sm text-blue-800">{doc.createdAt && typeof doc.createdAt.toDate === 'function' ? new Date(doc.createdAt.toDate()).toLocaleDateString() : new Date(doc.createdAt).toLocaleDateString()}</div>
                       </td>
                       <td className="px-6 py-4 text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2 flex-wrap">
@@ -1034,7 +1034,7 @@ export default function DocumentList() {
                         <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        {new Date(doc.createdAt?.toDate()).toLocaleDateString()}
+                        {doc.createdAt && typeof doc.createdAt.toDate === 'function' ? new Date(doc.createdAt.toDate()).toLocaleDateString() : new Date(doc.createdAt).toLocaleDateString()}
                       </div>
                       
                       <div className="text-xs inline-flex items-center text-blue-700 bg-blue-50 px-2 py-1 rounded">
