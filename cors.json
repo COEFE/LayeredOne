@@ -1,0 +1,22 @@
+[
+  {
+    "origin": ["*"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Content-Disposition",
+      "Content-Encoding",
+      "Content-Language",
+      "Content-Range",
+      "Content-Location",
+      "Cache-Control",
+      "Expires",
+      "Last-Modified",
+      "ETag",
+      "x-goog-meta-foo",
+      "x-firebase-storage-version"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

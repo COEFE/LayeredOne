@@ -1,24 +1,28 @@
-# Firebase Storage Path Improvements
+# Excel File Viewing and Firebase Storage Improvements
 
-This document explains the improvements made to the way Firebase Storage paths are handled in the application, focusing on solving the issues with Excel file viewing.
+This document explains the improvements made to the way Excel files are loaded and displayed in the application, focusing on solving issues with the document viewer.
 
-## Problem
+## Problems
 
-Excel files uploaded or created in the application were experiencing URL expiration issues, resulting in 404 errors when trying to view them after the signed URL had expired. The application was struggling to correctly refresh these URLs because:
+Excel files uploaded or created in the application were experiencing several issues:
 
-1. There was no consistent way to map a document in Firestore to its file in Firebase Storage
-2. The URL refresh mechanism relied on extracting paths from expired URLs, which was unreliable
-3. No caching or telemetry was in place to optimize refreshes
+1. URL expiration issues: 404 errors when trying to view files after signed URLs expired
+2. CORS issues: Cross-origin resource sharing problems preventing browser file access
+3. Inconsistent URL refresh: Difficulties refreshing URLs when they expired
+4. Unreliable document-to-storage mapping: No consistent way to map Firestore documents to Storage files
+5. Browser compatibility issues: Different behavior across browsers
+6. Lack of error telemetry: No detailed logging of file loading attempts
 
 ## Solution
 
-We've implemented a comprehensive solution that focuses on:
+We've implemented a comprehensive solution that addresses all these issues:
 
 1. **Document-Storage Link**: Adding explicit `storageRef` fields to all documents
-2. **Using Firebase's Native Download URL API**: Making proper use of Firebase Storage APIs
-3. **Client-Side Caching**: Implementing localStorage caching of working URLs
-4. **Multiple Fallback Mechanisms**: Creating a robust system for finding files in Storage
-5. **Telemetry**: Tracking URL refresh success rates
+2. **CORS Configuration**: Setting up proper CORS headers for Firebase Storage
+3. **Enhanced Excel Loading**: Improved Excel file loading with better error handling
+4. **Client-Side Caching**: Implementing localStorage caching of working URLs
+5. **Multiple Fallback Mechanisms**: Creating a robust system for finding files in Storage
+6. **Detailed Telemetry**: Tracking and logging URL refresh attempts
 
 ### Key Improvements
 
@@ -67,15 +71,28 @@ Added a migration script (`src/utils/fix-storage-refs.js`) that:
 - Updates documents with proper `storageRef` fields
 - Provides detailed logging and progress tracking
 
-## Using the Migration Tool
+## Using the Tools
 
-Run the migration tool with:
+### 1. Configure CORS for Firebase Storage
+
+The most important fix is to properly configure CORS for your Firebase Storage bucket:
+
+```bash
+# Run the configuration script
+./configure-cors.sh [your-bucket-name]
+```
+
+If you don't provide a bucket name, the script will attempt to extract it from your Firebase configuration. This step is crucial for allowing browsers to access Excel files stored in Firebase Storage.
+
+### 2. Update Existing Documents
+
+To update all existing documents with proper storage references:
 
 ```bash
 ./migrate-storage-refs.sh [project-id]
 ```
 
-This will update all documents in Firestore to ensure they have proper `storageRef` fields.
+This will scan all documents in Firestore and ensure they have proper `storageRef` fields.
 
 ## Technical Details
 

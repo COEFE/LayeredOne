@@ -116,127 +116,202 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
         
         if (fileType === 'excel') {
           console.log('Loading Excel file:', fileUrl);
+          
           // Dynamically import xlsx only on client-side
-          const xlsx = await import('xlsx');
+          let xlsx;
+          try {
+            xlsx = await import('xlsx');
+            console.log('Successfully imported xlsx library');
+          } catch (importError) {
+            console.error('Failed to import xlsx library:', importError);
+            throw new Error('Failed to load Excel viewer: Could not load required libraries');
+          }
           
           // Extract document ID from URL for better caching
           const docIdMatch = fileUrl.match(/documents\/([^/?]+)/);
           const extractedDocId = docIdMatch ? docIdMatch[1] : null;
+          console.log('Extracted document ID:', extractedDocId);
           
           // Check for cached URL first
           const storagePathMatch = fileUrl.match(/documents\/([^?]+)/);
           const potentialStorageRef = storagePathMatch ? `documents/${storagePathMatch[1]}` : null;
           const cachedUrl = potentialStorageRef ? getCachedUrl(potentialStorageRef) : null;
           
-          // If we have a cached URL, try that first
-          let response;
+          // Track attempts to help with troubleshooting
+          let attempts = [];
+          let arrayBuffer = null;
+          
+          // Try with the cached URL first
           if (cachedUrl) {
             console.log('Trying cached URL:', cachedUrl);
-            response = await fetch(cachedUrl);
-            
-            if (response.ok) {
-              console.log('Successfully fetched Excel file with cached URL');
-              const arrayBuffer = await response.arrayBuffer();
-              return arrayBuffer;
-            } else {
-              console.log('Cached URL failed, falling back to original URL');
+            try {
+              const response = await fetch(cachedUrl, {
+                method: 'GET',
+                // Add CORS mode to help debug issues
+                mode: 'cors',
+                credentials: 'same-origin',
+                cache: 'no-cache'
+              });
+              
+              if (response.ok) {
+                console.log('Successfully fetched Excel file with cached URL');
+                arrayBuffer = await response.arrayBuffer();
+                attempts.push({ type: 'cached', success: true });
+              } else {
+                console.log('Cached URL failed with status:', response.status);
+                attempts.push({ type: 'cached', success: false, status: response.status });
+              }
+            } catch (cachedError) {
+              console.error('Error with cached URL:', cachedError);
+              attempts.push({ type: 'cached', success: false, error: cachedError.message });
             }
           }
           
-          // Fetch and process Excel file with the original URL
-          console.log('Fetching Excel file from:', fileUrl);
-          response = await fetch(fileUrl);
-        
-        if (!response.ok) {
-          if (response.status === 404) {
-            console.log('Excel file URL has expired (404). Attempting to refresh URL...');
-            // Try to refresh the URL
-            let token = await getToken(true); // Force refresh the token
-            
-            // Fallback to localStorage if the context method fails
-            if (!token) {
-              token = localStorage.getItem('authToken');
-            }
-            
-            if (!token) {
-              throw new Error('Authentication required. Please refresh the page.');
-            }
-            
+          // If cached URL failed or doesn't exist, try the original URL
+          if (!arrayBuffer) {
+            console.log('Fetching Excel file from original URL:', fileUrl);
             try {
-              // Try to extract document ID from the URL
-              const urlParts = fileUrl.split('/');
-              const queryIndex = urlParts[urlParts.length - 1]?.indexOf('?');
-              const potentialDocId = queryIndex > -1 
-                ? urlParts[urlParts.length - 1]?.substring(0, queryIndex)
-                : urlParts[urlParts.length - 1];
-              
-              // Use extracted document ID for API call
-              console.log('Requesting fresh URL for file...', {
-                documentId: extractedDocId || potentialDocId,
-                url: fileUrl
+              const response = await fetch(fileUrl, {
+                method: 'GET',
+                mode: 'cors',
+                credentials: 'same-origin',
+                cache: 'no-cache'
               });
               
-              const refreshResponse = await fetch('/api/storage/download-url', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                  documentId: extractedDocId || potentialDocId || null,
-                  url: fileUrl
-                })
-              });
-              
-              if (!refreshResponse.ok) {
-                // Try to get the error message from the response
-                try {
-                  const errorData = await refreshResponse.json();
-                  throw new Error(`URL refresh failed: ${refreshResponse.status}. 
-                    Server message: ${errorData.error || 'No error details provided'}`);
-                } catch (parseError) {
-                  throw new Error(`URL refresh failed: ${refreshResponse.status}`);
+              if (response.ok) {
+                console.log('Successfully fetched Excel file with original URL');
+                arrayBuffer = await response.arrayBuffer();
+                attempts.push({ type: 'original', success: true });
+              } else {
+                console.log('Original URL failed with status:', response.status);
+                attempts.push({ type: 'original', success: false, status: response.status });
+                
+                // If it's a 404 or 403, try to refresh the URL
+                if (response.status === 404 || response.status === 403) {
+                  console.log('URL has expired. Attempting to refresh URL...');
+                  
+                  // Get token for authentication
+                  let token = await getToken(true);
+                  if (!token) {
+                    token = localStorage.getItem('authToken');
+                  }
+                  
+                  if (!token) {
+                    throw new Error('Authentication required. Please refresh the page.');
+                  }
+                  
+                  // Extract document ID and prepare for URL refresh
+                  const urlParts = fileUrl.split('/');
+                  const queryIndex = urlParts[urlParts.length - 1]?.indexOf('?');
+                  const potentialDocId = queryIndex > -1 
+                    ? urlParts[urlParts.length - 1]?.substring(0, queryIndex)
+                    : urlParts[urlParts.length - 1];
+                  
+                  console.log('Requesting fresh URL for file...', {
+                    documentId: extractedDocId || potentialDocId,
+                    url: fileUrl
+                  });
+                  
+                  try {
+                    // Call our API to refresh the URL
+                    const refreshResponse = await fetch('/api/storage/download-url', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({
+                        documentId: extractedDocId || potentialDocId || null,
+                        url: fileUrl
+                      })
+                    });
+                    
+                    if (!refreshResponse.ok) {
+                      const errorText = await refreshResponse.text();
+                      console.error('URL refresh failed with status:', refreshResponse.status, errorText);
+                      attempts.push({ 
+                        type: 'refresh-request', 
+                        success: false, 
+                        status: refreshResponse.status,
+                        error: errorText
+                      });
+                      throw new Error(`URL refresh failed: ${refreshResponse.status}`);
+                    }
+                    
+                    const data = await refreshResponse.json();
+                    attempts.push({ type: 'refresh-request', success: true });
+                    console.log('Received fresh URL from server:', data);
+                    
+                    // Cache the URL if the server indicated it should be cached
+                    if (data.shouldCache && data.storageRef) {
+                      cacheWorkingUrl(data.url, data.storageRef);
+                    }
+                    
+                    // Store as global for debugging
+                    (window as any).__lastValidExcelUrl = data.url;
+                    (window as any).__lastStorageRef = data.storageRef;
+                    
+                    // Try the new refreshed URL
+                    console.log('Trying refreshed URL:', data.url);
+                    const newResponse = await fetch(data.url, {
+                      method: 'GET',
+                      mode: 'cors',
+                      credentials: 'same-origin',
+                      cache: 'no-cache'
+                    });
+                    
+                    if (!newResponse.ok) {
+                      console.error('Refreshed URL failed with status:', newResponse.status);
+                      attempts.push({ 
+                        type: 'refreshed-url', 
+                        success: false, 
+                        status: newResponse.status 
+                      });
+                      throw new Error(`Still failed to fetch Excel file after URL refresh: ${newResponse.status}`);
+                    }
+                    
+                    console.log('Successfully fetched Excel file with refreshed URL');
+                    attempts.push({ type: 'refreshed-url', success: true });
+                    arrayBuffer = await newResponse.arrayBuffer();
+                  } catch (refreshError) {
+                    console.error('URL refresh attempt failed:', refreshError);
+                    throw new Error(`URL expired and refresh failed: ${refreshError.message}`);
+                  }
                 }
               }
+            } catch (originalUrlError) {
+              console.error('Error with original URL:', originalUrlError);
+              attempts.push({ 
+                type: 'original', 
+                success: false, 
+                error: originalUrlError.message 
+              });
               
-              const data = await refreshResponse.json();
-              console.log('Received fresh URL from server:', data);
-              
-              // Cache the URL if the server indicated it should be cached
-              if (data.shouldCache && data.storageRef) {
-                cacheWorkingUrl(data.url, data.storageRef);
+              // If we still don't have the data, throw the error
+              if (!arrayBuffer) {
+                throw originalUrlError;
               }
-              
-              // Try again with the new URL
-              const newResponse = await fetch(data.url);
-              if (!newResponse.ok) {
-                throw new Error(`Still failed to fetch Excel file after URL refresh: ${newResponse.status}`);
-              }
-              
-              console.log('Successfully fetched Excel file with refreshed URL');
-              const newArrayBuffer = await newResponse.arrayBuffer();
-              
-              // Update the fileUrl ref for future operations
-              // This is a workaround since we can't directly modify the prop
-              (window as any).__lastValidExcelUrl = data.url;
-              (window as any).__lastStorageRef = data.storageRef;
-              
-              return newArrayBuffer;
-            } catch (refreshError: any) {
-              console.error('URL refresh attempt failed:', refreshError);
-              throw new Error(`URL expired and refresh failed: ${refreshError.message}`);
             }
-          } else {
-            throw new Error(`Failed to fetch Excel file: ${response.status} ${response.statusText}`);
           }
-        }
-        
-        console.log('Converting to array buffer');
-        // Use response.arrayBuffer() or the returned buffer from URL refresh
-        const arrayBuffer = await response.arrayBuffer();
-        
-        console.log('Parsing Excel file with SheetJS');
-        const workbook = xlsx.read(arrayBuffer);
+          
+          // If we reach here with no arrayBuffer, something went wrong
+          if (!arrayBuffer) {
+            console.error('Failed to fetch Excel file after all attempts:', attempts);
+            throw new Error(`Failed to load Excel file after multiple attempts. Please try downloading the file instead.`);
+          }
+          
+          console.log('Successfully got arrayBuffer, parsing Excel file with SheetJS');
+          // Store attempts for debugging
+          (window as any).__excelLoadAttempts = attempts;
+          
+          try {
+            // Parse the Excel file
+            console.log('Parsing Excel file with SheetJS');
+            const workbook = xlsx.read(arrayBuffer, { 
+              type: 'array',
+              cellFormula: true,
+              cellStyles: true
+            });
           
           // Store sheet names
           setWorkbookSheets(workbook.SheetNames);
