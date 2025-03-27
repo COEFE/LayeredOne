@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "bash ./build-fixed.sh",
+  "buildCommand": "npm install postcss@7.0.39 autoprefixer@9.8.8 tailwindcss@3.3.0 react-icons --save-exact && npm run build:vercel",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install --legacy-peer-deps",

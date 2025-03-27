@@ -26,11 +26,11 @@ jobs:
     - name: Clean install dependencies
       run: |
         npm install --no-package-lock
-        npm install autoprefixer@9.8.8 postcss@7.0.39 tailwindcss@3.3.0 react-icons --save-dev
+        npm install autoprefixer@9.8.8 postcss@7.0.39 tailwindcss@3.3.0 react-icons --save-exact
         
     - name: Setup PostCSS config
       run: |
         echo "module.exports = { plugins: ['tailwindcss', 'autoprefixer'] }" > postcss.config.js
         
     - name: Run builds
-      run: npm run build
+      run: npm run build:simple
