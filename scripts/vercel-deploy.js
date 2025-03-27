@@ -46,16 +46,25 @@ problematicDeps.forEach(dep => {
 // Update package.json with filtered dependencies
 packageJson.dependencies = filteredDeps;
 
-// We no longer need to add Firebase packages to peerDependencies as false
-// since we want to use the real implementations
+// We're now installing the real Firebase packages as dependencies
+// so we don't need to use peerDependencies at all
 if (!packageJson.peerDependencies) {
   packageJson.peerDependencies = {};
 }
 
-// Make sure that firebase-admin and related packages are properly available
+// Remove any peer dependency entries that might block installation
 delete packageJson.peerDependencies['firebase-admin'];
 delete packageJson.peerDependencies['@google-cloud/firestore'];
 delete packageJson.peerDependencies['@google-cloud/storage'];
+
+// Create an npmrc file to force installation of optional dependencies
+fs.writeFileSync(
+  path.join(process.cwd(), '.npmrc'),
+  `# Added by vercel-deploy.js
+# Force installation of optional dependencies to ensure Firebase packages are available
+optional=false
+`
+);
 
 // Ensure firebase-admin is in dependencies if it was removed
 if (!packageJson.dependencies['firebase-admin']) {
@@ -92,15 +101,18 @@ if (!packageJson.devDependencies) {
   packageJson.devDependencies = {};
 }
 
-// Ensure Firebase packages are properly installed
-if (!packageJson.devDependencies['firebase-admin']) {
-  packageJson.devDependencies['firebase-admin'] = "^13.2.0";
+// Add Firebase packages to regular dependencies to ensure they're installed and available
+if (!packageJson.dependencies['firebase-admin']) {
+  packageJson.dependencies['firebase-admin'] = "^13.2.0";
+  console.log(`➕ Added dependency: firebase-admin`);
 }
-if (!packageJson.devDependencies['@google-cloud/firestore']) {
-  packageJson.devDependencies['@google-cloud/firestore'] = "^7.5.0";
+if (!packageJson.dependencies['@google-cloud/firestore']) {
+  packageJson.dependencies['@google-cloud/firestore'] = "^7.1.0";
+  console.log(`➕ Added dependency: @google-cloud/firestore`);
 }
-if (!packageJson.devDependencies['@google-cloud/storage']) {
-  packageJson.devDependencies['@google-cloud/storage'] = "^7.7.0";
+if (!packageJson.dependencies['@google-cloud/storage']) {
+  packageJson.dependencies['@google-cloud/storage'] = "^7.0.0";
+  console.log(`➕ Added dependency: @google-cloud/storage`);
 }
 
 // Write the updated package.json with devDependencies
