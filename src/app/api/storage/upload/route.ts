@@ -2,34 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, storage, db } from '@/firebase/admin-config';
 import { v4 as uuidv4 } from 'uuid';
 
-// Import Firebase admin modules with fallbacks
-let getStorage: any;
-let getFirestore: any;
-let FieldValue: any;
+// Instead of trying to import modules that might fail at build time,
+// use the pre-initialized admin SDK objects exported from admin-config.ts
 
-try {
-  // Try to import Firebase Storage
-  const storageModule = require('firebase-admin/storage');
-  getStorage = storageModule.getStorage;
-} catch (error) {
-  console.warn('Error importing @google-cloud/storage module, using fallback');
-  // Fallback mock implementation
-  getStorage = () => storage;
-}
-
-try {
-  // Try to import Firestore
-  const firestoreModule = require('firebase-admin/firestore');
-  getFirestore = firestoreModule.getFirestore;
-  FieldValue = firestoreModule.FieldValue;
-} catch (error) {
-  console.warn('Error importing @google-cloud/firestore module, using fallback');
-  // Fallback mock implementation
-  getFirestore = () => db;
-  FieldValue = {
-    serverTimestamp: () => new Date().toISOString()
-  };
-}
+// Simplified implementation for serverTimestamp
+const FieldValue = {
+  serverTimestamp: () => new Date().toISOString()
+};
 
 // Configure maximum file size (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
@@ -98,8 +77,7 @@ export async function POST(request: NextRequest) {
     const buffer = await file.arrayBuffer();
     
     // Upload to Firebase Storage using Admin SDK
-    const adminStorage = getStorage();
-    const fileRef = adminStorage.bucket().file(filePath);
+    const fileRef = storage.bucket().file(filePath);
     
     await fileRef.save(Buffer.from(buffer), {
       metadata: {
@@ -118,8 +96,7 @@ export async function POST(request: NextRequest) {
     console.log('File uploaded successfully, URL:', downloadURL);
     
     // Save document metadata to Firestore
-    const firestore = getFirestore();
-    const docRef = await firestore.collection('documents').add({
+    const docRef = await db.collection('documents').add({
       userId: userId,
       name: filename,
       type: contentType,
