@@ -4,12 +4,6 @@
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install --omit=optional --no-package-lock",
-  "functions": {
-    "api/**/*": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
-  },
   "framework": "nextjs",
   "regions": ["sfo1"],
   "env": {
@@ -19,12 +13,6 @@
     "NEXT_PUBLIC_VERCEL_DEPLOYMENT": "true",
     "SIMPLE_PDF": "true"
   },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/src/$1" },
-    { "source": "/_next/:path*", "destination": "/_next/:path*" },
-    { "source": "/static/:path*", "destination": "/static/:path*" },
-    { "source": "/api/:path*", "destination": "/api/:path*" }
-  ],
   "cleanUrls": true,
   "trailingSlash": false
 }
