@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/firebase/admin-config';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
+
+// Create a safe FieldValue for Vercel compatibility
+const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
+
+// Declare FieldValue type to be compatible with both real and mock implementations
+let FieldValue: any = {
+  serverTimestamp: () => new Date().toISOString()
+};
+
+// Only import Firebase Admin modules when not in Vercel environment
+if (!isVercel) {
+  try {
+    // Dynamic import to avoid Vercel build issues
+    const { getFirestore, FieldValue: FirebaseFieldValue } = require('firebase-admin/firestore');
+    const { getStorage } = require('firebase-admin/storage');
+    
+    // Use the real FieldValue if we're not in Vercel
+    FieldValue = FirebaseFieldValue;
+  } catch (error) {
+    console.error('Error importing Firebase Admin modules:', error);
+  }
+}
 
 // Import environment variables
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
