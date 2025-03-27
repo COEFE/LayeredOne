@@ -24,7 +24,8 @@ const problematicDeps = [
   'react-pdf',
   'pdfjs-dist', 
   '@react-pdf/renderer',
-  'react-icons', // Added react-icons to the list of problematic dependencies
+  // IMPORTANT: react-icons is needed and should NOT be removed
+  // 'react-icons',
   // Do not remove Firebase admin packages anymore - we want to use the real implementation
   // '@google-cloud/firestore',
   // '@google-cloud/storage',
