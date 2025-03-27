@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "node scripts/vercel-deploy.js && npm run build",
+  "buildCommand": "node scripts/vercel-deploy.js && SIMPLE_PDF=true npm run build",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install --omit=optional --no-package-lock",
@@ -16,7 +16,8 @@
     "NODE_ENV": "production",
     "NEXT_TELEMETRY_DISABLED": "1",
     "VERCEL": "true",
-    "NEXT_PUBLIC_VERCEL_DEPLOYMENT": "true"
+    "NEXT_PUBLIC_VERCEL_DEPLOYMENT": "true",
+    "SIMPLE_PDF": "true"
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/src/$1" },
