@@ -92,10 +92,74 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
     );
   }
 
-  // Handle refreshing expired URLs
+  // Helper function to cache working URLs
+  const cacheWorkingUrl = (url: string, storageRef: string | null) => {
+    if (!url || !storageRef) return;
+    
+    try {
+      // Store URL and storageRef in localStorage with expiration time (6 days - before 7 day expiry)
+      const cacheEntry = {
+        url,
+        storageRef,
+        expires: Date.now() + 6 * 24 * 60 * 60 * 1000 // 6 days
+      };
+      
+      // Use the storageRef as the cache key for better persistence
+      localStorage.setItem(`file_url_cache_${storageRef}`, JSON.stringify(cacheEntry));
+      console.log('Cached working URL for storageRef:', storageRef);
+    } catch (error) {
+      console.error('Error caching URL:', error);
+    }
+  };
   
+  // Helper function to get cached URL
+  const getCachedUrl = (storageRef: string | null): string | null => {
+    if (!storageRef) return null;
+    
+    try {
+      const cacheKey = `file_url_cache_${storageRef}`;
+      const cacheEntry = localStorage.getItem(cacheKey);
+      
+      if (cacheEntry) {
+        const { url, expires } = JSON.parse(cacheEntry);
+        
+        // Check if URL is still valid
+        if (expires > Date.now()) {
+          console.log('Using cached URL for storageRef:', storageRef);
+          return url;
+        } else {
+          // Clear expired cache entry
+          localStorage.removeItem(cacheKey);
+          console.log('Cached URL expired for storageRef:', storageRef);
+        }
+      }
+    } catch (error) {
+      console.error('Error retrieving cached URL:', error);
+    }
+    
+    return null;
+  };
+  
+  // Handle refreshing expired URLs
   const handleDownload = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     try {
+      // Extract document ID from URL for better caching
+      const docIdMatch = fileUrl.match(/documents\/([^/?]+)/);
+      const extractedDocId = docIdMatch ? docIdMatch[1] : null;
+      
+      // Check for cached URL first
+      const storagePathMatch = fileUrl.match(/documents\/([^?]+)/);
+      const potentialStorageRef = storagePathMatch ? `documents/${storagePathMatch[1]}` : null;
+      const cachedUrl = potentialStorageRef ? getCachedUrl(potentialStorageRef) : null;
+      
+      // If we have a cached URL, use that
+      if (cachedUrl) {
+        console.log('Using cached URL for download');
+        e.preventDefault();
+        window.location.href = cachedUrl;
+        return;
+      }
+      
       // Test if the URL is valid by sending a HEAD request
       const response = await fetch(fileUrl, { method: 'HEAD' });
       if (!response.ok) {
@@ -129,7 +193,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            documentId: potentialDocId || null,
+            documentId: extractedDocId || potentialDocId || null,
             url: fileUrl
           })
         });
@@ -139,6 +203,12 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
         }
         
         const data = await refreshResponse.json();
+        
+        // Cache the URL if the server indicated it should be cached
+        if (data.shouldCache && data.storageRef) {
+          cacheWorkingUrl(data.url, data.storageRef);
+        }
+        
         window.location.href = data.url;
         setRefreshingUrl(false);
         setError(null);

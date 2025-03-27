@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, storage, db } from '@/firebase/admin-config';
 import { v4 as uuidv4 } from 'uuid';
+import { createStoragePath } from '@/utils/firebase-path-utils';
 
 // Instead of trying to import modules that might fail at build time,
 // use the pre-initialized admin SDK objects exported from admin-config.ts
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     const filename = formData.get('filename') as string || file.name;
     const contentType = formData.get('contentType') as string || file.type;
     const folderId = formData.get('folderId') as string || null;
+    const folderPath = formData.get('folderPath') as string || '';
     
     if (!file) {
       console.log('No file provided');
@@ -64,14 +66,23 @@ export async function POST(request: NextRequest) {
       filename,
       contentType,
       size: file.size,
-      folderId: folderId || 'none'
+      folderId: folderId || 'none',
+      folderPath: folderPath || 'none'
     });
+    
+    // Generate a document ID
+    const documentId = uuidv4();
     
     // Create a unique filename to avoid collisions
     const safeFileName = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
     const timestamp = Date.now();
-    const uniqueId = uuidv4().substring(0, 8);
+    const uniqueId = documentId.substring(0, 8);
+    
+    // Create standard storage path using our utility
     const filePath = `documents/${userId}/${timestamp}_${uniqueId}_${safeFileName}`;
+    
+    // Keep consistent storage path reference
+    const storageRef = filePath;
     
     // Get file buffer
     const buffer = await file.arrayBuffer();
@@ -84,42 +95,51 @@ export async function POST(request: NextRequest) {
         contentType: contentType,
         metadata: {
           firebaseStorageDownloadTokens: uniqueId,
+          documentId, // Store document ID in metadata for easier lookup
+          userId,      // Store user ID in metadata for security verification
         }
       }
     });
     
-    // Get the download URL
-    const downloadURL = `https://firebasestorage.googleapis.com/v0/b/${
-      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    }/o/${encodeURIComponent(filePath)}?alt=media&token=${uniqueId}`;
+    // Get a signed URL with longer expiration
+    const [downloadURL] = await fileRef.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
     
     console.log('File uploaded successfully, URL:', downloadURL);
     
-    // Save document metadata to Firestore
-    const docRef = await db.collection('documents').add({
+    // Save document metadata to Firestore with document ID
+    const docRef = db.collection('documents').doc(documentId);
+    await docRef.set({
+      id: documentId,
       userId: userId,
       name: filename,
       type: contentType,
+      contentType: contentType, // Duplicate field for backward compatibility
       size: file.size,
       url: downloadURL,
-      path: filePath,
+      path: filePath,           // Keep for backward compatibility
+      storageRef: storageRef,   // New field for direct storage reference
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       processed: false,
       processing: false,
-      folderId: folderId || null
+      folderId: folderId || null,
+      folderPath: folderPath || null
     });
     
-    console.log('Document metadata saved to Firestore, ID:', docRef.id);
+    console.log('Document metadata saved to Firestore, ID:', documentId);
     
     // Return success response with file URL and document ID
     return NextResponse.json({
       success: true,
       url: downloadURL,
-      documentId: docRef.id,
+      documentId: documentId,
       filename,
       contentType,
-      size: file.size
+      size: file.size,
+      storageRef
     });
     
   } catch (error: any) {

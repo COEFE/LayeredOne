@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, storage, db } from '@/firebase/admin-config';
 import { v4 as uuidv4 } from 'uuid';
 import { createBlankExcel, createTemplateExcel } from '@/utils/excelCreator';
+import { createStoragePath } from '@/utils/firebase-path-utils';
 
 // Define FieldValue with serverTimestamp for compatibility
 const FieldValue = {
@@ -65,12 +66,10 @@ export async function POST(request: NextRequest) {
     const safeFileName = documentName.replace(/[^a-zA-Z0-9_\-\. ]/g, '_');
     const fileName = `${safeFileName}${fileExtension}`;
     
-    // Create folder path
-    const storagePath = folderPath 
-      ? `documents/${userId}/${folderPath}/${documentId}${fileExtension}`
-      : `documents/${userId}/${documentId}${fileExtension}`;
+    // Create storage path using our utility
+    const storageRef = createStoragePath(userId, documentId, fileName, folderPath);
     
-    console.log(`Creating document: ${documentType}, Path: ${storagePath}`);
+    console.log(`Creating document: ${documentType}, Path: ${storageRef}`);
     
     // Generate file content based on document type
     let fileBuffer: Buffer;
@@ -105,12 +104,12 @@ export async function POST(request: NextRequest) {
     
     // Upload to Firebase Storage with streaming approach to avoid timeout
     try {
-      console.log(`Uploading document to storage: ${storagePath}`);
+      console.log(`Uploading document to storage: ${storageRef}`);
       const startUploadTime = Date.now();
       
       // Use the pre-initialized storage from admin-config
       const bucket = storage.bucket();
-      const file = bucket.file(storagePath);
+      const file = bucket.file(storageRef);
       
       // Set metadata
       const metadata = {
@@ -154,7 +153,8 @@ export async function POST(request: NextRequest) {
           ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
           : 'application/octet-stream',
         url,
-        storagePath,
+        storagePath: storageRef, // Keep for backward compatibility
+        storageRef,              // Consistent field for storage reference
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
         userId,
@@ -171,7 +171,8 @@ export async function POST(request: NextRequest) {
         documentId,
         name: documentName,
         url,
-        type: documentType
+        type: documentType,
+        storageRef
       }, { headers });
       
     } catch (storageError) {

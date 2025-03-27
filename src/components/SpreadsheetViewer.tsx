@@ -60,6 +60,54 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   const totalRows = currentData.length;
   const totalPages = Math.ceil(totalRows / PAGE_SIZE);
   
+  // Helper function to cache working URLs
+  const cacheWorkingUrl = (url: string, storageRef: string | null) => {
+    if (!url || !storageRef) return;
+    
+    try {
+      // Store URL and storageRef in localStorage with expiration time (6 days - before 7 day expiry)
+      const cacheEntry = {
+        url,
+        storageRef,
+        expires: Date.now() + 6 * 24 * 60 * 60 * 1000 // 6 days
+      };
+      
+      // Use the storageRef as the cache key for better persistence
+      localStorage.setItem(`excel_url_cache_${storageRef}`, JSON.stringify(cacheEntry));
+      console.log('Cached working URL for storageRef:', storageRef);
+    } catch (error) {
+      console.error('Error caching URL:', error);
+    }
+  };
+  
+  // Helper function to get cached URL
+  const getCachedUrl = (storageRef: string | null): string | null => {
+    if (!storageRef) return null;
+    
+    try {
+      const cacheKey = `excel_url_cache_${storageRef}`;
+      const cacheEntry = localStorage.getItem(cacheKey);
+      
+      if (cacheEntry) {
+        const { url, expires } = JSON.parse(cacheEntry);
+        
+        // Check if URL is still valid
+        if (expires > Date.now()) {
+          console.log('Using cached URL for storageRef:', storageRef);
+          return url;
+        } else {
+          // Clear expired cache entry
+          localStorage.removeItem(cacheKey);
+          console.log('Cached URL expired for storageRef:', storageRef);
+        }
+      }
+    } catch (error) {
+      console.error('Error retrieving cached URL:', error);
+    }
+    
+    return null;
+  };
+  
   // Load spreadsheet data on client side to avoid SSR issues
   useEffect(() => {
     const loadSpreadsheetData = async () => {
@@ -71,9 +119,33 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
           // Dynamically import xlsx only on client-side
           const xlsx = await import('xlsx');
           
-          // Fetch and process Excel file
+          // Extract document ID from URL for better caching
+          const docIdMatch = fileUrl.match(/documents\/([^/?]+)/);
+          const extractedDocId = docIdMatch ? docIdMatch[1] : null;
+          
+          // Check for cached URL first
+          const storagePathMatch = fileUrl.match(/documents\/([^?]+)/);
+          const potentialStorageRef = storagePathMatch ? `documents/${storagePathMatch[1]}` : null;
+          const cachedUrl = potentialStorageRef ? getCachedUrl(potentialStorageRef) : null;
+          
+          // If we have a cached URL, try that first
+          let response;
+          if (cachedUrl) {
+            console.log('Trying cached URL:', cachedUrl);
+            response = await fetch(cachedUrl);
+            
+            if (response.ok) {
+              console.log('Successfully fetched Excel file with cached URL');
+              const arrayBuffer = await response.arrayBuffer();
+              return arrayBuffer;
+            } else {
+              console.log('Cached URL failed, falling back to original URL');
+            }
+          }
+          
+          // Fetch and process Excel file with the original URL
           console.log('Fetching Excel file from:', fileUrl);
-        const response = await fetch(fileUrl);
+          response = await fetch(fileUrl);
         
         if (!response.ok) {
           if (response.status === 404) {
@@ -98,15 +170,10 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
                 ? urlParts[urlParts.length - 1]?.substring(0, queryIndex)
                 : urlParts[urlParts.length - 1];
               
-              // Look for a document ID pattern in the URL (additional extraction method)
-              const docIdMatch = fileUrl.match(/documents\/([^/?]+)/);
-              const extractedDocId = docIdMatch ? docIdMatch[1] : null;
-              
-              // Call our API to get a fresh download URL with all available information
+              // Use extracted document ID for API call
               console.log('Requesting fresh URL for file...', {
-                potentialDocId,
-                extractedDocId,
-                fileUrl
+                documentId: extractedDocId || potentialDocId,
+                url: fileUrl
               });
               
               const refreshResponse = await fetch('/api/storage/download-url', {
@@ -117,8 +184,7 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
                 },
                 body: JSON.stringify({
                   documentId: extractedDocId || potentialDocId || null,
-                  url: fileUrl,
-                  // Don't attempt to guess the filePath, let the server figure it out
+                  url: fileUrl
                 })
               });
               
@@ -126,21 +192,25 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
                 // Try to get the error message from the response
                 try {
                   const errorData = await refreshResponse.json();
-                  throw new Error(`URL refresh failed: ${refreshResponse.status} ${refreshResponse.statusText}. 
+                  throw new Error(`URL refresh failed: ${refreshResponse.status}. 
                     Server message: ${errorData.error || 'No error details provided'}`);
                 } catch (parseError) {
-                  throw new Error(`URL refresh failed: ${refreshResponse.status} ${refreshResponse.statusText}`);
+                  throw new Error(`URL refresh failed: ${refreshResponse.status}`);
                 }
               }
               
               const data = await refreshResponse.json();
-              console.log('Received response from server:', data);
-              console.log('Received fresh URL, retrying Excel fetch...');
+              console.log('Received fresh URL from server:', data);
+              
+              // Cache the URL if the server indicated it should be cached
+              if (data.shouldCache && data.storageRef) {
+                cacheWorkingUrl(data.url, data.storageRef);
+              }
               
               // Try again with the new URL
               const newResponse = await fetch(data.url);
               if (!newResponse.ok) {
-                throw new Error(`Still failed to fetch Excel file after URL refresh: ${newResponse.status} ${newResponse.statusText}`);
+                throw new Error(`Still failed to fetch Excel file after URL refresh: ${newResponse.status}`);
               }
               
               console.log('Successfully fetched Excel file with refreshed URL');
@@ -149,6 +219,7 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
               // Update the fileUrl ref for future operations
               // This is a workaround since we can't directly modify the prop
               (window as any).__lastValidExcelUrl = data.url;
+              (window as any).__lastStorageRef = data.storageRef;
               
               return newArrayBuffer;
             } catch (refreshError: any) {
