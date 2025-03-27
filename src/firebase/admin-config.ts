@@ -5,6 +5,7 @@ import * as fs from 'fs';
 // Check for different deployment environments
 const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
 const isGitHubPages = process.env.GITHUB_PAGES === 'true';
+const useRealFirebase = process.env.NEXT_PUBLIC_USE_REAL_FIREBASE === 'true';
 
 // Only for GitHub Pages we'll use mock objects since it's a static deployment
 const createMockFirebaseAdmin = () => {
@@ -99,8 +100,8 @@ if (!admin.apps.length) {
 // Always use real Firebase Admin SDK (except for GitHub Pages static builds)
 let db, auth, storage, adminDb, adminAuth, adminStorage;
 
-// Handle GitHub Pages static builds separately
-if (isGitHubPages) {
+// Handle GitHub Pages static builds and non-development environments separately 
+if (isGitHubPages && !useRealFirebase) {
   // Only use mock objects in GitHub Pages environment since it's static
   console.log('Using mock Firebase Admin objects for GitHub Pages static hosting');
   const { mockFirestore, mockAuth, mockStorage } = createMockFirebaseAdmin();
