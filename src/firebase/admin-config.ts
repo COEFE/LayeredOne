@@ -2,25 +2,35 @@ import * as admin from 'firebase-admin';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// Skip Firebase Admin initialization in Vercel environment
+// Skip Firebase Admin initialization in Vercel environment or when building for GitHub Pages
 const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
+const isGitHubPages = process.env.GITHUB_PAGES === 'true';
 
-// Create mock objects for Vercel environment
+// Create mock objects for Vercel environment or GitHub Pages
 const createMockFirebaseAdmin = () => {
-  console.log('Creating mock Firebase Admin objects for Vercel compatibility');
+  console.log('Creating mock Firebase Admin objects for deployment compatibility');
   
-  // Create mock firestore
-  const mockFirestore = {
-    collection: () => ({
-      doc: () => ({
-        get: async () => ({ exists: false, data: () => null }),
-        collection: () => ({ add: async () => ({}) }),
-        update: async () => ({}),
-        set: async () => ({})
-      }),
-      add: async () => ({})
-    })
-  };
+  // Create mock firestore database class constructor
+  class FirestoreDatabase {
+    constructor() {
+      this.collection = (name) => ({
+        doc: (id) => ({
+          get: async () => ({ exists: false, data: () => null, id: id || 'mock-id' }),
+          collection: (subName) => this.collection(subName),
+          update: async () => ({}),
+          set: async () => ({}),
+          delete: async () => ({})
+        }),
+        add: async () => ({ id: 'mock-id' }),
+        where: () => ({
+          get: async () => ({ empty: true, docs: [], forEach: () => {} })
+        })
+      });
+    }
+  }
+  
+  // Create mock firestore with proper constructor
+  const mockFirestore = new FirestoreDatabase();
   
   // Create mock auth
   const mockAuth = {
@@ -45,8 +55,8 @@ const createMockFirebaseAdmin = () => {
   };
 };
 
-// Initialize Firebase Admin SDK only if not in Vercel and not already initialized
-if (!admin.apps.length && !isVercel) {
+// Initialize Firebase Admin SDK only if not in Vercel/GitHub Pages and not already initialized
+if (!admin.apps.length && !isVercel && !isGitHubPages) {
   try {
     // Initialize with hard-coded values for Next.js compatibility
     // This avoids the "Critical dependency: the request of a dependency is an expression" error
@@ -86,11 +96,11 @@ if (!admin.apps.length && !isVercel) {
   }
 }
 
-// Create mock objects for Vercel or use real Firebase Admin SDK for other environments
+// Create mock objects for Vercel/GitHub Pages or use real Firebase Admin SDK for other environments
 let db, auth, storage, adminDb, adminAuth, adminStorage;
 
-if (isVercel) {
-  // Use mock objects in Vercel environment
+if (isVercel || isGitHubPages) {
+  // Use mock objects in Vercel/GitHub Pages environment
   const { mockFirestore, mockAuth, mockStorage } = createMockFirebaseAdmin();
   db = mockFirestore;
   auth = mockAuth;
@@ -99,7 +109,7 @@ if (isVercel) {
   adminAuth = mockAuth;
   adminStorage = mockStorage;
 } else {
-  // Use real Firebase Admin SDK in non-Vercel environments
+  // Use real Firebase Admin SDK in non-Vercel/GitHub Pages environments
   db = admin.firestore();
   auth = admin.auth();
   storage = admin.storage();
