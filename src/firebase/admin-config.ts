@@ -2,13 +2,13 @@ import * as admin from 'firebase-admin';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// Skip Firebase Admin initialization in Vercel environment or when building for GitHub Pages
+// Check for different deployment environments
 const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
 const isGitHubPages = process.env.GITHUB_PAGES === 'true';
 
-// Create mock objects for Vercel environment or GitHub Pages
+// Only for GitHub Pages we'll use mock objects since it's a static deployment
 const createMockFirebaseAdmin = () => {
-  console.log('Creating mock Firebase Admin objects for deployment compatibility');
+  console.log('Creating mock Firebase Admin objects for GitHub Pages static deployment');
   
   // Create mock firestore database class constructor
   class FirestoreDatabase {
@@ -96,11 +96,12 @@ if (!admin.apps.length && !isVercel && !isGitHubPages) {
   }
 }
 
-// Create mock objects for Vercel/GitHub Pages or use real Firebase Admin SDK for other environments
+// Create mock objects only for GitHub Pages, use real Firebase Admin for all other environments
 let db, auth, storage, adminDb, adminAuth, adminStorage;
 
-if (isVercel || isGitHubPages) {
-  // Use mock objects in Vercel/GitHub Pages environment
+if (isGitHubPages) {
+  // Only use mock objects in GitHub Pages environment since it's static
+  console.log('Using mock Firebase Admin objects for GitHub Pages static hosting');
   const { mockFirestore, mockAuth, mockStorage } = createMockFirebaseAdmin();
   db = mockFirestore;
   auth = mockAuth;
@@ -109,13 +110,42 @@ if (isVercel || isGitHubPages) {
   adminAuth = mockAuth;
   adminStorage = mockStorage;
 } else {
-  // Use real Firebase Admin SDK in non-Vercel/GitHub Pages environments
-  db = admin.firestore();
-  auth = admin.auth();
-  storage = admin.storage();
-  adminDb = db;
-  adminAuth = auth;
-  adminStorage = storage;
+  // Use real Firebase Admin SDK for all other environments including Vercel
+  console.log('Using real Firebase Admin SDK');
+  
+  try {
+    // Initialize Firebase Admin SDK if not already initialized
+    if (!admin.apps.length) {
+      // For Vercel, we need to initialize with credentials here
+      if (isVercel) {
+        console.log('Initializing Firebase Admin SDK for Vercel environment');
+        
+        // Check for required env vars
+        if (!process.env.FIREBASE_PRIVATE_KEY) {
+          console.error('FIREBASE_PRIVATE_KEY environment variable is missing');
+        }
+        
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com",
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') || ""
+          }),
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.firebasestorage.app"
+        });
+      }
+    }
+    
+    db = admin.firestore();
+    auth = admin.auth();
+    storage = admin.storage();
+    adminDb = db;
+    adminAuth = auth;
+    adminStorage = storage;
+  } catch (error) {
+    console.error('Error initializing Firebase Admin services:', error);
+    throw error; // Re-throw to make sure the error is visible
+  }
 }
 
 // Export the initialized instances
