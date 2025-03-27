@@ -106,6 +106,7 @@ export SIMPLE_PDF=true
 
 # Build the application
 echo "🏗️ Building the application..."
-SIMPLE_PDF=true next build --no-lint
+# Use npx to ensure next is available
+SIMPLE_PDF=true npx next build --no-lint
 
 echo "✅ Build process completed!"
