@@ -8,6 +8,12 @@ const nextConfig = {
       config.externals = [
         ...(config.externals || []),
       ];
+      
+      // Resolve @google-cloud/firestore module correctly
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        '@google-cloud/firestore/build/src/path': require.resolve('./src/utils/firebase-path-utils')
+      };
     }
     
     return config;
@@ -54,6 +60,8 @@ const nextConfig = {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     NEXT_PUBLIC_CLAUDE_KEY_CHECK: !!process.env.CLAUDE_API_KEY || !!process.env.ANTHROPIC_API_KEY ? "true" : "false",
     NEXT_PUBLIC_VERCEL_DEPLOYMENT: process.env.VERCEL ? "true" : "false",
+    NEXT_PUBLIC_USE_REAL_FIREBASE: process.env.NODE_ENV === 'production' ? 'true' : process.env.NEXT_PUBLIC_USE_REAL_FIREBASE,
+    FIREBASE_USE_PRODUCTION_CONFIG: 'true',
   },
   
   // Configure for App Router

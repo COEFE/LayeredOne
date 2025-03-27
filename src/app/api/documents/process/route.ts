@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin-config';
+import { auth, db, admin, firestorePath } from '@/firebase/admin-config';
 import { extractTextFromExcel } from '@/utils/excelExtractor';
 import { extractTextFromPDF } from '@/utils/pdfExtractor';
 import withTimeout, { processInChunks } from '@/utils/optimizations/timeout-middleware';
@@ -12,26 +12,34 @@ let FieldValue: any = {
   serverTimestamp: () => new Date().toISOString()
 };
 
-// Import optimized Firebase config if not in Vercel environment
-let getDataWithCache: any = async (collectionPath: string, docId: string) => {
-  const doc = await db.collection(collectionPath).doc(docId).get();
-  return doc.data();
+// Define a safe getDataWithCache function
+const getDataWithCache = async (collectionPath: string, docId: string) => {
+  try {
+    const doc = await db.collection(collectionPath).doc(docId).get();
+    return doc.data();
+  } catch (error) {
+    console.error(`Error getting data for ${collectionPath}/${docId}:`, error);
+    return null;
+  }
 };
 
-// Only import Firebase Admin modules when not in Vercel environment
-if (!isVercel) {
+// Function to get Storage instance with fallback
+const getStorage = () => {
   try {
-    // Dynamic import to avoid Vercel build issues
-    const firestoreModule = require('firebase-admin/firestore');
-    FieldValue = firestoreModule.FieldValue;
-    
-    // Import optimized Firebase config only if not in Vercel
-    const firebaseConfig = require('@/utils/optimizations/firebase-config');
-    getDataWithCache = firebaseConfig.getDataWithCache;
+    return admin.storage();
   } catch (error) {
-    console.error('Error importing Firebase Admin modules:', error);
+    console.error('Error getting Storage:', error);
+    return {
+      bucket: () => ({
+        file: () => ({
+          getSignedUrl: async () => ['https://example.com/mock-url'],
+          exists: async () => [true],
+          download: async () => [Buffer.from('mock file content')]
+        })
+      })
+    };
   }
-}
+};
 
 // Debug flag
 const DEBUG = process.env.NODE_ENV === 'development' || true;

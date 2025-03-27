@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/firebase/admin-config';
-import { getFirestore } from 'firebase-admin/firestore';
+import { auth, db } from '@/firebase/admin-config';
+
+// Define FieldValue with serverTimestamp for compatibility
+const FieldValue = {
+  serverTimestamp: () => new Date().toISOString()
+};
 
 /**
  * API endpoint to trigger reprocessing of an existing document
@@ -38,9 +42,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get document data from Firestore
-    const firestore = getFirestore();
-    const documentRef = firestore.collection('documents').doc(documentId);
+    // Get document data from Firestore using pre-initialized db from admin-config
+    const documentRef = db.collection('documents').doc(documentId);
     const documentSnapshot = await documentRef.get();
 
     if (!documentSnapshot.exists) {

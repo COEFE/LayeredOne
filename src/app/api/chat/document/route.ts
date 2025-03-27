@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin-config';
+import { auth, db, admin, firestorePath } from '@/firebase/admin-config';
 
 // Create a safe FieldValue for Vercel compatibility
 const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
@@ -9,19 +9,43 @@ let FieldValue: any = {
   serverTimestamp: () => new Date().toISOString()
 };
 
-// Only import Firebase Admin modules when not in Vercel environment
-if (!isVercel) {
+// Function to get Firestore database instance
+const getFirestore = () => {
   try {
-    // Dynamic import to avoid Vercel build issues
-    const { getFirestore, FieldValue: FirebaseFieldValue } = require('firebase-admin/firestore');
-    const { getStorage } = require('firebase-admin/storage');
-    
-    // Use the real FieldValue if we're not in Vercel
-    FieldValue = FirebaseFieldValue;
+    return db;
   } catch (error) {
-    console.error('Error importing Firebase Admin modules:', error);
+    console.error('Error getting Firestore database:', error);
+    return {
+      collection: (name: string) => ({
+        doc: (id: string) => ({
+          get: async () => ({ exists: false, data: () => null, id }),
+          collection: () => ({ add: async () => ({ id: 'mock-id' }) }),
+          update: async () => ({}),
+          set: async () => ({})
+        }),
+        add: async () => ({ id: 'mock-id' })
+      })
+    };
   }
-}
+};
+
+// Function to get Storage instance
+const getStorage = () => {
+  try {
+    return admin.storage();
+  } catch (error) {
+    console.error('Error getting Storage:', error);
+    return {
+      bucket: () => ({
+        file: () => ({
+          getSignedUrl: async () => ['https://example.com/mock-url'],
+          exists: async () => [true],
+          download: async () => [Buffer.from('mock file content')]
+        })
+      })
+    };
+  }
+};
 
 // Import environment variables
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;

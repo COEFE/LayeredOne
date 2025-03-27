@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/firebase/admin-config';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
+import { auth, storage, db } from '@/firebase/admin-config';
 import { v4 as uuidv4 } from 'uuid';
 import { createBlankExcel, createTemplateExcel } from '@/utils/excelCreator';
+
+// Define FieldValue with serverTimestamp for compatibility
+const FieldValue = {
+  serverTimestamp: () => new Date().toISOString()
+};
 
 // Debug flag for detailed logging
 const DEBUG = process.env.NODE_ENV === 'development' || true;
@@ -105,7 +108,7 @@ export async function POST(request: NextRequest) {
       console.log(`Uploading document to storage: ${storagePath}`);
       const startUploadTime = Date.now();
       
-      const storage = getStorage();
+      // Use the pre-initialized storage from admin-config
       const bucket = storage.bucket();
       const file = bucket.file(storagePath);
       
@@ -137,9 +140,8 @@ export async function POST(request: NextRequest) {
       const endUploadTime = Date.now();
       console.log(`Document uploaded in ${endUploadTime - startUploadTime}ms`);
       
-      // Create Firestore document entry
-      const firestore = getFirestore();
-      const documentRef = firestore.collection('documents').doc(documentId);
+      // Create Firestore document entry using pre-initialized db from admin-config
+      const documentRef = db.collection('documents').doc(documentId);
       
       await documentRef.set({
         id: documentId,

@@ -115,6 +115,16 @@ if (!packageJson.dependencies['@google-cloud/storage']) {
   console.log(`➕ Added dependency: @google-cloud/storage`);
 }
 
+// These are critical dependencies that the Firebase package needs
+if (!packageJson.dependencies['is-set']) {
+  packageJson.dependencies['is-set'] = "^2.0.2";
+  console.log(`➕ Added dependency: is-set (required by @google-cloud/firestore)`);
+}
+if (!packageJson.dependencies['is-regexp']) {
+  packageJson.dependencies['is-regexp'] = "^2.1.0";
+  console.log(`➕ Added dependency: is-regexp (required by @google-cloud/firestore)`);
+}
+
 // Write the updated package.json with devDependencies
 fs.writeFileSync(
   packageJsonPath,

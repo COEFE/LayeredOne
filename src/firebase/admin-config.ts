@@ -15,6 +15,18 @@ try {
   };
 }
 
+// Create firestore path utility in case @google-cloud/firestore isn't available
+const firestorePath = {
+  documentPathFromResourceName: (resourceName: string) => {
+    if (!resourceName) return '';
+    const parts = resourceName.split('/');
+    return parts.filter((_, i) => i % 2 === 1).join('/');
+  },
+  relativeName: (projectId: string, resourcePath: string) => {
+    return `projects/${projectId}/databases/(default)/documents/${resourcePath}`;
+  }
+};
+
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -240,5 +252,5 @@ if (isGitHubPages && !useRealFirebase) {
   }
 }
 
-// Export the initialized instances
-export { db, auth, storage, adminDb, adminAuth, adminStorage, admin };
+// Export the initialized instances and path utility
+export { db, auth, storage, adminDb, adminAuth, adminStorage, admin, firestorePath };
