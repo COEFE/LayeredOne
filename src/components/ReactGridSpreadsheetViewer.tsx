@@ -51,6 +51,31 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
   const [activeSheet, setActiveSheet] = useState<string>('');
   const [availableSheets, setAvailableSheets] = useState<string[]>([]);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  
+  // Helper function to safely handle number cells
+  const createNumberCell = (value: any): NumberCell => {
+    // Ensure we have a valid number
+    let numValue = 0;
+    
+    try {
+      if (value !== undefined && value !== null) {
+        numValue = Number(value);
+        if (isNaN(numValue)) {
+          numValue = 0;
+        }
+      }
+    } catch (e) {
+      console.warn('Error converting value to number:', value, e);
+      numValue = 0;
+    }
+    
+    // Return a valid NumberCell without format property
+    return {
+      type: 'number',
+      value: numValue,
+      nanToZero: true
+    } as NumberCell;
+  };
 
   // Helper function to cache working URLs
   const cacheWorkingUrl = (url: string, storageRef: string | null) => {
@@ -302,13 +327,22 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
           (window as any).__excelArrayBuffer = arrayBuffer;
         }
         
-        // Parse the Excel file
+        // Parse the Excel file with error handling
         console.log('Parsing Excel file with SheetJS');
-        const workbook = xlsx.read(arrayBuffer, { 
-          type: 'array',
-          cellFormula: true,
-          cellStyles: true
-        });
+        let workbook;
+        try {
+          workbook = xlsx.read(arrayBuffer, { 
+            type: 'array',
+            cellFormula: true,
+            cellStyles: true,
+            cellDates: true,  // Better date handling
+            dateNF: 'yyyy-mm-dd', // Date number format
+            WTF: false  // Don't throw on unexpected features
+          });
+        } catch (parseError) {
+          console.error('Error parsing Excel file:', parseError);
+          throw new Error(`Failed to parse the Excel file: ${parseError.message || 'Unknown parsing error'}`);
+        }
         
         // Store sheet names
         setAvailableSheets(workbook.SheetNames);
@@ -318,11 +352,24 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
           const firstSheet = workbook.SheetNames[0];
           setActiveSheet(firstSheet);
           
-          // Process the first sheet
+          // Process the first sheet with better error handling
           const worksheet = workbook.Sheets[firstSheet];
+          if (!worksheet) {
+            throw new Error(`Sheet "${firstSheet}" not found in the workbook`);
+          }
           
           // Get the range of the sheet
-          const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
+          let range;
+          try {
+            // Default to a single cell A1 if no range is defined
+            const ref = worksheet['!ref'] || 'A1';
+            range = xlsx.utils.decode_range(ref);
+            console.log(`Sheet "${firstSheet}" range: ${ref}`, range);
+          } catch (rangeError) {
+            console.error('Error decoding sheet range:', rangeError);
+            // Provide a fallback range (just cell A1)
+            range = { s: { c: 0, r: 0 }, e: { c: 0, r: 0 } };
+          }
           const numCols = range.e.c - range.s.c + 1;
           const numRows = range.e.r - range.s.r + 1;
           
@@ -388,13 +435,8 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
               }
               
               if (cell.t === 'n') {
-                // Number cell
-                rowCells.push({ 
-                  type: 'number', 
-                  value: Number(cell.v),
-                  nanToZero: true,
-                  format: cell.z || undefined
-                } as NumberCell);
+                // Number cell - use safe helper function
+                rowCells.push(createNumberCell(cell.v));
               } else if (cell.t === 'd') {
                 // Date cell
                 rowCells.push({ 
@@ -460,17 +502,39 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
         throw new Error('Cannot switch sheets: Excel data not available');
       }
       
-      const workbook = xlsx.read(arrayBuffer, { 
-        type: 'array',
-        cellFormula: true,
-        cellStyles: true
-      });
+      let workbook;
+      try {
+        workbook = xlsx.read(arrayBuffer, { 
+          type: 'array',
+          cellFormula: true,
+          cellStyles: true,
+          cellDates: true,  // Better date handling
+          dateNF: 'yyyy-mm-dd', // Date number format
+          WTF: false  // Don't throw on unexpected features
+        });
+      } catch (parseError) {
+        console.error('Error parsing Excel file during sheet switch:', parseError);
+        throw new Error(`Failed to parse the Excel file: ${parseError.message || 'Unknown parsing error'}`);
+      }
       
-      // Process the selected sheet
+      // Process the selected sheet with better error handling
       const worksheet = workbook.Sheets[sheetName];
+      if (!worksheet) {
+        throw new Error(`Sheet "${sheetName}" not found in the workbook`);
+      }
       
       // Get the range of the sheet
-      const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
+      let range;
+      try {
+        // Default to a single cell A1 if no range is defined
+        const ref = worksheet['!ref'] || 'A1';
+        range = xlsx.utils.decode_range(ref);
+        console.log(`Sheet "${sheetName}" range: ${ref}`, range);
+      } catch (rangeError) {
+        console.error('Error decoding sheet range:', rangeError);
+        // Provide a fallback range (just cell A1)
+        range = { s: { c: 0, r: 0 }, e: { c: 0, r: 0 } };
+      }
       
       // Create columns
       const gridColumns: Column[] = [];
@@ -534,13 +598,8 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
           }
           
           if (cell.t === 'n') {
-            // Number cell
-            rowCells.push({ 
-              type: 'number', 
-              value: Number(cell.v),
-              nanToZero: true,
-              format: cell.z || undefined
-            } as NumberCell);
+            // Number cell - use safe helper function
+            rowCells.push(createNumberCell(cell.v));
           } else if (cell.t === 'd') {
             // Date cell
             rowCells.push({ 
