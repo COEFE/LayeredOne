@@ -1,0 +1,89 @@
+name: 'Custom npm install'
+description: 'Install dependencies with npm install instead of npm ci'
+inputs:
+  working-directory:
+    description: 'Directory to run npm install in'
+    required: false
+    default: '.'
+  extra-args:
+    description: 'Extra arguments to pass to npm install'
+    required: false
+    default: ''
+runs:
+  using: 'composite'
+  steps:
+    - name: Force remove package-lock.json
+      shell: bash
+      run: rm -f ${{ inputs.working-directory }}/package-lock.json
+
+    - name: Patch package.json to use exact versions
+      shell: bash
+      run: |
+        cd ${{ inputs.working-directory }}
+        # Save a backup
+        cp package.json package.json.original
+        
+        # Update package.json to use exact versions
+        node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json'));
+          
+          // Explicitly set problematic dependencies
+          const exactDeps = {
+            'is-regexp': '2.1.0',
+            'react-icons': '5.5.0',
+            'tailwindcss': '3.3.0',
+            'autoprefixer': '9.8.8',
+            'postcss': '7.0.39',
+            'lilconfig': '2.1.0',
+            'postcss-import': '14.1.0',
+            'postcss-load-config': '3.1.4',
+            'postcss-nested': '6.0.0',
+            'quick-lru': '5.1.1',
+            'yaml': '1.10.2'
+          };
+          
+          // Update dependencies
+          Object.entries(exactDeps).forEach(([dep, version]) => {
+            if (pkg.dependencies && pkg.dependencies[dep]) {
+              pkg.dependencies[dep] = version;
+            }
+            if (pkg.devDependencies && pkg.devDependencies[dep]) {
+              pkg.devDependencies[dep] = version;
+            }
+          });
+          
+          // Add missing dependencies to devDependencies
+          if (!pkg.devDependencies) pkg.devDependencies = {};
+          if (!pkg.devDependencies['quick-lru']) pkg.devDependencies['quick-lru'] = '5.1.1';
+          if (!pkg.devDependencies['yaml']) pkg.devDependencies['yaml'] = '1.10.2';
+          
+          // Remove any caret (^) from all dependencies
+          Object.keys(pkg.dependencies || {}).forEach(dep => {
+            const val = pkg.dependencies[dep];
+            if (typeof val === 'string' && val.startsWith('^')) {
+              pkg.dependencies[dep] = val.substring(1);
+            }
+          });
+          
+          Object.keys(pkg.devDependencies || {}).forEach(dep => {
+            const val = pkg.devDependencies[dep];
+            if (typeof val === 'string' && val.startsWith('^')) {
+              pkg.devDependencies[dep] = val.substring(1);
+            }
+          });
+          
+          // Write updated package.json
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+        "
+        echo "Updated package.json to use exact versions"
+
+    - name: Install dependencies with npm install
+      shell: bash
+      run: |
+        cd ${{ inputs.working-directory }}
+        # Use plain npm install with specific flags to avoid npm ci
+        npm install --no-package-lock --no-audit --no-fund ${{ inputs.extra-args }}
+        
+        # Explicitly install exact versions
+        npm install --save-exact is-regexp@2.1.0 react-icons@5.5.0 tailwindcss@3.3.0 autoprefixer@9.8.8 postcss@7.0.39 lilconfig@2.1.0 postcss-import@14.1.0 postcss-load-config@3.1.4 postcss-nested@6.0.0 quick-lru@5.1.1 yaml@1.10.2

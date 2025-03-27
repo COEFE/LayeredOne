@@ -23,77 +23,19 @@ jobs:
         node-version: ${{ matrix.node-version }}
         # IMPORTANT: Do not use cache option as it forces npm ci
     
-    - name: Update package.json with exact versions
-      run: |
-        # Create a copy of package.json
-        cp package.json package.json.backup
-        
-        # Update package.json to use exact versions
-        node -e "
-          const fs = require('fs');
-          const pkg = JSON.parse(fs.readFileSync('package.json'));
-          
-          // Fix core dependencies
-          if (pkg.dependencies['is-regexp']) pkg.dependencies['is-regexp'] = '2.1.0';
-          if (pkg.dependencies['react-icons']) pkg.dependencies['react-icons'] = '5.5.0';
-          if (pkg.dependencies['tailwindcss']) pkg.dependencies['tailwindcss'] = '3.3.0';
-          
-          // Fix dev dependencies
-          if (pkg.devDependencies['is-regexp']) pkg.devDependencies['is-regexp'] = '2.1.0';
-          if (pkg.devDependencies['autoprefixer']) pkg.devDependencies['autoprefixer'] = '9.8.8';
-          if (pkg.devDependencies['postcss']) pkg.devDependencies['postcss'] = '7.0.39';
-          if (pkg.devDependencies['tailwindcss']) pkg.devDependencies['tailwindcss'] = '3.3.0';
-          if (pkg.devDependencies['lilconfig']) pkg.devDependencies['lilconfig'] = '2.1.0';
-          if (pkg.devDependencies['postcss-import']) pkg.devDependencies['postcss-import'] = '14.1.0';
-          if (pkg.devDependencies['postcss-load-config']) pkg.devDependencies['postcss-load-config'] = '3.1.4';
-          if (pkg.devDependencies['postcss-nested']) pkg.devDependencies['postcss-nested'] = '6.0.0';
-          
-          // Add missing dependencies
-          pkg.devDependencies['quick-lru'] = '5.1.1';
-          pkg.devDependencies['yaml'] = '1.10.2';
-          
-          // Remove caret from all dependencies
-          Object.keys(pkg.dependencies).forEach(dep => {
-            if (typeof pkg.dependencies[dep] === 'string' && pkg.dependencies[dep].startsWith('^')) {
-              pkg.dependencies[dep] = pkg.dependencies[dep].substring(1);
-            }
-          });
-          
-          Object.keys(pkg.devDependencies).forEach(dep => {
-            if (typeof pkg.devDependencies[dep] === 'string' && pkg.devDependencies[dep].startsWith('^')) {
-              pkg.devDependencies[dep] = pkg.devDependencies[dep].substring(1);
-            }
-          });
-          
-          // Update package.json
-          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-        "
-        
-        echo "Updated package.json:"
-        cat package.json
+    - name: Use custom npm install action
+      uses: ./.github/actions/npm-install-action
+      with:
+        extra-args: "--prefer-offline"
     
-    - name: Force removal of node_modules and package-lock.json
+    - name: Verify no lock file exists
       run: |
-        rm -rf node_modules package-lock.json
-    
-    - name: Install dependencies with npm install
-      run: |
-        # Use npm install directly - NOT npm ci
-        npm install --prefer-offline --no-audit --no-fund --no-package-lock
-        
-        # Install explicit versions directly
-        npm install --save-exact \
-          is-regexp@2.1.0 \
-          react-icons@5.5.0 \
-          tailwindcss@3.3.0 \
-          autoprefixer@9.8.8 \
-          postcss@7.0.39 \
-          lilconfig@2.1.0 \
-          postcss-import@14.1.0 \
-          postcss-load-config@3.1.4 \
-          postcss-nested@6.0.0 \
-          quick-lru@5.1.1 \
-          yaml@1.10.2
+        if [ -f "package-lock.json" ]; then
+          echo "WARNING: package-lock.json still exists - removing it"
+          rm -f package-lock.json
+        else
+          echo "GOOD: No package-lock.json exists"
+        fi
     
     - name: Setup PostCSS config
       run: |
