@@ -304,14 +304,13 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
           // Store attempts for debugging
           (window as any).__excelLoadAttempts = attempts;
           
-          try {
-            // Parse the Excel file
-            console.log('Parsing Excel file with SheetJS');
-            const workbook = xlsx.read(arrayBuffer, { 
-              type: 'array',
-              cellFormula: true,
-              cellStyles: true
-            });
+          // Parse the Excel file
+          console.log('Parsing Excel file with SheetJS');
+          const workbook = xlsx.read(arrayBuffer, { 
+            type: 'array',
+            cellFormula: true,
+            cellStyles: true
+          });
           
           // Store sheet names
           setWorkbookSheets(workbook.SheetNames);
