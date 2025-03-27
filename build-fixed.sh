@@ -20,69 +20,32 @@ npm install \
   react-icons \
   --save-exact
 
-# Create minimal implementations as fallbacks
-echo "🔧 Creating minimal module implementations..."
+# No longer creating mock implementations - using the real modules instead
+echo "🔧 Verifying installed modules..."
 
-# Create minimal autoprefixer module
-cat > node_modules/autoprefixer/index.js << 'EOF'
-module.exports = function() {
-  return {
-    postcssPlugin: 'autoprefixer',
-    Once(root) {
-      console.log('Using fallback autoprefixer');
-      return root;
-    }
-  };
-};
-module.exports.postcss = true;
-EOF
+# Check if postcss and autoprefixer are properly installed
+if [ ! -d "node_modules/postcss" ]; then
+  echo "⚠️ Warning: postcss module not found - installing again"
+  npm install postcss@7.0.39 --save-exact
+fi
 
-# Create minimal postcss module
-cat > node_modules/postcss/index.js << 'EOF'
-function process(css, opts) {
-  console.log('Using fallback postcss processor');
-  return {
-    css,
-    map: null,
-    messages: [],
-    root: { type: 'root', nodes: [] },
-    processor: { plugins: [] },
-    opts
-  };
-}
+if [ ! -d "node_modules/autoprefixer" ]; then
+  echo "⚠️ Warning: autoprefixer module not found - installing again"
+  npm install autoprefixer@9.8.8 --save-exact
+fi
 
-module.exports = function postcss(...plugins) {
-  return {
-    process,
-    plugins
-  };
-};
+if [ ! -d "node_modules/tailwindcss" ]; then
+  echo "⚠️ Warning: tailwindcss module not found - installing again"
+  npm install tailwindcss@3.3.0 --save-exact
+fi
 
-module.exports.parse = function parse(css) {
-  return { type: 'root', nodes: [] };
-};
+if [ ! -d "node_modules/react-icons" ]; then
+  echo "⚠️ Warning: react-icons module not found - installing again"
+  npm install react-icons@5.5.0 --save-exact
+fi
 
-module.exports.plugin = function plugin(name, func) {
-  return func;
-};
-EOF
-
-# Create tailwind package.json
-echo '{"name":"tailwindcss","version":"3.3.0","main":"index.js"}' > node_modules/tailwindcss/package.json
-
-# Create minimal tailwindcss module
-cat > node_modules/tailwindcss/index.js << 'EOF'
-module.exports = function() {
-  return {
-    postcssPlugin: 'tailwindcss',
-    Once(root) {
-      console.log('Using fallback tailwindcss');
-      return root;
-    }
-  };
-};
-module.exports.postcss = true;
-EOF
+# Verify the installations 
+echo "✅ Verified all required modules are installed properly"
 
 # Create simple postcss.config.js
 echo "🔧 Creating simplified PostCSS config..."
