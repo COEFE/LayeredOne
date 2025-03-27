@@ -167,29 +167,13 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
     );
   }
 
-  // For PDF files, use a lazy-loaded dedicated viewer component
+  // For PDF files, use our proxy component that loads the real viewer only on client-side
   if (mimeType === 'application/pdf') {
-    // Import the PDFViewer dynamically with ssr disabled to avoid canvas issues
-    const PDFViewer = dynamic(
-      () => import('./PDFViewer').catch(err => {
-        console.error('Error loading PDF Viewer:', err);
-        // Return a fallback component if import fails
-        return () => (
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md my-2">
-            <h3 className="font-semibold text-lg text-yellow-800 mb-2">PDF Viewer Not Available</h3>
-            <p className="text-yellow-700 mb-3">The PDF viewer couldn't be loaded in this environment.</p>
-            <a 
-              href={fileUrl} 
-              download={fileName}
-              className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-            >
-              Download PDF Instead
-            </a>
-          </div>
-        );
-      }),
+    // Import the PDFViewerProxy - this is a simple component with no problematic imports
+    const PDFViewerProxy = dynamic(
+      () => import('./PDFViewerProxy'),
       { 
-        ssr: false, 
+        ssr: false,
         loading: () => (
           <div className="flex justify-center items-center h-96">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -198,7 +182,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
       }
     );
     
-    return <PDFViewer fileUrl={fileUrl} fileName={fileName} />;
+    return <PDFViewerProxy fileUrl={fileUrl} fileName={fileName} />;
   }
 
   // For image files, use a lazy-loaded dedicated viewer component

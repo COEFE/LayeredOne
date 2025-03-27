@@ -1,60 +1,61 @@
 'use client';
+// This file will be dynamically imported only on the client side
+// to avoid any server-side rendering issues with PDF.js
 
 import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { FiZoomIn, FiZoomOut, FiMinimize2 } from 'react-icons/fi';
-
-// This component is specifically for PDF viewing and will be dynamically imported
-// to prevent canvas-related errors during server-side rendering
 
 const PDFViewer = ({ fileUrl, fileName }: { fileUrl: string, fileName: string }) => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState<number>(1.0);
-  const [isPdfJsLoaded, setPdfJsLoaded] = useState(false);
+  const [ReactPdfComponents, setReactPdfComponents] = useState<{
+    Document: any;
+    Page: any;
+  } | null>(null);
   
   // Predefined zoom levels
   const zoomLevels = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0];
-  
-  // Dynamically import pdfjs to avoid SSR issues
-  const Document = dynamic(
-    () => import('react-pdf').then(mod => {
-      // Once the module is loaded, set up the worker
-      import('react-pdf/dist/esm/pdfjs').then(pdfjs => {
+
+  // Load react-pdf components asynchronously to avoid SSR issues
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadReactPdf = async () => {
+      try {
+        // Dynamically import react-pdf
+        const ReactPDF = await import('react-pdf');
+        
+        // Setup the worker
+        const pdfjs = await import('react-pdf/dist/esm/pdfjs');
+        
         if (typeof window !== 'undefined') {
-          // Use CDN-hosted worker to avoid bundling issues
-          pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
-          setPdfJsLoaded(true);
+          // Use a CDN worker to avoid bundling issues
+          const workerUrl = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+          pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+          
+          if (isMounted) {
+            setReactPdfComponents({
+              Document: ReactPDF.Document,
+              Page: ReactPDF.Page
+            });
+          }
         }
-      }).catch(err => {
-        console.error('Error loading PDF.js:', err);
-        setError('Error loading PDF viewer: ' + err.message);
-      });
-      return mod.Document;
-    }).catch(err => {
-      console.error('Error loading react-pdf:', err);
-      setError('Error loading PDF viewer: ' + err.message);
-      // Return a dummy component
-      return () => <div>PDF viewer not available</div>;
-    }),
-    { 
-      ssr: false,
-      loading: () => (
-        <div className="flex justify-center items-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      )
-    }
-  );
-  
-  const Page = dynamic(
-    () => import('react-pdf').then(mod => mod.Page).catch(err => {
-      console.error('Error loading react-pdf Page:', err);
-      return () => <div>PDF page not available</div>;
-    }),
-    { ssr: false }
-  );
+      } catch (err: any) {
+        console.error('Error loading PDF components:', err);
+        if (isMounted) {
+          setError(`Failed to load PDF viewer: ${err.message}`);
+        }
+      }
+    };
+
+    loadReactPdf();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // PDF document loaded successfully
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
@@ -151,11 +152,11 @@ const PDFViewer = ({ fileUrl, fileName }: { fileUrl: string, fileName: string })
       </div>
 
       <div className="border border-gray-300 rounded-md overflow-auto">
-        {isPdfJsLoaded ? (
-          <Document
+        {ReactPdfComponents ? (
+          <ReactPdfComponents.Document
             file={fileUrl}
             onLoadSuccess={onDocumentLoadSuccess}
-            onLoadError={(error) => setError(error.message)}
+            onLoadError={(error: Error) => setError(error.message)}
             className="flex justify-center"
             loading={
               <div className="flex justify-center items-center h-96">
@@ -163,14 +164,14 @@ const PDFViewer = ({ fileUrl, fileName }: { fileUrl: string, fileName: string })
               </div>
             }
           >
-            <Page 
+            <ReactPdfComponents.Page 
               pageNumber={currentPage} 
               scale={scale}
               renderTextLayer={true}
               renderAnnotationLayer={true}
               className="pdf-page"
             />
-          </Document>
+          </ReactPdfComponents.Document>
         ) : (
           <div className="flex justify-center items-center h-96">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>

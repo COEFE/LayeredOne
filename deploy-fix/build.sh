@@ -67,51 +67,70 @@ cat > next.config.js << 'EOL'
 const nextConfig = {
   // Handle problematic modules that use browser-only APIs
   webpack: (config, { isServer }) => {
-    // Exclude certain modules from SSR/static build
+    // Handle browser-only dependencies in server code
     if (isServer) {
-      // For Vercel and GitHub Pages: handle canvas-dependent modules
-      config.externals = [...(config.externals || []), {
-        'canvas': 'canvas',
-        'pdfjs-dist': 'pdfjs-dist',
-        'react-pdf': 'react-pdf'
-      }];
+      // Externalize PDFs, canvas, etc. on server
+      config.externals = [
+        ...(config.externals || []),
+        'canvas',
+        'react-pdf',
+        'pdfjs-dist',
+      ];
     }
+
+    // Mock modules that cause problems in any environment
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+      'pdfjs-dist': isServer ? false : require.resolve('pdfjs-dist'),
+    };
+
+    // For security or problematic npm modules
+    config.resolve.symlinks = false;
     
-    // For Vercel specifically: mock canvas module
-    if (process.env.VERCEL) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        canvas: false, // Mock the canvas module
-      };
-    }
+    // Skip issues with dynamic imports
+    config.ignoreWarnings = [
+      { module: /node_modules\/react-pdf/ },
+      { module: /node_modules\/pdfjs-dist/ },
+    ];
     
     return config;
   },
+  // For production builds
   output: 'standalone',
   reactStrictMode: true,
   swcMinify: true,
-  // Disable ESLint in the build process
+  
+  // Disable checks during build for speed
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Disable TypeScript checking during build
   typescript: {
     ignoreBuildErrors: true,
   },
+  
+  // Image optimization settings
   images: {
     domains: ['firebasestorage.googleapis.com'],
     unoptimized: true,
   },
+  
+  // Experimental features
   experimental: {
+    // These packages run only on server
     serverComponentsExternalPackages: [
       '@anthropic-ai/sdk',
       'pdf-parse',
       'pdf-parse-debugging-disabled',
       'firebase-admin',
-      'xlsx'
+      'xlsx',
+      'canvas',
+      'pdfjs-dist',
     ],
     optimisticClientCache: true,
   },
+  
+  // Output directory
   distDir: '.next',
 };
 
