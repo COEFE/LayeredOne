@@ -105,7 +105,7 @@ export default function ReprocessDocumentButton({
         ) : (
           <>
             <FiRefreshCw className="h-4 w-4" />
-            <span>Extract Text</span>
+            <span>Process Document</span>
           </>
         )}
       </button>

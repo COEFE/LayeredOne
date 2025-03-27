@@ -15,6 +15,7 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { FiSend, FiLoader, FiAlertTriangle, FiInfo, FiUser, FiCpu } from 'react-icons/fi';
+import ReprocessDocumentButton from './ReprocessDocumentButton';
 import ModelSelector from './ModelSelector';
 
 interface DocumentChatProps {
@@ -99,6 +100,12 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
             console.log('Excel/spreadsheet document detected - locking model to Claude 3.7 Sonnet for optimal editing');
             setSelectedModel('claude-3-7-sonnet-20250219');
             setModelLocked(true);
+          }
+          
+          // Check if document has been processed
+          if (!docData.extractedText && !docData.processingComplete) {
+            console.log('Document not processed yet - showing processing required message');
+            setError('This document needs to be processed first. Please click the "Process Document" button.');
           }
           
           setDocument({
@@ -544,8 +551,22 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
               disabled={sending}
             />
             {error && (
-              <div className="absolute -top-12 left-0 right-0 bg-red-50 text-red-800 text-xs p-2 rounded border border-red-200">
-                {error}
+              <div className="absolute -top-18 left-0 right-0 bg-red-50 text-red-800 text-xs p-2 rounded border border-red-200 flex items-center justify-between">
+                <div className="flex items-center">
+                  <FiAlertTriangle className="inline-block mr-1 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+                {!document?.extractedText && document && (
+                  <ReprocessDocumentButton 
+                    documentId={document.id} 
+                    onSuccess={() => {
+                      setError(null);
+                      // Refresh document data
+                      window.location.reload();
+                    }}
+                    className="ml-2 flex-shrink-0"
+                  />
+                )}
               </div>
             )}
           </div>
