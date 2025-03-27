@@ -36,7 +36,8 @@
     "fix-css": "node ./fix-documents-css.js && node ./fix-postcss.js && node ./fix-css-modules.js",
     "fix-font": "node ./fix-next-font.js",
     "fix-firebase": "./fix-firebase-vercel.sh",
-    "fix-icons": "node ./fix-react-icons.js"
+    "fix-icons": "node ./fix-react-icons.js",
+    "fix-autoprefixer": "node ./fix-autoprefixer.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.17.2",

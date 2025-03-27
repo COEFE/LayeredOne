@@ -9,7 +9,11 @@ echo "🚀 Starting Vercel build process..."
 echo "📦 Installing CSS dependencies..."
 npm install postcss autoprefixer tailwindcss --save
 
-# Run React Icons fix script first
+# Run autoprefixer fix script first (most critical)
+echo "🔧 Running autoprefixer fixes..."
+npm run fix-autoprefixer
+
+# Run React Icons fix script 
 echo "🔧 Running React Icons fixes..."
 npm run fix-icons
 
