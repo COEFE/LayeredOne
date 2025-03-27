@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { read, utils } from 'xlsx';
-import Papa from 'papaparse';
 import { useAuth } from '@/context/AuthContext';
 
 interface FileViewerProps {
@@ -54,80 +52,19 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
           mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
           mimeType === 'application/vnd.ms-excel' ||
           mimeType === 'application/x-excel' ||
-          mimeType === 'application/x-msexcel'
+          mimeType === 'application/x-msexcel' ||
+          mimeType === 'text/csv'
         ) {
-          // Excel files
-          const response = await fetch(fileUrl);
-          const arrayBuffer = await response.arrayBuffer();
-          const workbook = read(arrayBuffer);
+          // For Excel and CSV files, we'll load data client-side
+          // Set a placeholder to trigger dynamic loading
+          const exampleData = [
+            [{ value: 'Loading spreadsheet data...' }]
+          ];
+          setSpreadsheetData(exampleData);
+          setViewableData(exampleData);
           
-          // Store sheet names
-          setWorkbookSheets(workbook.SheetNames);
-          
-          // Process each sheet in the workbook separately
-          const sheetsObj: {[key: string]: any[][]} = {};
-          
-          workbook.SheetNames.forEach(sheetName => {
-            const worksheet = workbook.Sheets[sheetName];
-            
-            // Convert to array of arrays
-            const jsonData = utils.sheet_to_json(worksheet, { 
-              header: 1,
-              defval: '',  // Default value for empty cells
-              blankrows: true  // Include blank rows
-            });
-            
-            // Format for our custom table view
-            const formattedData = jsonData.map((row: any) => 
-              Array.isArray(row) 
-                ? row.map(cell => ({ value: cell?.toString() || '' }))
-                : [{ value: row?.toString() || '' }]
-            );
-            
-            // Store this sheet's data
-            sheetsObj[sheetName] = formattedData;
-          });
-          
-          // Store all sheet data
-          setSheetData(sheetsObj);
-          
-          // Set the first sheet as the default view if available
-          if (workbook.SheetNames.length > 0) {
-            const firstSheet = workbook.SheetNames[0];
-            setSpreadsheetData(sheetsObj[firstSheet] || []);
-            setViewableData(sheetsObj[firstSheet] || []);
-          } else {
-            setSpreadsheetData([]);
-            setViewableData([]);
-          }
-        } else if (mimeType === 'text/csv') {
-          // CSV files
-          const response = await fetch(fileUrl);
-          const text = await response.text();
-          
-          // Parse CSV
-          const result = Papa.parse(text, {
-            header: false,
-            skipEmptyLines: false,  // Include empty rows for completeness
-            delimitersToGuess: [',', '\t', '|', ';'] // Try to autodetect delimiter
-          });
-          
-          if (result.errors && result.errors.length > 0) {
-            console.warn('CSV parsing warnings:', result.errors);
-            // Continue anyway unless it's a fatal error
-            if (result.errors.some(e => e.type === 'Fatal')) {
-              setError(`Error parsing CSV: ${result.errors[0].message}`);
-              return;
-            }
-          }
-          
-          // Format for our table view
-          const formattedData = result.data.map((row: any) => 
-            row.map((cell: any) => ({ value: cell || '' }))
-          );
-          
-          setSpreadsheetData(formattedData);
-          setViewableData(formattedData);
+          // The actual parsing will be done in the SpreadsheetViewer component
+          // which is dynamically imported for client-side only
         } else if (!isImageFile(mimeType)) {
           setError(`Unsupported file type: ${mimeType}. Currently, PDF, Excel, CSV, and common image formats (JPG, PNG, GIF, SVG, etc.) are supported.`);
         }

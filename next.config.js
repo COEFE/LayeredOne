@@ -1,5 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Handle problematic modules that use browser-only APIs
+  webpack: (config, { isServer }) => {
+    // Exclude certain modules from SSR/static build
+    if (isServer || process.env.GITHUB_PAGES === 'true') {
+      config.externals = [...(config.externals || []), {
+        'canvas': 'canvas',
+        // Add any other problematic modules here
+        'react-pdf': 'react-pdf'
+      }];
+    }
+    return config;
+  },
   // Disable ESLint in the build process
   eslint: {
     ignoreDuringBuilds: true,
@@ -44,35 +56,11 @@ const nextConfig = {
   output: process.env.GITHUB_PAGES === 'true' ? 'export' : 'standalone',
   distDir: process.env.GITHUB_PAGES === 'true' ? 'out' : '.next',
   
-  // For GitHub Pages, we need to exclude API routes from the build
+  // For GitHub Pages, we need to configure static parameters via the individual components
+  // using generateStaticParams() in each dynamic route
   ...(process.env.GITHUB_PAGES === 'true' ? {
-    // This configuration excludes API routes from the build for GitHub Pages
-    exportPathMap: async function() {
-      const paths = {
-        '/': { page: '/' },
-        '/documents': { page: '/documents' },
-        '/chat': { page: '/chat' },
-        '/chat/new': { page: '/chat/new' },
-        '/debug': { page: '/debug' },
-        '/login': { page: '/login' },
-        '/signup': { page: '/signup' },
-      };
-      
-      // Add routes with static params
-      for (const id of ['test-1', 'test-2', 'example', 'example-1', 'example-2']) {
-        paths[`/chat-test/${id}`] = { page: '/chat-test/[id]', query: { id } };
-      }
-      
-      for (const id of ['new', 'example-1', 'example-2', 'chat-test-1', 'chat-test-2']) {
-        paths[`/chat/${id}`] = { page: '/chat/[id]', query: { id } };
-      }
-      
-      for (const id of ['example-doc-1', 'example-doc-2', 'sample-document']) {
-        paths[`/documents/${id}`] = { page: '/documents/[id]', query: { id } };
-      }
-      
-      return paths;
-    }
+    // Ensure App Router static export works correctly
+    // No exportPathMap here - it's not compatible with the App Router
   } : {}),
   // Make sure dynamic routes work in production
   generateBuildId: async () => {

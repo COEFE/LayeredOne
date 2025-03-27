@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import Spreadsheet from 'react-spreadsheet';
 import { useAuth } from '@/context/AuthContext';
 
 // This component is specifically for Excel/CSV viewing and will be dynamically imported
@@ -55,6 +54,90 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   // Derived values based on current sheet
   const totalRows = currentData.length;
   const totalPages = Math.ceil(totalRows / PAGE_SIZE);
+  
+  // Load spreadsheet data on client side to avoid SSR issues
+  useEffect(() => {
+    const loadSpreadsheetData = async () => {
+      try {
+        if (fileType === 'excel') {
+          // Dynamically import xlsx only on client-side
+          const xlsx = await import('xlsx');
+          
+          // Fetch and process Excel file
+          const response = await fetch(fileUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          const workbook = xlsx.read(arrayBuffer);
+          
+          // Store sheet names
+          setWorkbookSheets(workbook.SheetNames);
+          
+          // Process each sheet in the workbook separately
+          const sheetsObj: {[key: string]: any[][]} = {};
+          
+          workbook.SheetNames.forEach(sheetName => {
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // Convert to array of arrays
+            const jsonData = xlsx.utils.sheet_to_json(worksheet, { 
+              header: 1,
+              defval: '',  // Default value for empty cells
+              blankrows: true  // Include blank rows
+            });
+            
+            // Format for our custom table view
+            const formattedData = jsonData.map((row: any) => 
+              Array.isArray(row) 
+                ? row.map(cell => ({ value: cell?.toString() || '' }))
+                : [{ value: row?.toString() || '' }]
+            );
+            
+            // Store this sheet's data
+            sheetsObj[sheetName] = formattedData;
+          });
+          
+          // Store all sheet data
+          setSheetData(sheetsObj);
+          
+          // Set the first sheet as the default view if available
+          if (workbook.SheetNames.length > 0) {
+            const firstSheet = workbook.SheetNames[0];
+            setActiveSheet(firstSheet);
+            setCurrentData(sheetsObj[firstSheet] || []);
+          } else {
+            setCurrentData([]);
+          }
+        } else if (fileType === 'csv') {
+          // Dynamically import papaparse only on client-side
+          const Papa = (await import('papaparse')).default;
+          
+          // Fetch and process CSV file
+          const response = await fetch(fileUrl);
+          const text = await response.text();
+          
+          // Parse CSV
+          const result = Papa.parse(text, {
+            header: false,
+            skipEmptyLines: false,  // Include empty rows for completeness
+            delimitersToGuess: [',', '\t', '|', ';'] // Try to autodetect delimiter
+          });
+          
+          // Format for our table view
+          const formattedData = result.data.map((row: any) => 
+            row.map((cell: any) => ({ value: cell || '' }))
+          );
+          
+          setCurrentData(formattedData);
+        }
+      } catch (err) {
+        console.error("Error loading spreadsheet data:", err);
+      }
+    };
+    
+    // Load data on client side
+    if (typeof window !== 'undefined') {
+      loadSpreadsheetData();
+    }
+  }, [fileUrl, fileType]);
   
   // Effect to update current data when active sheet changes
   useEffect(() => {
