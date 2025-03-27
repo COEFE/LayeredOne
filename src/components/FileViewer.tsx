@@ -167,22 +167,40 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
     );
   }
 
-  // For PDF files, use our simple HTML5-based viewer with no external dependencies
+  // For PDF files, use the minimal PDF viewer with absolutely no external dependencies
   if (mimeType === 'application/pdf') {
-    // Import the SimplePDFViewer - uses native browser capabilities (iframe/object)
-    const SimplePDFViewer = dynamic(
-      () => import('./SimplePDFViewer'),
-      { 
-        ssr: false,
-        loading: () => (
-          <div className="flex justify-center items-center h-96">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        )
-      }
-    );
-    
-    return <SimplePDFViewer fileUrl={fileUrl} fileName={fileName} />;
+    // Check if we're in a Vercel deployment and use the ultra-minimal viewer
+    if (process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true') {
+      // Import our ultra-minimal PDF viewer (just iframe)
+      const PDFViewerMinimal = dynamic(
+        () => import('./PDFViewerMinimal'),
+        { 
+          ssr: false,
+          loading: () => (
+            <div className="flex justify-center items-center h-96">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          )
+        }
+      );
+      
+      return <PDFViewerMinimal fileUrl={fileUrl} fileName={fileName} />;
+    } else {
+      // For non-Vercel environments, use the more feature-rich simple PDF viewer
+      const SimplePDFViewer = dynamic(
+        () => import('./SimplePDFViewer'),
+        { 
+          ssr: false,
+          loading: () => (
+            <div className="flex justify-center items-center h-96">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          )
+        }
+      );
+      
+      return <SimplePDFViewer fileUrl={fileUrl} fileName={fileName} />;
+    }
   }
 
   // For image files, use a lazy-loaded dedicated viewer component

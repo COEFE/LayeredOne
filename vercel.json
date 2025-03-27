@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "SIMPLE_PDF=true npm run build",
+  "buildCommand": "node scripts/vercel-deploy.js && npm run build",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps",
+  "installCommand": "npm install --omit=optional --no-package-lock",
   "functions": {
     "api/**/*": {
       "memory": 3008,
@@ -15,7 +15,8 @@
   "env": {
     "NODE_ENV": "production",
     "NEXT_TELEMETRY_DISABLED": "1",
-    "VERCEL": "true"
+    "VERCEL": "true",
+    "NEXT_PUBLIC_VERCEL_DEPLOYMENT": "true"
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/src/$1" },

@@ -52,6 +52,7 @@ const nextConfig = {
     CLAUDE_API_KEY: process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     NEXT_PUBLIC_CLAUDE_KEY_CHECK: !!process.env.CLAUDE_API_KEY || !!process.env.ANTHROPIC_API_KEY ? "true" : "false",
+    NEXT_PUBLIC_VERCEL_DEPLOYMENT: process.env.VERCEL ? "true" : "false",
   },
   
   // Configure for App Router
