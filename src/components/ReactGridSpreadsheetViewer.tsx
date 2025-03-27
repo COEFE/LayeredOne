@@ -1,52 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { useAuth } from '@/context/AuthContext';
+import dynamic from 'next/dynamic';
 
-// Dynamically import ReactGrid to avoid build issues
-const ReactGridPackage = dynamic(
-  () => import('@silevis/reactgrid').then((mod) => ({
-    // Export what we need from the package
-    ReactGrid: mod.ReactGrid,
-    DefaultCellTypes: mod.DefaultCellTypes,
-    TextCell: mod.TextCell,
-    NumberCell: mod.NumberCell,
-    HeaderCell: mod.HeaderCell,
-  })),
-  { ssr: false }
+// Import type definitions directly for TypeScript
+import type { 
+  ReactGrid, 
+  Column, 
+  Row, 
+  CellChange, 
+  TextCell, 
+  NumberCell, 
+  HeaderCell 
+} from '@silevis/reactgrid';
+
+// Simpler dynamic import of ReactGrid component
+const DynamicReactGrid = dynamic(
+  () => import('@silevis/reactgrid').then(mod => mod.ReactGrid),
+  { 
+    ssr: false,
+    loading: () => <div className="p-4 text-center">Loading spreadsheet viewer...</div>
+  }
 );
-
-// Define the types here as we can't import them directly
-type Column = {
-  columnId: string;
-  resizable?: boolean;
-  width?: number;
-};
-
-type Row = {
-  rowId: string;
-  height?: number;
-  cells: any[];
-};
-
-type TextCell = {
-  type: 'text';
-  text: string;
-  className?: string;
-};
-
-type NumberCell = {
-  type: 'number';
-  value: number;
-  nanToZero?: boolean;
-  format?: string;
-};
-
-type HeaderCell = {
-  type: 'header';
-  text: string;
-};
-
-type DefaultCellTypes = TextCell | NumberCell | HeaderCell;
 
 interface ReactGridSpreadsheetViewerProps {
   fileUrl: string;
@@ -55,7 +29,9 @@ interface ReactGridSpreadsheetViewerProps {
 }
 
 // Define custom cell types to handle different Excel data
-type SpreadsheetCellTypes = DefaultCellTypes | { type: "header" | "excel-number" | "excel-date" | "excel-formula" };
+type SpreadsheetCellTypes = TextCell | NumberCell | HeaderCell | { 
+  type: "header" | "excel-number" | "excel-date" | "excel-formula" 
+};
 
 interface SpreadsheetRow extends Row {
   cells: SpreadsheetCellTypes[];
@@ -321,8 +297,10 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
         }
         
         // Store attempts and array buffer for debugging and sheet switching
-        (window as any).__excelLoadAttempts = attempts;
-        (window as any).__excelArrayBuffer = arrayBuffer;
+        if (typeof window !== 'undefined') {
+          (window as any).__excelLoadAttempts = attempts;
+          (window as any).__excelArrayBuffer = arrayBuffer;
+        }
         
         // Parse the Excel file
         console.log('Parsing Excel file with SheetJS');
@@ -464,7 +442,7 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
     if (fileUrl) {
       loadExcelFile();
     }
-  }, [fileUrl, fileType, fileName]);
+  }, [fileUrl, fileType, fileName, getToken]);
   
   // Handle sheet switching
   const handleSheetChange = async (sheetName: string) => {
@@ -476,7 +454,7 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
       const xlsx = await import('xlsx');
       
       // Re-parse the workbook from the cached arrayBuffer if available
-      const arrayBuffer = (window as any).__excelArrayBuffer;
+      const arrayBuffer = typeof window !== 'undefined' ? (window as any).__excelArrayBuffer : null;
       
       if (!arrayBuffer) {
         throw new Error('Cannot switch sheets: Excel data not available');
@@ -1191,22 +1169,16 @@ const ReactGridSpreadsheetViewer: React.FC<ReactGridSpreadsheetViewerProps> = ({
       
       {/* The Excel Grid */}
       <div className="react-grid-Container border border-gray-300 rounded-lg overflow-hidden">
-        {ReactGridPackage ? (
-          <ReactGridPackage.ReactGrid
-            rows={rows}
-            columns={columns}
-            enableRangeSelection
-            enableColumnSelection
-            enableRowSelection
-            stickyTopRows={1}
-            stickyLeftColumns={1}
-            focusCellOnClick
-          />
-        ) : (
-          <div className="p-4 text-center text-gray-600">
-            Loading spreadsheet viewer...
-          </div>
-        )}
+        <DynamicReactGrid
+          rows={rows}
+          columns={columns}
+          enableRangeSelection
+          enableColumnSelection
+          enableRowSelection
+          stickyTopRows={1}
+          stickyLeftColumns={1}
+          focusCellOnClick
+        />
       </div>
     </div>
   );
