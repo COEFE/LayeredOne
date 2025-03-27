@@ -3,7 +3,7 @@
   "buildCommand": "chmod +x deploy-fix/build.sh && ./deploy-fix/build.sh",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
-  "installCommand": "npm run ci",
+  "installCommand": "npm install --legacy-peer-deps",
   "functions": {
     "api/**/*": {
       "memory": 3008,
@@ -14,7 +14,8 @@
   "regions": ["sfo1"],
   "env": {
     "NODE_ENV": "production",
-    "NEXT_TELEMETRY_DISABLED": "1"
+    "NEXT_TELEMETRY_DISABLED": "1",
+    "VERCEL": "true"
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/src/$1" },
@@ -22,7 +23,6 @@
     { "source": "/static/:path*", "destination": "/static/:path*" },
     { "source": "/api/:path*", "destination": "/api/:path*" }
   ],
-  "redirects": [],
   "cleanUrls": true,
   "trailingSlash": false
 }
