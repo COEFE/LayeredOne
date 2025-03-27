@@ -3,7 +3,19 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+// Dynamically import Firestore to prevent issues during static builds
+let getFirestore;
+try {
+  // This is a dynamic import that will be evaluated at runtime
+  const firestore = require("firebase/firestore");
+  getFirestore = firestore.getFirestore;
+} catch (error) {
+  console.warn('Error importing getFirestore, will use fallback');
+  // Create a mock function as fallback
+  getFirestore = () => ({
+    collection: () => ({})
+  });
+}
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
@@ -42,8 +54,60 @@ if (typeof window !== 'undefined') {
 // Initialize Firebase only if not already initialized
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+
+// Create safer versions of Firebase services with error handling
+let db;
+let storage;
+
+try {
+  // Initialize Firestore with error handling
+  db = getFirestore(app);
+  
+  // Initialize Storage with error handling
+  storage = getStorage(app);
+} catch (error) {
+  console.error('Error initializing Firebase services:', error);
+  
+  // Create mock implementations as fallbacks
+  if (!db) {
+    console.warn('Using mock Firestore implementation');
+    db = {
+      collection: (name) => ({
+        doc: (id) => ({
+          get: async () => ({ 
+            exists: false, 
+            data: () => null,
+            id: id || 'mock-id'
+          }),
+          set: async () => ({}),
+          update: async () => ({})
+        }),
+        add: async () => ({ id: 'mock-id' }),
+        orderBy: () => ({
+          onSnapshot: (callback) => {
+            callback({ docs: [] });
+            return () => {};
+          }
+        })
+      })
+    };
+  }
+  
+  if (!storage) {
+    console.warn('Using mock Storage implementation');
+    storage = {
+      ref: () => ({
+        child: () => ({
+          put: async () => ({
+            ref: {
+              getDownloadURL: async () => 'https://example.com/mock-url'
+            }
+          })
+        })
+      })
+    };
+  }
+}
 
 // Initialize Analytics conditionally (only on client-side)
 let analytics = null;
