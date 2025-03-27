@@ -1,8 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/firebase/admin-config';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
-import { editExcelFile, analyzeEditRequest } from '@/utils/excelEditor';
+import { auth, db, storage } from '@/firebase/admin-config';
+import { editExcelFile, analyzeEditRequest, processClaudeResponse } from '@/utils/excelEditor';
+
+// Define FieldValue with serverTimestamp for compatibility
+const FieldValue = {
+  serverTimestamp: () => new Date().toISOString()
+};
+
+// Function to get Firestore database instance
+const getFirestore = () => {
+  try {
+    return db;
+  } catch (error) {
+    console.error('Error getting Firestore database:', error);
+    return {
+      collection: (name: string) => ({
+        doc: (id: string) => ({
+          get: async () => ({ exists: false, data: () => null, id }),
+          collection: () => ({ add: async () => ({ id: 'mock-id' }) }),
+          update: async () => ({}),
+          set: async () => ({})
+        }),
+        add: async () => ({ id: 'mock-id' })
+      })
+    };
+  }
+};
+
+// Function to get Storage instance
+const getStorage = () => {
+  try {
+    return storage;
+  } catch (error) {
+    console.error('Error getting Storage:', error);
+    return {
+      bucket: () => ({
+        file: () => ({
+          getSignedUrl: async () => ['https://example.com/mock-url'],
+          exists: async () => [true],
+          download: async () => [Buffer.from('mock file content')],
+          save: async () => ({})
+        })
+      })
+    };
+  }
+};
 
 // Debug flag
 const DEBUG = process.env.NODE_ENV === 'development' || true;
@@ -37,15 +79,15 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { documentId, editInstructions } = body;
+    const { documentId, editInstructions, claudeResponse } = body;
 
-    if (!documentId || !editInstructions) {
+    if (!documentId || (!editInstructions && !claudeResponse)) {
       return NextResponse.json({ 
-        error: "Missing required parameters: documentId and editInstructions are required" 
+        error: "Missing required parameters: documentId and either editInstructions or claudeResponse are required" 
       }, { status: 400 });
     }
     
-    console.log("Edit instructions received:", editInstructions);
+    console.log("Edit instructions or Claude response received:", editInstructions || claudeResponse);
 
     // Get document data from Firestore
     const firestore = getFirestore();
@@ -88,27 +130,46 @@ export async function POST(request: NextRequest) {
     // Analyze the edit instructions
     let editPlan;
     
-    // Check if editInstructions is a pre-analyzed plan in JSON string format
-    try {
-      if (typeof editInstructions === 'string' && editInstructions.startsWith('{') && editInstructions.includes('edits')) {
-        console.log("Parsing pre-analyzed edit plan");
-        const parsedPlan = JSON.parse(editInstructions);
-        
-        // Ensure the parsed plan has the correct format
-        if (parsedPlan && parsedPlan.edits && Array.isArray(parsedPlan.edits)) {
-          editPlan = parsedPlan;
-          console.log("Successfully parsed edit plan:", JSON.stringify(editPlan));
+    // Check if we have a Claude response to process
+    if (claudeResponse) {
+      console.log("Processing Claude response for edit instructions");
+      const edits = processClaudeResponse(claudeResponse);
+      
+      if (edits && edits.length > 0) {
+        editPlan = {
+          description: `Update ${edits.length} cell(s) based on Claude's recommendations`,
+          edits: edits
+        };
+        console.log("Successfully extracted edit plan from Claude response:", JSON.stringify(editPlan));
+      } else {
+        console.log("No edit instructions found in Claude response");
+      }
+    }
+    
+    // If no edits found in Claude response, try the direct editInstructions
+    if (!editPlan && editInstructions) {
+      // Check if editInstructions is a pre-analyzed plan in JSON string format
+      try {
+        if (typeof editInstructions === 'string' && editInstructions.startsWith('{') && editInstructions.includes('edits')) {
+          console.log("Parsing pre-analyzed edit plan");
+          const parsedPlan = JSON.parse(editInstructions);
+          
+          // Ensure the parsed plan has the correct format
+          if (parsedPlan && parsedPlan.edits && Array.isArray(parsedPlan.edits)) {
+            editPlan = parsedPlan;
+            console.log("Successfully parsed edit plan:", JSON.stringify(editPlan));
+          } else {
+            console.log("Parsed JSON doesn't have expected format, trying to analyze as text");
+            editPlan = analyzeEditRequest(editInstructions);
+          }
         } else {
-          console.log("Parsed JSON doesn't have expected format, trying to analyze as text");
+          console.log("Analyzing edit instructions as natural language");
           editPlan = analyzeEditRequest(editInstructions);
         }
-      } else {
-        console.log("Analyzing edit instructions as natural language");
+      } catch (error) {
+        console.log("Failed to parse as JSON, trying to analyze as text instruction:", error);
         editPlan = analyzeEditRequest(editInstructions);
       }
-    } catch (error) {
-      console.log("Failed to parse as JSON, trying to analyze as text instruction:", error);
-      editPlan = analyzeEditRequest(editInstructions);
     }
     
     if (!editPlan) {
