@@ -91,12 +91,24 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
             }
             
             try {
-              // Extract potential document ID from URL
+              // Try to extract document ID from the URL
               const urlParts = fileUrl.split('/');
-              const potentialDocId = urlParts[urlParts.length - 1]?.split('?')[0];
+              const queryIndex = urlParts[urlParts.length - 1]?.indexOf('?');
+              const potentialDocId = queryIndex > -1 
+                ? urlParts[urlParts.length - 1]?.substring(0, queryIndex)
+                : urlParts[urlParts.length - 1];
               
-              // Call our API to get a fresh download URL
-              console.log('Requesting fresh URL for file...');
+              // Look for a document ID pattern in the URL (additional extraction method)
+              const docIdMatch = fileUrl.match(/documents\/([^/?]+)/);
+              const extractedDocId = docIdMatch ? docIdMatch[1] : null;
+              
+              // Call our API to get a fresh download URL with all available information
+              console.log('Requesting fresh URL for file...', {
+                potentialDocId,
+                extractedDocId,
+                fileUrl
+              });
+              
               const refreshResponse = await fetch('/api/storage/download-url', {
                 method: 'POST',
                 headers: {
@@ -104,17 +116,25 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
                   'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                  documentId: potentialDocId || null,
+                  documentId: extractedDocId || potentialDocId || null,
                   url: fileUrl,
-                  filePath: potentialDocId // This is needed for the API
+                  // Don't attempt to guess the filePath, let the server figure it out
                 })
               });
               
               if (!refreshResponse.ok) {
-                throw new Error(`URL refresh failed: ${refreshResponse.status} ${refreshResponse.statusText}`);
+                // Try to get the error message from the response
+                try {
+                  const errorData = await refreshResponse.json();
+                  throw new Error(`URL refresh failed: ${refreshResponse.status} ${refreshResponse.statusText}. 
+                    Server message: ${errorData.error || 'No error details provided'}`);
+                } catch (parseError) {
+                  throw new Error(`URL refresh failed: ${refreshResponse.status} ${refreshResponse.statusText}`);
+                }
               }
               
               const data = await refreshResponse.json();
+              console.log('Received response from server:', data);
               console.log('Received fresh URL, retrying Excel fetch...');
               
               // Try again with the new URL
@@ -285,13 +305,16 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
         }
       } catch (err) {
         console.error("Error loading spreadsheet data:", err);
-        // Add a visible error message for the user
+        // Add a visible error message for the user with a download link
         setCurrentData([
           [{ 
-            value: `Error loading spreadsheet: ${err.message || 'Unknown error'}. Please try refreshing the page or downloading the file instead.`,
+            value: `Error loading spreadsheet: ${err.message || 'Unknown error'}. Please try downloading the file directly using the download button above.`,
             style: 'error'
           }]
         ]);
+        
+        // Make extra sure the download button will be visible
+        setDownloadError(`Could not display spreadsheet: ${err.message || 'Unknown error'}. Please try downloading instead.`);
       }
     };
     
