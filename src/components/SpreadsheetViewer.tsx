@@ -47,6 +47,11 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   const [refreshingUrl, setRefreshingUrl] = useState(false);
   const [isRenderingLargeData, setIsRenderingLargeData] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<{row: number, col: number}[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
+  const [isSearching, setIsSearching] = useState(false);
+  const [cellStyles, setCellStyles] = useState<{[key: string]: {[key: string]: string}}>({});
   
   // Reference to the spreadsheet container for horizontal scroll with wheel
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,15 +86,97 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
             const jsonData = xlsx.utils.sheet_to_json(worksheet, { 
               header: 1,
               defval: '',  // Default value for empty cells
-              blankrows: true  // Include blank rows
+              blankrows: true,  // Include blank rows
+              raw: false // Convert values to strings
             });
             
+            // Get cell styles for this sheet
+            const sheetStyles: {[key: string]: {[key: string]: string}} = {};
+            
+            // Process each cell to extract formatting information
+            const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1');
+            for (let r = range.s.r; r <= range.e.r; ++r) {
+              for (let c = range.s.c; c <= range.e.c; ++c) {
+                const cellAddress = xlsx.utils.encode_cell({r, c});
+                const cell = worksheet[cellAddress];
+                
+                if (!cell) continue;
+                
+                // Initialize style object for this cell
+                if (!sheetStyles[r]) sheetStyles[r] = {};
+                
+                // Handle number formatting
+                if (cell.t === 'n') {
+                  if (cell.z === '0.00%') {
+                    sheetStyles[r][c] = 'percentage';
+                  } else if (cell.z && (cell.z.includes('$') || cell.z.includes('€') || cell.z.includes('£'))) {
+                    sheetStyles[r][c] = 'currency';
+                  } else if (cell.z && cell.z.includes('/')) {
+                    sheetStyles[r][c] = 'date';
+                  } else {
+                    sheetStyles[r][c] = 'number';
+                  }$') || cell.z.includes('€') || cell.z.includes('£'))) {
+                    sheetStyles[r][c] = 'currency';
+                  } else if (cell.z && cell.z.includes('/')) {
+                    sheetStyles[r][c] = 'date';
+                  } else {
+                    sheetStyles[r][c] = 'number';
+                  }
+                }
+                
+                // Handle date cells
+                if (cell.t === 'd') {
+                  sheetStyles[r][c] = 'date';
+                }
+                
+                // Handle bold text
+                if (cell.s && cell.s.font && (cell.s.font.bold || cell.s.font.sz > 12)) {
+                  sheetStyles[r][c] = (sheetStyles[r][c] || '') + ' bold';
+                }
+                
+                // Handle text alignment
+                if (cell.s && cell.s.alignment) {
+                  if (cell.s.alignment.horizontal === 'center') {
+                    sheetStyles[r][c] = (sheetStyles[r][c] || '') + ' centered';
+                  } else if (cell.s.alignment.horizontal === 'right') {
+                    sheetStyles[r][c] = (sheetStyles[r][c] || '') + ' right-aligned';
+                  }
+                }
+              }
+            }
+            
             // Format for our custom table view
-            const formattedData = jsonData.map((row: any) => 
+            const formattedData = jsonData.map((row: any, rowIndex: number) => 
               Array.isArray(row) 
-                ? row.map(cell => ({ value: cell?.toString() || '' }))
-                : [{ value: row?.toString() || '' }]
+                ? row.map((cell, colIndex) => {
+                    // Get the raw value
+                    const rawValue = cell?.toString() || '';
+                    
+                    // Get any style info for this cell
+                    const style = sheetStyles[rowIndex] && sheetStyles[rowIndex][colIndex] 
+                                  ? sheetStyles[rowIndex][colIndex] 
+                                  : '';
+                    
+                    // Look for formulas in the original sheet
+                    const cellAddress = xlsx.utils.encode_cell({r: rowIndex, c: colIndex});
+                    const originalCell = worksheet[cellAddress];
+                    const hasFormula = originalCell && originalCell.f;
+                    
+                    return { 
+                      value: rawValue, 
+                      style, 
+                      hasFormula,
+                      formula: hasFormula ? originalCell.f : undefined
+                    };
+                  })
+                : [{ value: row?.toString() || '', style: '' }]
             );
+            
+            // Store styles for this sheet
+            setCellStyles(prev => ({
+              ...prev,
+              [sheetName]: sheetStyles
+            }));
             
             // Store this sheet's data
             sheetsObj[sheetName] = formattedData;
@@ -228,6 +315,275 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   // Toggle fullscreen mode
   const toggleFullscreen = () => {
     setIsFullscreen(prev => !prev);
+  };
+  
+  // Export functions
+  const exportToCSV = () => {
+    try {
+      // Create CSV content
+      const csvContent = (showFullData ? currentData : pages[currentPage] || [])
+        .map(row => 
+          row.map(cell => {
+            const value = typeof cell === 'object' && cell !== null ? (cell.value || '') : (cell || '');
+            // Quote values containing commas or quotes
+            if (value.toString().includes(',') || value.toString().includes('"')) {
+              return `"${value.toString().replace(/"/g, '""')}"`;
+            }
+            return value;
+          }).join(',')
+        )
+        .join('\n');
+      
+      // Create a blob and download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${fileName.replace(/\.[^/.]+$/, '')}_${activeSheet}_export.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+    }
+  };
+  
+  const exportToJSON = () => {
+    try {
+      // Create JSON content
+      const jsonData = (showFullData ? currentData : pages[currentPage] || [])
+        .map(row => 
+          row.map(cell => 
+            typeof cell === 'object' && cell !== null ? cell.value : cell
+          )
+        );
+      
+      // Create a blob and download link
+      const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${fileName.replace(/\.[^/.]+$/, '')}_${activeSheet}_export.json`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting to JSON:', error);
+    }
+  };
+  
+  // Export to HTML table
+  const exportToHTML = () => {
+    try {
+      const tableData = showFullData ? currentData : pages[currentPage] || [];
+      
+      // Create HTML content with basic styling
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${fileName} - ${activeSheet}</title>
+          <style>
+            body { font-family: Arial, sans-serif; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; }
+            th { background-color: #f2f2f2; font-weight: bold; text-align: left; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .numeric { text-align: right; }
+          </style>
+        </head>
+        <body>
+          <h1>${fileName} - ${activeSheet}</h1>
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                ${Array.from({ length: tableData[0]?.length || 0 }).map((_, i) => 
+                  `<th>${String.fromCharCode(65 + i)}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${tableData.map((row, rowIndex) => `
+                <tr>
+                  <th>${rowIndex + 1}</th>
+                  ${row.map(cell => {
+                    const value = typeof cell === 'object' && cell !== null ? cell.value : cell;
+                    const style = typeof cell === 'object' && cell !== null && cell.style ? cell.style : '';
+                    
+                    return `<td class="${style.includes('number') || style.includes('currency') ? 'numeric' : ''}">${value || ''}</td>`;
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <p><small>Exported from ${window.location.origin} on ${new Date().toLocaleString()}</small></p>
+        </body>
+        </html>
+      `;
+      
+      // Create a blob and download link
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${fileName.replace(/\.[^/.]+$/, '')}_${activeSheet}_export.html`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting to HTML:', error);
+    }
+  };
+  
+  // Search functionality
+  const handleSearch = () => {
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    // Search the data for matches
+    const results: {row: number, col: number}[] = [];
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    
+    // Determine which data to search
+    const dataToSearch = showFullData ? currentData : pages[currentPage] || [];
+    
+    dataToSearch.forEach((row, rowIndex) => {
+      row.forEach((cell, colIndex) => {
+        const cellValue = typeof cell === 'object' && cell !== null 
+                         ? cell.value?.toString().toLowerCase() || '' 
+                         : (cell || '').toString().toLowerCase();
+                         
+        if (cellValue.includes(lowerSearchTerm)) {
+          // For pagination mode, adjust the row index based on current page
+          const actualRowIndex = showFullData ? rowIndex : (currentPage * PAGE_SIZE) + rowIndex;
+          results.push({ row: actualRowIndex, col: colIndex });
+        }
+      });
+    });
+    
+    setSearchResults(results);
+    setCurrentSearchIndex(results.length > 0 ? 0 : -1);
+    setIsSearching(false);
+    
+    // Scroll to the first result if found
+    if (results.length > 0) {
+      scrollToCell(results[0].row, results[0].col);
+    }
+  };
+  
+  // Navigate through search results
+  const navigateSearch = (direction: 'next' | 'prev') => {
+    if (searchResults.length === 0) return;
+    
+    let newIndex;
+    if (direction === 'next') {
+      newIndex = (currentSearchIndex + 1) % searchResults.length;
+    } else {
+      newIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+    }
+    
+    setCurrentSearchIndex(newIndex);
+    scrollToCell(searchResults[newIndex].row, searchResults[newIndex].col);
+  };
+  
+  // Helper function to scroll to a specific cell
+  const scrollToCell = (rowIndex: number, colIndex: number) => {
+    // If we're in pagination mode, make sure we're on the right page
+    if (!showFullData) {
+      const targetPage = Math.floor(rowIndex / PAGE_SIZE);
+      if (targetPage !== currentPage) {
+        setCurrentPage(targetPage);
+        // We need to delay the scrolling until after the page change renders
+        setTimeout(() => {
+          const cellElement = document.querySelector(
+            `[data-row="${rowIndex}"][data-column="${colIndex}"]`
+          );
+          if (cellElement) {
+            cellElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+        return;
+      }
+    }
+    
+    // Scroll to the cell
+    const cellElement = document.querySelector(
+      `[data-row="${rowIndex}"][data-column="${colIndex}"]`
+    );
+    if (cellElement) {
+      cellElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+  
+  // Format cell value based on style
+  const formatCellValue = (cell: any) => {
+    if (!cell || !cell.value) return '';
+    
+    const value = cell.value;
+    const style = cell.style || '';
+    
+    // Show formula hint if present
+    if (cell.hasFormula && cell.formula) {
+      return (
+        <div>
+          <div>{value}</div>
+          <div className="text-xs text-gray-500 italic truncate" title={cell.formula}>
+            ={cell.formula}
+          </div>
+        </div>
+      );
+    }
+    
+    if (style.includes('percentage') && !isNaN(parseFloat(value))) {
+      return `${(parseFloat(value) * 100).toFixed(2)}%`;
+    }
+    
+    if (style.includes('currency') && !isNaN(parseFloat(value))) {
+      return new Intl.NumberFormat(undefined, { 
+        style: 'currency', 
+        currency: 'USD' 
+      }).format(parseFloat(value));
+    }
+    
+    if (style.includes('date') && !isNaN(Date.parse(value))) {
+      return new Date(value).toLocaleDateString();
+    }
+    
+    if (style.includes('number') && !isNaN(parseFloat(value))) {
+      return new Intl.NumberFormat().format(parseFloat(value));
+    }
+    
+    return value;
+  };
+  
+  // Get cell class based on style
+  const getCellClass = (cell: any, isSelected: boolean = false) => {
+    if (!cell || !cell.style) return 'cell';
+    
+    const style = cell.style;
+    let classes = 'cell';
+    
+    if (style.includes('bold')) classes += ' font-bold';
+    if (style.includes('centered')) classes += ' text-center';
+    if (style.includes('right-aligned')) classes += ' text-right';
+    if (style.includes('number') || style.includes('percentage') || style.includes('currency')) {
+      classes += ' cell-numeric';
+    }
+    
+    // Selected cell highlighting for search results
+    if (isSelected) {
+      classes += ' bg-yellow-200 border-yellow-400';
+    }
+    
+    return classes;
   };
   
   // Create a simplified data table with frozen header row and first column
@@ -441,25 +797,39 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
                   
                   {/* Data cells */}
                   {row.map((cell, cellIndex) => {
-                    const cellValue = typeof cell === 'object' && cell !== null && 'value' in cell 
-                      ? cell.value 
-                      : (cell || '');
+                    const actualRowIndex = showFullData ? rowIndex : (currentPage * PAGE_SIZE) + rowIndex;
+                    const cellData = typeof cell === 'object' && cell !== null 
+                      ? cell 
+                      : { value: cell || '' };
                     
-                    // Determine if the cell contains a number
-                    const isNumeric = !isNaN(Number(cellValue)) && cellValue !== '';
+                    // Determine if this cell is a search match
+                    const isSearchMatch = searchResults.some(
+                      result => result.row === actualRowIndex && result.col === cellIndex
+                    );
+                    
+                    // Determine if this is the current selected search result
+                    const isCurrentSearchResult = currentSearchIndex !== -1 && 
+                      searchResults[currentSearchIndex]?.row === actualRowIndex && 
+                      searchResults[currentSearchIndex]?.col === cellIndex;
+                    
+                    // Get the formatted cell value
+                    const displayValue = formatCellValue(cellData);
+                    
+                    // Get cell class based on its style
+                    const cellClass = getCellClass(cellData, isCurrentSearchResult);
                     
                     // Determine if cell content is long and might need wrapping
-                    const isLongContent = cellValue.toString().length > 30;
+                    const isLongContent = typeof displayValue === 'string' && displayValue.length > 30;
                     
                     return (
                       <td 
                         key={cellIndex} 
-                        className={`cell ${isNumeric ? 'cell-numeric' : ''} ${isLongContent ? 'cell-wrap' : ''}`}
-                        title={cellValue.toString()}
+                        className={`${cellClass} ${isLongContent ? 'cell-wrap' : ''} ${isSearchMatch ? 'bg-yellow-100' : ''}`}
+                        title={typeof displayValue === 'string' ? displayValue : (cellData.value?.toString() || '')}
                         data-column={cellIndex}
-                        data-row={showFullData ? rowIndex : (currentPage * PAGE_SIZE) + rowIndex}
+                        data-row={actualRowIndex}
                       >
-                        {cellValue}
+                        {displayValue}
                       </td>
                     );
                   })}
@@ -668,6 +1038,52 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
             </button>
           </div>
           
+          {/* Export dropdown menu */}
+          <div className="relative group">
+            <button
+              className="flex items-center px-3 py-1.5 text-sm bg-green-100 hover:bg-green-200 text-green-800 rounded-md font-medium"
+            >
+              <svg className="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              Export
+              <svg className="w-4 h-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+            
+            {/* Dropdown menu */}
+            <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg overflow-hidden z-20 border border-gray-200 hidden group-hover:block">
+              <button
+                onClick={exportToCSV}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+              >
+                <svg className="w-4 h-4 mr-2 text-gray-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clipRule="evenodd" />
+                </svg>
+                Export to CSV
+              </button>
+              <button
+                onClick={exportToJSON}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+              >
+                <svg className="w-4 h-4 mr-2 text-gray-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                Export to JSON
+              </button>
+              <button
+                onClick={exportToHTML}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+              >
+                <svg className="w-4 h-4 mr-2 text-gray-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+                Export to HTML
+              </button>
+            </div>
+          </div>
+          
           <a 
             href={fileUrl} 
             download={fileName}
@@ -734,6 +1150,65 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
       )}
       
       {/* Excel tips */}
+      {/* Search bar */}
+      <div className="mb-3 flex flex-wrap gap-2 items-center">
+        <div className="flex-grow flex items-center min-w-[300px] border border-gray-300 rounded-md overflow-hidden">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            placeholder="Search spreadsheet..."
+            className="flex-grow py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-300"
+          />
+          <button
+            onClick={handleSearch}
+            disabled={isSearching}
+            className="px-3 py-2 bg-blue-100 text-blue-800 hover:bg-blue-200 border-l border-gray-300 flex items-center"
+          >
+            {isSearching ? (
+              <svg className="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <svg className="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+              </svg>
+            )}
+            {isSearching ? "Searching..." : "Search"}
+          </button>
+        </div>
+        
+        {searchResults.length > 0 && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="bg-yellow-100 px-2 py-1 rounded-md border border-yellow-200 text-yellow-800">
+              {currentSearchIndex + 1} of {searchResults.length} matches
+            </span>
+            
+            <button
+              onClick={() => navigateSearch('prev')}
+              className="p-1 bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 text-gray-700"
+              title="Previous match"
+            >
+              <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={() => navigateSearch('next')}
+              className="p-1 bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 text-gray-700"
+              title="Next match"
+            >
+              <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
+      
       <div className="mb-3 bg-blue-50 border border-blue-200 text-blue-800 px-3 py-2 rounded-md text-xs flex items-center">
         <svg className="w-4 h-4 mr-1 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
