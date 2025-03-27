@@ -23,15 +23,20 @@ export async function POST(request: NextRequest) {
 
     // Parse the request body
     const body = await request.json();
-    const { filePath } = body;
+    const { filePath, documentId, url: fileUrl } = body;
     
-    if (!filePath) {
+    // Try to get filePath from different sources
+    const effectiveFilePath = filePath || documentId || (fileUrl ? fileUrl.split('/').pop()?.split('?')[0] : null);
+    
+    if (!effectiveFilePath) {
       return NextResponse.json({ error: 'No file path provided' }, { status: 400 });
     }
     
+    console.log('Generating fresh download URL for file:', effectiveFilePath);
+    
     // Generate a download URL
     const adminStorage = getStorage();
-    const fileRef = adminStorage.bucket().file(filePath);
+    const fileRef = adminStorage.bucket().file(effectiveFilePath);
     
     // Generate a signed URL that expires in 1 hour
     const [url] = await fileRef.getSignedUrl({
