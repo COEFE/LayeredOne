@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "./fix-firebase-vercel.sh && node scripts/vercel-deploy.js && SIMPLE_PDF=true npm run build",
+  "buildCommand": "node ./fix-next-font.js && ./fix-firebase-vercel.sh && node scripts/vercel-deploy.js && SIMPLE_PDF=true npm run build",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install --legacy-peer-deps",
