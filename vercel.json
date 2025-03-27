@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "node ./fix-next-font.js && ./fix-firebase-vercel.sh && node scripts/vercel-deploy.js && SIMPLE_PDF=true npm run build",
+  "buildCommand": "npm install postcss autoprefixer tailwindcss --no-save && npm install postcss autoprefixer tailwindcss --save && node ./fix-documents-css.js && node ./fix-postcss.js && node ./fix-css-modules.js && node ./fix-next-font.js && ./fix-firebase-vercel.sh && node scripts/vercel-deploy.js && SIMPLE_PDF=true npm run build",
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install --legacy-peer-deps",
