@@ -66,54 +66,53 @@ if (typeof window !== 'undefined') {
 } else {
   // For server-side, create mock implementations immediately
   console.warn('Running in server environment, using mock implementations');
-    
-    // Create mock implementations
-    // Define mock objects
-    const mockDoc = {
-      get: async () => ({ exists: false, data: () => null, id: 'mock-id' }),
-      set: async () => ({}),
-      update: async () => ({}),
-      delete: async () => ({})
-    };
-    
-    const mockCollection = {
-      doc: () => mockDoc,
-      add: async () => ({ id: 'mock-id' }),
-      get: async () => ({ docs: [] }),
-      where: () => mockCollection,
-      orderBy: () => mockCollection,
-      limit: () => mockCollection,
-      onSnapshot: (callback) => {
-        callback({ docs: [] });
-        return () => {};
-      }
-    };
-    
-    const mockFirestore = {
-      collection: () => mockCollection
-    };
-    
-    getFirestore = () => mockFirestore;
-    collection = () => mockCollection;
-    doc = () => mockDoc;
-    getDoc = async () => ({ exists: () => false, data: () => null });
-    setDoc = async () => {};
-    addDoc = async () => ({ id: 'mock-id' });
-    serverTimestamp = () => new Date().toISOString();
-    query = () => ({});
-    orderBy = () => ({});
-    onSnapshot = (_, callback) => {
+  
+  // Create mock implementations
+  // Define mock objects
+  const mockDoc = {
+    get: async () => ({ exists: false, data: () => null, id: 'mock-id' }),
+    set: async () => ({}),
+    update: async () => ({}),
+    delete: async () => ({})
+  };
+  
+  const mockCollection = {
+    doc: () => mockDoc,
+    add: async () => ({ id: 'mock-id' }),
+    get: async () => ({ docs: [] }),
+    where: () => mockCollection,
+    orderBy: () => mockCollection,
+    limit: () => mockCollection,
+    onSnapshot: (callback) => {
       callback({ docs: [] });
       return () => {};
-    };
-    Timestamp = { now: () => new Date() };
-    where = () => ({});
-    getDocs = async () => ({ docs: [] });
-    updateDoc = async () => {};
-    deleteDoc = async () => {};
-    arrayUnion = (...items) => items;
-    arrayRemove = (...items) => items;
-  }
+    }
+  };
+  
+  const mockFirestore = {
+    collection: () => mockCollection
+  };
+  
+  getFirestore = () => mockFirestore;
+  collection = () => mockCollection;
+  doc = () => mockDoc;
+  getDoc = async () => ({ exists: () => false, data: () => null });
+  setDoc = async () => {};
+  addDoc = async () => ({ id: 'mock-id' });
+  serverTimestamp = () => new Date().toISOString();
+  query = () => ({});
+  orderBy = () => ({});
+  onSnapshot = (_, callback) => {
+    callback({ docs: [] });
+    return () => {};
+  };
+  Timestamp = { now: () => new Date() };
+  where = () => ({});
+  getDocs = async () => ({ docs: [] });
+  updateDoc = async () => {};
+  deleteDoc = async () => {};
+  arrayUnion = (...items) => items;
+  arrayRemove = (...items) => items;
 }
 
 // Your web app's Firebase configuration
@@ -146,7 +145,7 @@ if (typeof window !== 'undefined') {
     // In development, use localhost or the specified auth domain
     firebaseConfig.authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'localhost';
   }
-};
+}
 
 // Initialize Firebase only if not already initialized
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
