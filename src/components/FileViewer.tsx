@@ -319,24 +319,29 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
     fileName.endsWith('.xls') ||
     fileName.endsWith('.csv')
   ) {
-    // Import the SpreadsheetViewer dynamically to handle SSR issues
-    const SpreadsheetViewer = dynamic(
-      () => import('./SpreadsheetViewer').catch(err => {
-        console.error('Error loading Spreadsheet Viewer:', err);
-        // Return a fallback component if import fails
-        return () => (
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md my-2">
-            <h3 className="font-semibold text-lg text-yellow-800 mb-2">Spreadsheet Viewer Not Available</h3>
-            <p className="text-yellow-700 mb-3">The spreadsheet viewer couldn't be loaded in this environment.</p>
-            <a 
-              href={fileUrl} 
-              download={fileName}
-              className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-            >
-              Download Spreadsheet Instead
-            </a>
-          </div>
-        );
+    // Import the ReactGridSpreadsheetViewer dynamically to handle SSR issues
+    const ReactGridSpreadsheetViewer = dynamic(
+      () => import('./ReactGridSpreadsheetViewer').catch(err => {
+        console.error('Error loading ReactGrid Spreadsheet Viewer:', err);
+        
+        // If ReactGrid fails, fall back to original viewer as a backup
+        return import('./SpreadsheetViewer').catch(fallbackErr => {
+          console.error('Error loading fallback Spreadsheet Viewer:', fallbackErr);
+          // Return a fallback component if both imports fail
+          return () => (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md my-2">
+              <h3 className="font-semibold text-lg text-yellow-800 mb-2">Spreadsheet Viewer Not Available</h3>
+              <p className="text-yellow-700 mb-3">The spreadsheet viewer couldn't be loaded in this environment.</p>
+              <a 
+                href={fileUrl} 
+                download={fileName}
+                className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              >
+                Download Spreadsheet Instead
+              </a>
+            </div>
+          );
+        });
       }),
       { 
         ssr: false, 
@@ -349,13 +354,10 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
     );
     
     return (
-      <SpreadsheetViewer 
-        spreadsheetData={spreadsheetData} 
+      <ReactGridSpreadsheetViewer 
         fileName={fileName}
         fileUrl={fileUrl}
         fileType={mimeType === 'text/csv' ? 'csv' : 'excel'}
-        workbookSheets={workbookSheets}
-        sheetData={sheetData}
       />
     );
   }
