@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
   // Simplified webpack config without PDF.js/react-pdf handling
   webpack: (config, { isServer }) => {
@@ -12,7 +14,7 @@ const nextConfig = {
       // Resolve @google-cloud/firestore module correctly
       config.resolve.alias = {
         ...(config.resolve.alias || {}),
-        '@google-cloud/firestore/build/src/path': require.resolve('./src/utils/firebase-path-utils')
+        '@google-cloud/firestore/build/src/path': path.join(__dirname, 'src/utils/firebase-path-utils')
       };
     }
     
