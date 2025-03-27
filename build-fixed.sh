@@ -17,6 +17,7 @@ npm install \
   picocolors@0.2.1 \
   num2fraction@1.2.2 \
   source-map@0.6.1 \
+  react-icons \
   --save-exact
 
 # Create minimal implementations as fallbacks
@@ -88,8 +89,8 @@ echo "🔧 Creating simplified PostCSS config..."
 cat > postcss.config.js << 'EOF'
 module.exports = {
   plugins: [
-    'tailwindcss',
-    'autoprefixer'
+    require('tailwindcss'),
+    require('autoprefixer')
   ]
 }
 EOF
