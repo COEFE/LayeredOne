@@ -437,8 +437,11 @@ Use these search results to inform your spreadsheet editing approach when approp
       
       // Only attempt automatic edits for spreadsheet files
       if (isSpreadsheet) {
+        // Initialize editPlan at a higher scope to avoid "not defined" errors
+        let editPlan = null;
+        
         // First try to analyze the user's request directly
-        let editPlan = analyzeEditRequest(message);
+        editPlan = analyzeEditRequest(message);
         
         // If that fails, try to extract edit instructions from Claude's response
         if (!editPlan) {
