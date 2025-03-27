@@ -27,27 +27,45 @@ let arrayRemove;
 
 // Use dynamic imports for client-side to prevent SSR issues
 if (typeof window !== 'undefined') {
-  try {
-    const firestoreModule = require('firebase/firestore');
-    getFirestore = firestoreModule.getFirestore;
-    collection = firestoreModule.collection;
-    doc = firestoreModule.doc;
-    getDoc = firestoreModule.getDoc;
-    setDoc = firestoreModule.setDoc;
-    addDoc = firestoreModule.addDoc;
-    serverTimestamp = firestoreModule.serverTimestamp;
-    query = firestoreModule.query;
-    orderBy = firestoreModule.orderBy;
-    onSnapshot = firestoreModule.onSnapshot;
-    Timestamp = firestoreModule.Timestamp;
-    where = firestoreModule.where;
-    getDocs = firestoreModule.getDocs;
-    updateDoc = firestoreModule.updateDoc;
-    deleteDoc = firestoreModule.deleteDoc;
-    arrayUnion = firestoreModule.arrayUnion;
-    arrayRemove = firestoreModule.arrayRemove;
-  } catch (error) {
-    console.warn('Error importing Firestore modules, using fallbacks');
+  // Asynchronously import Firebase modules
+  const loadFirebaseModules = async () => {
+    try {
+      // Import Firestore using dynamic import
+      const firestoreModule = await import('firebase/firestore');
+      getFirestore = firestoreModule.getFirestore;
+      collection = firestoreModule.collection;
+      doc = firestoreModule.doc;
+      getDoc = firestoreModule.getDoc;
+      setDoc = firestoreModule.setDoc;
+      addDoc = firestoreModule.addDoc;
+      serverTimestamp = firestoreModule.serverTimestamp;
+      query = firestoreModule.query;
+      orderBy = firestoreModule.orderBy;
+      onSnapshot = firestoreModule.onSnapshot;
+      Timestamp = firestoreModule.Timestamp;
+      where = firestoreModule.where;
+      getDocs = firestoreModule.getDocs;
+      updateDoc = firestoreModule.updateDoc;
+      deleteDoc = firestoreModule.deleteDoc;
+      arrayUnion = firestoreModule.arrayUnion;
+      arrayRemove = firestoreModule.arrayRemove;
+      
+      console.log('Firebase Firestore modules loaded successfully');
+      
+      // Initialize services AFTER modules are loaded
+      initializeFirebaseServices();
+      
+    } catch (error) {
+      console.warn('Error importing Firestore modules, using fallbacks:', error);
+      createMockImplementations();
+    }
+  };
+  
+  // Execute the async function
+  loadFirebaseModules();
+} else {
+  // For server-side, create mock implementations immediately
+  console.warn('Running in server environment, using mock implementations');
     
     // Create mock implementations
     // Define mock objects
@@ -138,15 +156,24 @@ const auth = getAuth(app);
 let db;
 let storage;
 
-try {
-  // Initialize Firestore with error handling
-  db = getFirestore(app);
-  
-  // Initialize Storage with error handling
-  storage = getStorage(app);
-} catch (error) {
-  console.error('Error initializing Firebase services:', error);
-  
+// Function to initialize Firebase services
+function initializeFirebaseServices() {
+  try {
+    // Initialize Firestore with error handling
+    if (typeof getFirestore === 'function') {
+      db = getFirestore(app);
+    }
+    
+    // Initialize Storage with error handling
+    storage = getStorage(app);
+  } catch (error) {
+    console.error('Error initializing Firebase services:', error);
+    createMockImplementations();
+  }
+}
+
+// Function to create mock implementations
+function createMockImplementations() {
   // Create mock implementations as fallbacks
   if (!db) {
     console.warn('Using mock Firestore implementation');
@@ -186,6 +213,20 @@ try {
       })
     };
   }
+}
+
+// Initial attempt to initialize services
+try {
+  // Only initialize if getFirestore is available synchronously
+  if (typeof getFirestore === 'function') {
+    db = getFirestore(app);
+  }
+  
+  // Initialize Storage with error handling
+  storage = getStorage(app);
+} catch (error) {
+  console.error('Error in initial Firebase service initialization:', error);
+  createMockImplementations();
 }
 
 // Initialize Analytics conditionally (only on client-side)
