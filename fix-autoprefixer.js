@@ -15,11 +15,11 @@ console.log('🔧 Fixing autoprefixer module loading...');
 try {
   console.log('📦 Installing autoprefixer and postcss directly...');
   
-  // First try to install with npm
-  execSync('npm install autoprefixer postcss tailwindcss --no-save', { stdio: 'inherit' });
+  // First try to install with npm - using specific versions known to work
+  execSync('npm install postcss@7.0.39 autoprefixer@9.8.8 tailwindcss@3.3.0 --no-save', { stdio: 'inherit' });
   
   // Then ensure they're in package.json
-  execSync('npm install autoprefixer postcss tailwindcss --save', { stdio: 'inherit' });
+  execSync('npm install postcss@7.0.39 autoprefixer@9.8.8 tailwindcss@3.3.0 --save-exact', { stdio: 'inherit' });
   
   console.log('✅ Installed CSS dependencies directly');
 } catch (error) {
