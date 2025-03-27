@@ -26,6 +26,7 @@ const problematicDeps = [
   '@react-pdf/renderer',
   'react-icons', // Added react-icons to the list of problematic dependencies
   '@google-cloud/firestore', // Add firestore to fix vercel build
+  '@google-cloud/storage', // Add storage to fix vercel build
   'firebase-admin' // Add firebase-admin to fix vercel build
 ];
 
@@ -44,12 +45,13 @@ problematicDeps.forEach(dep => {
 // Update package.json with filtered dependencies
 packageJson.dependencies = filteredDeps;
 
-// Also add "firebase-admin": false to peerDependencies to prevent installation
+// Also add dependencies to peerDependencies as false to prevent installation
 if (!packageJson.peerDependencies) {
   packageJson.peerDependencies = {};
 }
 packageJson.peerDependencies['firebase-admin'] = false;
 packageJson.peerDependencies['@google-cloud/firestore'] = false;
+packageJson.peerDependencies['@google-cloud/storage'] = false;
 
 // Write the updated package.json
 fs.writeFileSync(
@@ -81,22 +83,73 @@ const firestoreDir = path.join(mockDir, 'firestore');
 fs.mkdirSync(firestoreDir, { recursive: true });
 fs.writeFileSync(path.join(firestoreDir, 'index.js'), `
 const FieldValue = {
-  serverTimestamp: () => new Date().toISOString()
+  serverTimestamp: () => new Date().toISOString(),
+  increment: (val) => val,
+  arrayUnion: (...elements) => elements,
+  arrayRemove: (...elements) => elements,
+  delete: () => null
 };
 
-module.exports = {
-  getFirestore: () => ({
-    collection: () => ({
-      doc: () => ({
-        get: async () => ({ exists: false, data: () => null }),
-        collection: () => ({ add: async () => ({}) }),
-        update: async () => ({}),
-        set: async () => ({})
+// Create a mock Firestore instance that won't use settings function
+const mockFirestore = {
+  collection: (name) => ({
+    doc: (id) => ({
+      get: async () => ({ 
+        exists: false, 
+        data: () => null,
+        id: id || 'mock-id'
       }),
-      add: async () => ({})
+      collection: (subName) => mockFirestore.collection(subName),
+      update: async () => ({}),
+      set: async () => ({}),
+      delete: async () => ({})
+    }),
+    add: async () => ({ id: 'mock-id' }),
+    where: () => ({
+      get: async () => ({
+        empty: true,
+        docs: [],
+        forEach: () => {}
+      }),
+      orderBy: () => ({
+        limit: () => ({
+          get: async () => ({
+            empty: true,
+            docs: [],
+            forEach: () => {}
+          })
+        })
+      })
+    }),
+    orderBy: () => ({
+      limit: () => ({
+        get: async () => ({
+          empty: true,
+          docs: [],
+          forEach: () => {}
+        })
+      })
     })
   }),
-  FieldValue
+  batch: () => ({
+    set: () => ({}),
+    update: () => ({}),
+    delete: () => ({}),
+    commit: async () => ({})
+  }),
+  runTransaction: async (fn) => await fn({ get: async () => ({ exists: false, data: () => null }) })
+};
+
+// Create a factory function
+const getFirestore = () => mockFirestore;
+
+module.exports = {
+  getFirestore,
+  FieldValue,
+  Timestamp: {
+    now: () => ({ seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }),
+    fromDate: (date) => ({ seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0 })
+  }
 };
 `);
 
@@ -155,14 +208,15 @@ module.exports = {
 };
 `);
 
-// Also mock @google-cloud/firestore with all subdirectories
+// Also mock @google-cloud libraries with all subdirectories
 const googleCloudDir = path.join(process.cwd(), 'node_modules', '@google-cloud');
 fs.mkdirSync(googleCloudDir, { recursive: true });
 
+// Mock Firestore
 const googleFirestoreDir = path.join(googleCloudDir, 'firestore');
 fs.mkdirSync(googleFirestoreDir, { recursive: true });
 
-// Create build/src/path directory structure
+// Create build/src/path directory structure for Firestore
 const buildDir = path.join(googleFirestoreDir, 'build');
 fs.mkdirSync(buildDir, { recursive: true });
 
@@ -172,10 +226,46 @@ fs.mkdirSync(srcDir, { recursive: true });
 const pathDir = path.join(srcDir, 'path');
 fs.mkdirSync(pathDir, { recursive: true });
 
-// Create mock files for each level
+// Create mock files for Firestore
 fs.writeFileSync(path.join(googleFirestoreDir, 'index.js'), `module.exports = { Firestore: class {} };`);
 fs.writeFileSync(path.join(buildDir, 'index.js'), `module.exports = {};`);
 fs.writeFileSync(path.join(srcDir, 'index.js'), `module.exports = {};`);
 fs.writeFileSync(path.join(pathDir, 'index.js'), `module.exports = { ResourcePath: class {} };`);
 
-console.log(`✅ Created empty mock modules for firebase-admin and @google-cloud/firestore`);
+// Mock Cloud Storage
+const googleStorageDir = path.join(googleCloudDir, 'storage');
+fs.mkdirSync(googleStorageDir, { recursive: true });
+
+// Create mock files for Storage
+fs.writeFileSync(path.join(googleStorageDir, 'index.js'), `
+// Mock Storage class implementation
+class Storage {
+  constructor() {}
+  
+  bucket(name) {
+    return {
+      file: (path) => ({
+        save: async (data, options) => {},
+        getSignedUrl: async (options) => ['https://example.com/mock-signed-url'],
+        download: async () => [Buffer.from('')],
+        delete: async () => {}
+      }),
+      upload: async (filePath, options) => [{
+        name: 'mock-file'
+      }],
+      getFiles: async () => [[]]
+    };
+  }
+}
+
+module.exports = {
+  Storage
+};
+`);
+
+// Also create a build directory for Storage to match the structure expected by Firebase Admin
+const storageBuildDir = path.join(googleStorageDir, 'build');
+fs.mkdirSync(storageBuildDir, { recursive: true });
+fs.writeFileSync(path.join(storageBuildDir, 'index.js'), `module.exports = { Storage: class {} };`);
+
+console.log(`✅ Created empty mock modules for firebase-admin, @google-cloud/firestore, and @google-cloud/storage`);

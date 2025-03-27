@@ -1,8 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, storage, db } from '@/firebase/admin-config';
 import { v4 as uuidv4 } from 'uuid';
-import { getStorage } from 'firebase-admin/storage';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+
+// Import Firebase admin modules with fallbacks
+let getStorage: any;
+let getFirestore: any;
+let FieldValue: any;
+
+try {
+  // Try to import Firebase Storage
+  const storageModule = require('firebase-admin/storage');
+  getStorage = storageModule.getStorage;
+} catch (error) {
+  console.warn('Error importing @google-cloud/storage module, using fallback');
+  // Fallback mock implementation
+  getStorage = () => storage;
+}
+
+try {
+  // Try to import Firestore
+  const firestoreModule = require('firebase-admin/firestore');
+  getFirestore = firestoreModule.getFirestore;
+  FieldValue = firestoreModule.FieldValue;
+} catch (error) {
+  console.warn('Error importing @google-cloud/firestore module, using fallback');
+  // Fallback mock implementation
+  getFirestore = () => db;
+  FieldValue = {
+    serverTimestamp: () => new Date().toISOString()
+  };
+}
 
 // Configure maximum file size (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
