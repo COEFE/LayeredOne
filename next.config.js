@@ -44,7 +44,8 @@ const nextConfig = {
     'firebase-admin',
     '@anthropic-ai/sdk',
     'pdf-parse',
-    'pdf-parse-debugging-disabled'
+    'pdf-parse-debugging-disabled',
+    '@google-cloud/firestore'
   ],
   
   // Environment variables

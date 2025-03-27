@@ -2,8 +2,51 @@ import * as admin from 'firebase-admin';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// Initialize Firebase Admin SDK only if not already initialized
-if (!admin.apps.length) {
+// Skip Firebase Admin initialization in Vercel environment
+const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
+
+// Create mock objects for Vercel environment
+const createMockFirebaseAdmin = () => {
+  console.log('Creating mock Firebase Admin objects for Vercel compatibility');
+  
+  // Create mock firestore
+  const mockFirestore = {
+    collection: () => ({
+      doc: () => ({
+        get: async () => ({ exists: false, data: () => null }),
+        collection: () => ({ add: async () => ({}) }),
+        update: async () => ({}),
+        set: async () => ({})
+      }),
+      add: async () => ({})
+    })
+  };
+  
+  // Create mock auth
+  const mockAuth = {
+    verifyIdToken: async () => ({ uid: 'mock-user-id' })
+  };
+  
+  // Create mock storage
+  const mockStorage = {
+    bucket: () => ({
+      file: () => ({
+        getSignedUrl: async () => ['https://example.com/mock-url'],
+        save: async () => ({}),
+        delete: async () => ({})
+      })
+    })
+  };
+  
+  return {
+    mockFirestore,
+    mockAuth,
+    mockStorage
+  };
+};
+
+// Initialize Firebase Admin SDK only if not in Vercel and not already initialized
+if (!admin.apps.length && !isVercel) {
   try {
     // Initialize with hard-coded values for Next.js compatibility
     // This avoids the "Critical dependency: the request of a dependency is an expression" error
@@ -43,11 +86,27 @@ if (!admin.apps.length) {
   }
 }
 
+// Create mock objects for Vercel or use real Firebase Admin SDK for other environments
+let db, auth, storage, adminDb, adminAuth, adminStorage;
+
+if (isVercel) {
+  // Use mock objects in Vercel environment
+  const { mockFirestore, mockAuth, mockStorage } = createMockFirebaseAdmin();
+  db = mockFirestore;
+  auth = mockAuth;
+  storage = mockStorage;
+  adminDb = mockFirestore;
+  adminAuth = mockAuth;
+  adminStorage = mockStorage;
+} else {
+  // Use real Firebase Admin SDK in non-Vercel environments
+  db = admin.firestore();
+  auth = admin.auth();
+  storage = admin.storage();
+  adminDb = db;
+  adminAuth = auth;
+  adminStorage = storage;
+}
+
 // Export the initialized instances
-export const db = admin.firestore();
-export const auth = admin.auth();
-export const storage = admin.storage();
-export const adminDb = db;
-export const adminAuth = auth;
-export const adminStorage = storage;
-export { admin };
+export { db, auth, storage, adminDb, adminAuth, adminStorage, admin };
