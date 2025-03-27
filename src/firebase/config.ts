@@ -3,21 +3,100 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-// Dynamically import Firestore to prevent issues during static builds
-let getFirestore;
-try {
-  // This is a dynamic import that will be evaluated at runtime
-  const firestore = require("firebase/firestore");
-  getFirestore = firestore.getFirestore;
-} catch (error) {
-  console.warn('Error importing getFirestore, will use fallback');
-  // Create a mock function as fallback
-  getFirestore = () => ({
-    collection: () => ({})
-  });
-}
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
+
+// Dynamically import Firestore functions at runtime to prevent build issues
+let getFirestore;
+let collection;
+let doc;
+let getDoc;
+let setDoc;
+let addDoc;
+let serverTimestamp;
+let query;
+let orderBy;
+let onSnapshot;
+let Timestamp;
+let where;
+let getDocs;
+let updateDoc;
+let deleteDoc;
+let arrayUnion;
+let arrayRemove;
+
+// Use dynamic imports for client-side to prevent SSR issues
+if (typeof window !== 'undefined') {
+  try {
+    const firestoreModule = require('firebase/firestore');
+    getFirestore = firestoreModule.getFirestore;
+    collection = firestoreModule.collection;
+    doc = firestoreModule.doc;
+    getDoc = firestoreModule.getDoc;
+    setDoc = firestoreModule.setDoc;
+    addDoc = firestoreModule.addDoc;
+    serverTimestamp = firestoreModule.serverTimestamp;
+    query = firestoreModule.query;
+    orderBy = firestoreModule.orderBy;
+    onSnapshot = firestoreModule.onSnapshot;
+    Timestamp = firestoreModule.Timestamp;
+    where = firestoreModule.where;
+    getDocs = firestoreModule.getDocs;
+    updateDoc = firestoreModule.updateDoc;
+    deleteDoc = firestoreModule.deleteDoc;
+    arrayUnion = firestoreModule.arrayUnion;
+    arrayRemove = firestoreModule.arrayRemove;
+  } catch (error) {
+    console.warn('Error importing Firestore modules, using fallbacks');
+    
+    // Create mock implementations
+    // Define mock objects
+    const mockDoc = {
+      get: async () => ({ exists: false, data: () => null, id: 'mock-id' }),
+      set: async () => ({}),
+      update: async () => ({}),
+      delete: async () => ({})
+    };
+    
+    const mockCollection = {
+      doc: () => mockDoc,
+      add: async () => ({ id: 'mock-id' }),
+      get: async () => ({ docs: [] }),
+      where: () => mockCollection,
+      orderBy: () => mockCollection,
+      limit: () => mockCollection,
+      onSnapshot: (callback) => {
+        callback({ docs: [] });
+        return () => {};
+      }
+    };
+    
+    const mockFirestore = {
+      collection: () => mockCollection
+    };
+    
+    getFirestore = () => mockFirestore;
+    collection = () => mockCollection;
+    doc = () => mockDoc;
+    getDoc = async () => ({ exists: () => false, data: () => null });
+    setDoc = async () => {};
+    addDoc = async () => ({ id: 'mock-id' });
+    serverTimestamp = () => new Date().toISOString();
+    query = () => ({});
+    orderBy = () => ({});
+    onSnapshot = (_, callback) => {
+      callback({ docs: [] });
+      return () => {};
+    };
+    Timestamp = { now: () => new Date() };
+    where = () => ({});
+    getDocs = async () => ({ docs: [] });
+    updateDoc = async () => {};
+    deleteDoc = async () => {};
+    arrayUnion = (...items) => items;
+    arrayRemove = (...items) => items;
+  }
+}
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -173,4 +252,28 @@ export const getProxiedDownloadURL = async (fileRef: any) => {
   return originalUrl;
 };
 
-export { app, auth, db, storage, analytics };
+export { 
+  app, 
+  auth, 
+  db, 
+  storage, 
+  analytics,
+  // Export Firestore functions for direct import
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  addDoc,
+  serverTimestamp,
+  query,
+  orderBy,
+  onSnapshot,
+  Timestamp,
+  where,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  arrayUnion,
+  arrayRemove
+};
