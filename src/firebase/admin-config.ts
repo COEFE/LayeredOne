@@ -55,8 +55,8 @@ const createMockFirebaseAdmin = () => {
   };
 };
 
-// Initialize Firebase Admin SDK only if not in Vercel/GitHub Pages and not already initialized
-if (!admin.apps.length && !isVercel && !isGitHubPages) {
+// Initialize Firebase Admin SDK if not already initialized
+if (!admin.apps.length) {
   try {
     // Initialize with hard-coded values for Next.js compatibility
     // This avoids the "Critical dependency: the request of a dependency is an expression" error
@@ -96,9 +96,10 @@ if (!admin.apps.length && !isVercel && !isGitHubPages) {
   }
 }
 
-// Create mock objects only for GitHub Pages, use real Firebase Admin for all other environments
+// Always use real Firebase Admin SDK (except for GitHub Pages static builds)
 let db, auth, storage, adminDb, adminAuth, adminStorage;
 
+// Handle GitHub Pages static builds separately
 if (isGitHubPages) {
   // Only use mock objects in GitHub Pages environment since it's static
   console.log('Using mock Firebase Admin objects for GitHub Pages static hosting');
@@ -110,65 +111,50 @@ if (isGitHubPages) {
   adminAuth = mockAuth;
   adminStorage = mockStorage;
 } else {
-  // Use real Firebase Admin SDK for all other environments including Vercel
+  // Use real Firebase Admin SDK for all environments (development and production)
   console.log('Using real Firebase Admin SDK');
   
   try {
-    // Initialize Firebase Admin SDK if not already initialized
-    if (!admin.apps.length) {
-      // For Vercel, we need to initialize with credentials here
-      if (isVercel) {
-        console.log('Initializing Firebase Admin SDK for Vercel environment');
-        
-        // Check for required env vars
-        if (!process.env.FIREBASE_PRIVATE_KEY) {
-          console.error('FIREBASE_PRIVATE_KEY environment variable is missing');
-        }
-        
-        // The private key can come in different formats (raw or escaped newlines)
-        let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-        
-        // If the key exists, ensure proper formatting with newlines
-        if (privateKey) {
-          // Replace escaped newlines with actual newlines if they exist
-          privateKey = privateKey.replace(/\\n/g, '\n');
-        } else {
-          // Use a fallback private key for development/testing
-          console.log('WARNING: Using fallback private key. This should only be used for development.');
-          privateKey = "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC8qZf/erJPqFnk\nDDdpGKFgsNp2C9yJ7nX33KgSoTM9Fh2HtKjUzRGgPjEq/KLRzU76yv7vfJAe1bnN\nExWeDTWdN5EpY1gioCvtZL1ZQ8qwi8f9ls7r3mJgPo9mGh/cWoVPHPjHPiw46SpT\n9BMZa3So5CNi7uh6l6UYwi/jJBZZgKk9nn8R/dBd6Pl//g7+nt+k2N2va69oyapu\nHgE8Mv4FLOpn/4eoVru/WTwhiZI1ObQ9G1ngVTqy+v+syMQxk48oJ6yi0gm9qaKB\nKep8HdXFKiBxfhssB9C9EarAAQ4pJ6B3hc5DcjnfSdAJsdB6Z5zeGLdIx6yNqbaW\novD02wblAgMBAAECggEAINAkaiBme/lNbR780jAg/Ua1MFvexzSs2ufLabYUydab\nWzt+M8jY/HRkq9PV48SgLHl6/p89F8fXcYYUt/EXNplwC3FGZntSOI9RaYGjcrJV\nHdOJeLesh43J9hmsGfC6h+iDkm/LVDiljoWAfubUGv3W88GWuJ/AbL51gr2Hj5hG\n7QacJJ1bHcUns/3DWW5dkiffOJOX6fUl19CMchi8+JVdG6v1/f9JuA5V3wVqBpDG\nhhzKmsqkHHIrbKafuw+xbdjAj4iTgdZ0eJLrUxxnip4h0fphpl9n8tG7Cp4KPwQS\nw/2uPoTNGXLLnsDYq952Z0dTP/ENQLZdAOe/Snw83wKBgQDs/xjQhhURPdCFPh5h\nQkRVNtOyFR0Y7gNQQ16VuVW/xZpqq4Labi8GLP0qKhRyZk5wtTHD1t/zJ0k794LO\nZ2FtJHoAB1hThS1OxbCU0pDyvzwjdkDG4ggE5reJfFlmwUuvhHraiaRCE0eJVAsZ\nWatRvfXQuTk5R1ZPGzmRfVPO5wKBgQDLylRKXNidotLmHyQ6Nomdbf+/zN3X5tua\nXf2XlXqLjnmK6Kx6J/fa9VjN1DZ5OsiEfxFVdDZADbnriDggwtp5qPwJPqM/vVfh\nWPWowqHK9S63erC+YU98MTqRGk5NsQvRU1ZdSlEMPYT/ch4Tbg8mccUfPdUOrKtW\nhPk68XU+UwKBgH8dJ+MYN46C2CfPNJ4328zU1mDK4Etxxcc0CzRFLs/oHbWe/lVI\nCeLHGJaX8VWWt/XNyb5frsiNRsNqMvegDWpryR/g0KgjYzS/5cE820/H8GqYz4+c\nxm5SjRip4I2zmXOvm/FBKB/klVb8A+P562CxgXoNDrtBHvLZCFyXmu77AoGAezNC\nagJfYk1BOqWw/RBjea06Y/WyWAfU0ynnWXCguSXVDMlFHER1bwXMPgMBO6DyAEfh\nbsvm0Cp8L4wWgpfKBKrIU75uauZI7o8dVHz12wEG0R13JGEn8GjCg15n4EgcYNwE\n5jk7bi7y7ItM62op9o/pH839s/VnT9Lr6Vp4CskCgYB3g8NBEZzKqrJEjbMTo0xT\nsG+UAwoTXdbt1U2LAIPd+/4ELTe6TcsVzcX9JQBdaI/ELgC0ltme1R9v/zysXBBb\nv/DUzX1lT765satMDogYV4RE0VuS2GKnuNJrLGwS9PYSsrvUPIZLvuFm2J65/xPN\nOm3MLGnAhbqyqFhH8g4Dcw==\n-----END PRIVATE KEY-----\n";
-        }
-        
-        // Log some diagnostics (hiding most of private key)
-        if (privateKey) {
-          const keyStart = privateKey.slice(0, 40);
-          const keyEnd = privateKey.slice(-20);
-          console.log(`Private key format check: Starts with "${keyStart}..." and ends with "...${keyEnd}"`);
-          console.log(`Private key length: ${privateKey.length} characters`);
-          
-          // Validate key has BEGIN and END markers
-          if (!privateKey.includes("-----BEGIN PRIVATE KEY-----") || !privateKey.includes("-----END PRIVATE KEY-----")) {
-            console.error("INVALID PRIVATE KEY FORMAT: Missing BEGIN/END markers");
-          }
-        }
-        
-        admin.initializeApp({
-          credential: admin.credential.cert({
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com",
-            private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "96aa094298f80099a378e9244b8e7e22f214cc2a",
-            privateKey: privateKey
-          }),
-          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.firebasestorage.app"
-        });
-      }
+    // For admin SDK configuration
+    const privateKeyEnv = process.env.FIREBASE_PRIVATE_KEY;
+    let privateKey;
+    
+    // Process the private key (handle newlines properly)
+    if (privateKeyEnv) {
+      privateKey = privateKeyEnv.replace(/\\n/g, '\n');
+      console.log('Using environment private key');
+    } else {
+      // Use service account private key directly for development
+      console.log('Using embedded service account for development');
+      privateKey = "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC8qZf/erJPqFnk\nDDdpGKFgsNp2C9yJ7nX33KgSoTM9Fh2HtKjUzRGgPjEq/KLRzU76yv7vfJAe1bnN\nExWeDTWdN5EpY1gioCvtZL1ZQ8qwi8f9ls7r3mJgPo9mGh/cWoVPHPjHPiw46SpT\n9BMZa3So5CNi7uh6l6UYwi/jJBZZgKk9nn8R/dBd6Pl//g7+nt+k2N2va69oyapu\nHgE8Mv4FLOpn/4eoVru/WTwhiZI1ObQ9G1ngVTqy+v+syMQxk48oJ6yi0gm9qaKB\nKep8HdXFKiBxfhssB9C9EarAAQ4pJ6B3hc5DcjnfSdAJsdB6Z5zeGLdIx6yNqbaW\novD02wblAgMBAAECggEAINAkaiBme/lNbR780jAg/Ua1MFvexzSs2ufLabYUydab\nWzt+M8jY/HRkq9PV48SgLHl6/p89F8fXcYYUt/EXNplwC3FGZntSOI9RaYGjcrJV\nHdOJeLesh43J9hmsGfC6h+iDkm/LVDiljoWAfubUGv3W88GWuJ/AbL51gr2Hj5hG\n7QacJJ1bHcUns/3DWW5dkiffOJOX6fUl19CMchi8+JVdG6v1/f9JuA5V3wVqBpDG\nhhzKmsqkHHIrbKafuw+xbdjAj4iTgdZ0eJLrUxxnip4h0fphpl9n8tG7Cp4KPwQS\nw/2uPoTNGXLLnsDYq952Z0dTP/ENQLZdAOe/Snw83wKBgQDs/xjQhhURPdCFPh5h\nQkRVNtOyFR0Y7gNQQ16VuVW/xZpqq4Labi8GLP0qKhRyZk5wtTHD1t/zJ0k794LO\nZ2FtJHoAB1hThS1OxbCU0pDyvzwjdkDG4ggE5reJfFlmwUuvhHraiaRCE0eJVAsZ\nWatRvfXQuTk5R1ZPGzmRfVPO5wKBgQDLylRKXNidotLmHyQ6Nomdbf+/zN3X5tua\nXf2XlXqLjnmK6Kx6J/fa9VjN1DZ5OsiEfxFVdDZADbnriDggwtp5qPwJPqM/vVfh\nWPWowqHK9S63erC+YU98MTqRGk5NsQvRU1ZdSlEMPYT/ch4Tbg8mccUfPdUOrKtW\nhPk68XU+UwKBgH8dJ+MYN46C2CfPNJ4328zU1mDK4Etxxcc0CzRFLs/oHbWe/lVI\nCeLHGJaX8VWWt/XNyb5frsiNRsNqMvegDWpryR/g0KgjYzS/5cE820/H8GqYz4+c\nxm5SjRip4I2zmXOvm/FBKB/klVb8A+P562CxgXoNDrtBHvLZCFyXmu77AoGAezNC\nagJfYk1BOqWw/RBjea06Y/WyWAfU0ynnWXCguSXVDMlFHER1bwXMPgMBO6DyAEfh\nbsvm0Cp8L4wWgpfKBKrIU75uauZI7o8dVHz12wEG0R13JGEn8GjCg15n4EgcYNwE\n5jk7bi7y7ItM62op9o/pH839s/VnT9Lr6Vp4CskCgYB3g8NBEZzKqrJEjbMTo0xT\nsG+UAwoTXdbt1U2LAIPd+/4ELTe6TcsVzcX9JQBdaI/ELgC0ltme1R9v/zysXBBb\nv/DUzX1lT765satMDogYV4RE0VuS2GKnuNJrLGwS9PYSsrvUPIZLvuFm2J65/xPN\nOm3MLGnAhbqyqFhH8g4Dcw==\n-----END PRIVATE KEY-----\n";
     }
     
+    // Use consistent service account credentials for all environments
+    const serviceAccount = {
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com",
+      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "96aa094298f80099a378e9244b8e7e22f214cc2a",
+      privateKey: privateKey
+    };
+    
+    // Initialize if not already initialized
+    if (!admin.apps.length) {
+      console.log(`Initializing Firebase Admin SDK for ${isVercel ? 'Vercel' : 'development'} environment`);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.firebasestorage.app"
+      });
+    }
+    
+    // Get services from admin SDK
     db = admin.firestore();
     auth = admin.auth();
     storage = admin.storage();
     adminDb = db;
     adminAuth = auth;
     adminStorage = storage;
+    
+    console.log('Firebase Admin SDK successfully initialized with real services');
   } catch (error) {
     console.error('Error initializing Firebase Admin services:', error);
     throw error; // Re-throw to make sure the error is visible

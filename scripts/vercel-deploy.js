@@ -19,15 +19,16 @@ fs.writeFileSync(
 
 console.log('📦 Original package.json saved as package.json.bak');
 
-// Remove problematic dependencies
+// Remove problematic dependencies that cause issues with Vercel deployment
 const problematicDeps = [
   'react-pdf',
   'pdfjs-dist', 
   '@react-pdf/renderer',
   'react-icons', // Added react-icons to the list of problematic dependencies
-  '@google-cloud/firestore', // Add firestore to fix vercel build
-  '@google-cloud/storage', // Add storage to fix vercel build
-  'firebase-admin' // Add firebase-admin to fix vercel build
+  // Do not remove Firebase admin packages anymore - we want to use the real implementation
+  // '@google-cloud/firestore',
+  // '@google-cloud/storage',
+  // 'firebase-admin'
 ];
 
 // Filter out the problematic dependencies
@@ -45,13 +46,22 @@ problematicDeps.forEach(dep => {
 // Update package.json with filtered dependencies
 packageJson.dependencies = filteredDeps;
 
-// Also add dependencies to peerDependencies as false to prevent installation
+// We no longer need to add Firebase packages to peerDependencies as false
+// since we want to use the real implementations
 if (!packageJson.peerDependencies) {
   packageJson.peerDependencies = {};
 }
-packageJson.peerDependencies['firebase-admin'] = false;
-packageJson.peerDependencies['@google-cloud/firestore'] = false;
-packageJson.peerDependencies['@google-cloud/storage'] = false;
+
+// Make sure that firebase-admin and related packages are properly available
+delete packageJson.peerDependencies['firebase-admin'];
+delete packageJson.peerDependencies['@google-cloud/firestore'];
+delete packageJson.peerDependencies['@google-cloud/storage'];
+
+// Ensure firebase-admin is in dependencies if it was removed
+if (!packageJson.dependencies['firebase-admin']) {
+  packageJson.dependencies['firebase-admin'] = "^13.2.0";
+  console.log(`➕ Added dependency: firebase-admin`);
+}
 
 // Write the updated package.json
 fs.writeFileSync(
