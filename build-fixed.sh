@@ -89,8 +89,8 @@ echo "🔧 Creating simplified PostCSS config..."
 cat > postcss.config.js << 'EOF'
 module.exports = {
   plugins: [
-    require('tailwindcss'),
-    require('autoprefixer')
+    'tailwindcss',
+    'autoprefixer'
   ]
 }
 EOF

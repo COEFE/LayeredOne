@@ -30,7 +30,7 @@ jobs:
         
     - name: Setup PostCSS config
       run: |
-        echo "module.exports = { plugins: [require('tailwindcss'), require('autoprefixer')] }" > postcss.config.js
+        echo "module.exports = { plugins: ['tailwindcss', 'autoprefixer'] }" > postcss.config.js
         
     - name: Run builds
       run: npm run build
