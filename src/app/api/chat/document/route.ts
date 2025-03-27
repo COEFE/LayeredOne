@@ -157,13 +157,21 @@ export async function POST(request: NextRequest) {
       clearly indicate what information comes from the PDF versus from your search.`;
     }
     
-    // Add specific instructions for spreadsheets
+    // Add specific instructions for spreadsheets - always use Claude 3.7 for spreadsheets
     else if (isSpreadsheet) {
       systemPrompt += `
       
       This document is a spreadsheet. The content has been extracted as text with cell references (A1 notation).
       Cell references like A1, B2, etc. indicate the position of data in the spreadsheet grid.
-      If asked about specific cells or ranges, use these references in your answers.`;
+      If asked about specific cells or ranges, use these references in your answers.
+      
+      You can directly edit this spreadsheet by using the format "I'll change cell X to Y" for each edit.
+      For example:
+      I'll change cell A1 to 'Sales Report'
+      I'll change cell B5 to 100
+      I'll change cell C10 to '=SUM(C1:C9)'
+      
+      Put each edit command on its own line with this exact format, and they will be automatically applied.`;
     }
 
     // Prepare the messages for Claude
@@ -261,9 +269,9 @@ Please use these search results to supplement your analysis of the PDF when appr
 
     // Call Claude API
     try {
-      // Force Claude 3.7 for PDFs, otherwise use selected model
-      const modelToUse = isPDF ? PDF_MODEL : (model || DEFAULT_MODEL);
-      console.log(`Calling Claude API with model: ${modelToUse}`);
+      // Force Claude 3.7 for PDFs and Excel/spreadsheets, otherwise use selected model
+      const modelToUse = isPDF || isSpreadsheet ? PDF_MODEL : (model || DEFAULT_MODEL);
+      console.log(`Calling Claude API with model: ${modelToUse} (isPDF: ${isPDF}, isSpreadsheet: ${isSpreadsheet})`);
       
       // Claude API call
       const response = await fetch('https://api.anthropic.com/v1/messages', {
