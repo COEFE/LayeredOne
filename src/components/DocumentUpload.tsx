@@ -110,8 +110,9 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
     return new Promise<{downloadURL: string, docRef: {id: string}}>(resolve => {
       // Simulate the time it takes to upload
       setTimeout(() => {
-        const mockUrl = `mock://documents/${user.uid}/${Date.now()}_${file.name}`;
-        console.log('Mock upload successful:', mockUrl);
+        // Use https scheme instead of mock:// to avoid URL scheme errors
+        const mockUrl = `https://storage.example.com/documents/${user.uid}/${Date.now()}_${file.name}`;
+        console.log('Mock upload successful (simulated URL):', mockUrl);
         
         // Add document metadata to Firestore
         addDoc(collection(db, 'documents'), {
