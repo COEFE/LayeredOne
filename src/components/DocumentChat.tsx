@@ -556,13 +556,20 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
                   <FiAlertTriangle className="inline-block mr-1 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
-                {!document?.extractedText && document && (
+                {(!document?.extractedText || error.includes('process')) && document && (
                   <ReprocessDocumentButton 
                     documentId={document.id} 
                     onSuccess={() => {
                       setError(null);
-                      // Refresh document data
-                      window.location.reload();
+                      // Show processing message
+                      setError("Document is being processed. This may take a moment...");
+                      // Refresh document data after a short delay
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 2000);
+                    }}
+                    onError={(errorMsg) => {
+                      setError(`Processing failed: ${errorMsg}. Please try again.`);
                     }}
                     className="ml-2 flex-shrink-0"
                   />

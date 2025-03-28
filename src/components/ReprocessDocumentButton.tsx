@@ -48,9 +48,22 @@ export default function ReprocessDocumentButton({
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
+          console.log('Document reprocessing error details:', errorData);
         } catch (e) {
-          // If we can't parse JSON, use the status text
-          errorMessage = response.statusText || errorMessage;
+          // If we can't parse JSON, get the text content
+          try {
+            const textContent = await response.text();
+            console.log('Raw error response:', textContent.substring(0, 500));
+            // If it's HTML (likely an error page)
+            if (textContent.includes('<html') || textContent.includes('<!DOCTYPE')) {
+              errorMessage = `Server error (${response.status}). The processing may have timed out.`;
+            } else {
+              errorMessage = response.statusText || errorMessage;
+            }
+          } catch (textError) {
+            console.error('Failed to get error text:', textError);
+            errorMessage = `Error ${response.status}: ${response.statusText}`;
+          }
         }
         throw new Error(errorMessage);
       }

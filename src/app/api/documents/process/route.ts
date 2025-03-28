@@ -136,10 +136,43 @@ async function handler(request: NextRequest) {
         contentType.includes('excel') || 
         fileName.endsWith('.xlsx') || 
         fileName.endsWith('.xls') ||
-        contentType.includes('sheet')) {
-      // Process Excel file
+        contentType.includes('sheet') ||
+        contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        contentType === 'application/vnd.ms-excel' ||
+        contentType === 'text/csv') {
+      // Process Excel file with retry mechanism
       console.log('Processing Excel document...');
-      extractedText = await extractTextFromExcel(fileBuffer);
+      
+      // Try up to 3 times
+      let attempts = 0;
+      let lastError;
+      
+      while (attempts < 3) {
+        try {
+          console.log(`Excel processing attempt ${attempts + 1}/3...`);
+          extractedText = await extractTextFromExcel(fileBuffer);
+          
+          // If we get here, the extraction succeeded
+          console.log(`Excel extraction succeeded on attempt ${attempts + 1}`);
+          break;
+        } catch (err) {
+          lastError = err;
+          console.error(`Excel extraction attempt ${attempts + 1} failed:`, err);
+          attempts++;
+          
+          // Wait a second before trying again
+          if (attempts < 3) {
+            console.log('Waiting 1s before retry...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+      
+      // If all attempts failed, rethrow the last error
+      if (!extractedText && lastError) {
+        console.error('All Excel extraction attempts failed');
+        throw lastError;
+      }
     } 
     else if (contentType.includes('pdf') || 
              fileName.toLowerCase().endsWith('.pdf')) {
