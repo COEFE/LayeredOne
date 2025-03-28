@@ -271,15 +271,17 @@ try {
 }
 
 // Initialize Analytics conditionally (only on client-side)
+// TEMPORARILY DISABLE ANALYTICS TO RESOLVE 403 PERMISSION ERROR
 let analytics = null;
-if (typeof window !== 'undefined') {
-  // We're on the client-side
-  isSupported().then(supported => {
-    if (supported) {
-      analytics = getAnalytics(app);
-    }
-  });
-}
+// if (typeof window !== 'undefined') {
+//   // We're on the client-side
+//   isSupported().then(supported => {
+//     if (supported) {
+//       analytics = getAnalytics(app);
+//     }
+//   });
+// }
+console.log('Firebase Analytics initialization is currently disabled to resolve permission issues');
 
 // Connect to emulators in development mode (client-side only)
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
