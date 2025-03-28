@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, db, admin, firestorePath } from '@/firebase/admin-config';
+import { handleStaticAuthForAPI } from '@/utils/optimizations/static-export-middleware';
 
 export const dynamic = 'force-static';
 
@@ -64,10 +65,20 @@ export async function POST(request: NextRequest) {
   try {
     console.log("Document Edit API route called");
 
-    // Verify authentication token
-    const authHeader = request.headers.get('authorization') || '';
-    const token = authHeader.split('Bearer ')[1];
+    // Use static export middleware to handle authentication
+    const { token, isStaticExport, mockUserId } = handleStaticAuthForAPI(request);
     
+    // If we're in a static export environment, return a mock response
+    if (isStaticExport) {
+      console.log('Static export detected, returning mock edit response');
+      return NextResponse.json({
+        success: true,
+        mockResponse: true,
+        message: 'This is a static export mock response for document editing'
+      });
+    }
+    
+    // Verify authentication token for normal operations
     if (!token) {
       console.log('Missing auth token');
       return NextResponse.json({ error: 'Unauthorized - Missing token' }, { status: 401 });
@@ -75,9 +86,14 @@ export async function POST(request: NextRequest) {
     
     let userId: string;
     try {
-      const decodedToken = await auth.verifyIdToken(token);
-      userId = decodedToken.uid;
-      console.log('Authenticated user:', userId);
+      // Use mockUserId if we're in a static export context (shouldn't reach here due to early return)
+      if (mockUserId) {
+        userId = mockUserId;
+      } else {
+        const decodedToken = await auth.verifyIdToken(token);
+        userId = decodedToken.uid;
+        console.log('Authenticated user:', userId);
+      }
     } catch (error: any) {
       console.error('Invalid auth token:', error);
       return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
