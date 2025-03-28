@@ -184,31 +184,71 @@ if (isGitHubPages && !useRealFirebase) {
     // Process the private key (handle newlines properly with improved error handling)
     if (privateKeyEnv) {
       try {
-        // Check if the key is wrapped in quotes
-        if (privateKeyEnv.startsWith('"') && privateKeyEnv.endsWith('"')) {
-          // Remove the quotes before processing
-          privateKeyEnv = privateKeyEnv.substring(1, privateKeyEnv.length - 1);
+        // Advanced private key processing for Vercel environment
+        // First, cleanup any unexpected formatting from the environment
+        let cleanKey = privateKeyEnv;
+        
+        // 1. Remove any extra quotes that might be wrapping the key
+        if (cleanKey.startsWith('"') && cleanKey.endsWith('"')) {
+          cleanKey = cleanKey.substring(1, cleanKey.length - 1);
         }
         
-        // Handle both escaped newlines and literal newlines
-        if (privateKeyEnv.includes('\\n')) {
-          // Convert \n to actual newlines
-          privateKey = privateKeyEnv.replace(/\\n/g, '\n');
-        } else if (privateKeyEnv.includes('\n')) {
-          // Already has literal newlines
-          privateKey = privateKeyEnv;
-        } else {
-          // No newlines at all - likely malformed
-          console.warn('Warning: Private key does not contain newlines (\\n or literal)');
-          privateKey = privateKeyEnv;
+        // 2. Handle different newline formats
+        if (cleanKey.includes('\\n')) {
+          // Convert escaped \n to actual newlines
+          cleanKey = cleanKey.replace(/\\n/g, '\n');
         }
         
+        // 3. Check for valid PEM structure
+        if (!cleanKey.includes('-----BEGIN PRIVATE KEY-----')) {
+          console.warn('Warning: Private key does not contain BEGIN marker');
+        }
+        
+        if (!cleanKey.includes('-----END PRIVATE KEY-----')) {
+          console.warn('Warning: Private key does not contain END marker');
+        }
+        
+        // 4. Ensure the key has proper formatting with required newlines
+        // Make sure the BEGIN line is on its own line
+        if (!cleanKey.startsWith('-----BEGIN PRIVATE KEY-----\n')) {
+          cleanKey = cleanKey.replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n');
+        }
+        
+        // Make sure the END line is preceded by a newline
+        if (!cleanKey.includes('\n-----END PRIVATE KEY-----')) {
+          cleanKey = cleanKey.replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----');
+        }
+        
+        // If the key still doesn't end with a newline, add one
+        if (!cleanKey.endsWith('\n')) {
+          cleanKey = cleanKey + '\n';
+        }
+        
+        // 5. Verify basic structure (BEGIN/END markers with content between)
+        const keyPattern = /-----BEGIN PRIVATE KEY-----\n(.+)\n-----END PRIVATE KEY-----\n/s;
+        const match = cleanKey.match(keyPattern);
+        
+        if (!match) {
+          console.warn('Warning: Private key does not match expected PEM format');
+          // Try a more comprehensive reconstruction as a last resort
+          cleanKey = `-----BEGIN PRIVATE KEY-----\n${
+            cleanKey.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')
+              .replace(/\n+/g, '')
+              .match(/.{1,64}/g)?.join('\n') || ''
+          }\n-----END PRIVATE KEY-----\n`;
+        }
+        
+        privateKey = cleanKey;
         console.log('Successfully processed environment private key');
       } catch (keyError) {
         console.error('Error processing private key:', keyError);
         
-        // Fallback to not modifying the key
-        privateKey = privateKeyEnv;
+        // Fallback to a basic transformation
+        if (privateKeyEnv.includes('\\n')) {
+          privateKey = privateKeyEnv.replace(/\\n/g, '\n');
+        } else {
+          privateKey = privateKeyEnv;
+        }
       }
     } else {
       // Use service account private key directly for development
