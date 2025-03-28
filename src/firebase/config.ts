@@ -1,10 +1,17 @@
 'use client';
 
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps } from "firebase/app";
+import { initializeApp, getApps, setLogLevel } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
+
+// Enable debug logging if we're in the browser
+if (typeof window !== 'undefined') {
+  // Set log level to debug to help diagnose issues
+  setLogLevel('debug');
+  console.log('Firebase debug logging enabled');
+}
 
 // Dynamically import Firestore functions at runtime to prevent build issues
 let getFirestore;
@@ -148,7 +155,25 @@ if (typeof window !== 'undefined') {
 }
 
 // Initialize Firebase only if not already initialized with improved error handling
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// Add verbose logging around Firebase initialization
+console.log('Initializing Firebase with config:', {
+  apiKey: firebaseConfig.apiKey ? '***' : 'missing',
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId,
+  storageBucket: firebaseConfig.storageBucket,
+  hasMessagingSenderId: !!firebaseConfig.messagingSenderId,
+  hasAppId: !!firebaseConfig.appId,
+  hasMeasurementId: !!firebaseConfig.measurementId
+});
+
+let app;
+try {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  console.log('Firebase initialization successful');
+} catch (error) {
+  console.error('Error initializing Firebase app:', error);
+  throw error; // Re-throw to make sure the error is visible
+}
 
 // Configure Auth with custom settings for better reliability
 const auth = getAuth(app);

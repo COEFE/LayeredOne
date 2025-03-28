@@ -60,12 +60,16 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
     const usingEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
     
     // Log configuration for debugging
-    console.log('Storage bucket:', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
-    console.log('Using Firebase emulators:', usingEmulators ? 'Yes' : 'No');
+    console.log('DocumentUpload: Storage bucket:', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+    console.log('DocumentUpload: Using Firebase emulators:', usingEmulators ? 'Yes' : 'No');
     
     // Check and log static export status - previously using undefined variable
     const staticExport = false; // Explicitly set to false to prevent UI issues
-    console.log('Static export environment:', staticExport ? 'Yes' : 'No');
+    console.log('DocumentUpload: Static export environment:', staticExport ? 'Yes' : 'No');
+    
+    // Additional debug info for troubleshooting the upload button
+    console.log('DocumentUpload: storageAvailable =', storageAvailable);
+    console.log('DocumentUpload: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS =', process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS);
     
     if (usingEmulators) {
       // Reset any previous errors if using emulators
@@ -374,6 +378,9 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
           </div>
         </div>
       )}
+      
+      {/* Added debug info here to help troubleshoot the rendering path */}
+      <div className="text-xs text-gray-500 mb-2">Debug: storageAvailable={storageAvailable ? 'true' : 'false'}, emulators={process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS || 'none'}</div>
       
       {!storageAvailable ? (
         <div className="p-4 bg-yellow-100 text-yellow-800 rounded-lg border border-yellow-200 mb-4">
