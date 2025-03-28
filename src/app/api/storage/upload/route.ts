@@ -4,7 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { createStoragePath } from '@/utils/firebase-path-utils';
 import { handleStaticAuthForAPI } from '@/utils/optimizations/static-export-middleware';
 
-export const dynamic = 'force-static';
+// Change to force-dynamic to ensure the API route is always dynamically evaluated
+export const dynamic = 'force-dynamic';
 
 // Instead of trying to import modules that might fail at build time,
 // use the pre-initialized admin SDK objects exported from admin-config.ts
@@ -17,11 +18,36 @@ const FieldValue = {
 // Configure maximum file size (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
 
+// CORS headers to use in responses
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Max-Age': '86400', // 24 hours
+};
+
+/**
+ * Handles OPTIONS requests for CORS preflight
+ */
+export async function OPTIONS(request: NextRequest) {
+  console.log('OPTIONS request received for CORS preflight');
+  
+  return new NextResponse(null, {
+    status: 204, // No content
+    headers: corsHeaders,
+  });
+}
+
 /**
  * Handles file uploads to Firebase Storage
  * This endpoint accepts multipart/form-data POST requests with a file field
  */
 export async function POST(request: NextRequest) {
+  // Log detailed request information for debugging
+  console.log('Upload API route called with method:', request.method);
+  console.log('Request headers:', Object.fromEntries([...request.headers.entries()]));
+  console.log('Origin:', request.headers.get('origin'));
+  
   console.log('Upload API route called');
   
   try {
@@ -40,6 +66,8 @@ export async function POST(request: NextRequest) {
         size: 12345,
         storageRef: 'documents/mock-user/example.pdf',
         stubResponse: true
+      }, {
+        headers: corsHeaders
       });
     }
     
@@ -58,7 +86,10 @@ export async function POST(request: NextRequest) {
           hasAuth: !!request.headers.get('authorization'),
           contentType: request.headers.get('content-type')
         }
-      }, { status: 401 });
+      }, { 
+        status: 401,
+        headers: corsHeaders
+      });
     }
     
     // Reject mock tokens that are used only for development but won't work in production
@@ -68,7 +99,10 @@ export async function POST(request: NextRequest) {
         error: 'Unauthorized - Invalid token',
         details: 'Development/mock tokens cannot be used for authenticated operations in production',
         recommendation: 'Please sign in properly before attempting this operation'
-      }, { status: 401 });
+      }, { 
+        status: 401,
+        headers: corsHeaders 
+      });
     }
     
     let userId: string;
@@ -83,7 +117,10 @@ export async function POST(request: NextRequest) {
       }
     } catch (error) {
       console.error('Invalid auth token:', error);
-      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { 
+        status: 401,
+        headers: corsHeaders
+      });
     }
 
     // Parse the multipart form data
@@ -96,7 +133,10 @@ export async function POST(request: NextRequest) {
     
     if (!file) {
       console.log('No file provided');
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      return NextResponse.json({ error: 'No file provided' }, { 
+        status: 400,
+        headers: corsHeaders
+      });
     }
     
     // Check file size
@@ -104,7 +144,10 @@ export async function POST(request: NextRequest) {
       console.log('File too large:', file.size);
       return NextResponse.json({ 
         error: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB` 
-      }, { status: 400 });
+      }, { 
+        status: 400,
+        headers: corsHeaders 
+      });
     }
     
     console.log('Processing file upload:', {
@@ -221,7 +264,7 @@ export async function POST(request: NextRequest) {
     
     console.log('Document metadata saved to Firestore, ID:', documentId);
     
-    // Return success response with file URL and document ID
+    // Return success response with file URL and document ID, including CORS headers
     return NextResponse.json({
       success: true,
       url: downloadURL,
@@ -230,6 +273,8 @@ export async function POST(request: NextRequest) {
       contentType,
       size: file.size,
       storageRef
+    }, {
+      headers: corsHeaders
     });
     
   } catch (error: any) {
@@ -263,6 +308,9 @@ export async function POST(request: NextRequest) {
       error: errorMessage,
       details: errorDetails,
       isCredentialsError: isCredentialsError
-    }, { status: 500 });
+    }, { 
+      status: 500,
+      headers: corsHeaders
+    });
   }
 }
