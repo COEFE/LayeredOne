@@ -1,31 +1,31 @@
 #!/bin/bash
 
-echo "Starting GitHub Pages build process..."
+echo "🚀 Starting GitHub Pages build process..."
 
-# Install dotenv if needed
-if ! npm list dotenv > /dev/null 2>&1; then
-  echo "Installing dotenv..."
-  npm install dotenv --save-dev
-fi
+# Run the direct fix script to ensure Firebase keys are properly formatted
+echo "🔧 Applying Firebase key fix..."
+node direct-fix.js
 
-# Run key fixing script
-echo "Setting up Firebase keys for GitHub Pages..."
-node fix-github-pages-keys.js
+# Set GitHub Pages environment variables
+export GITHUB_PAGES=true
+export NEXT_PUBLIC_USE_REAL_FIREBASE=false
+export SIMPLE_PDF=true
 
-# Copy the GitHub Pages env file to .env.local for the build
-cp .env.github-pages .env.local
+# Run the static export build
+echo "📦 Building for GitHub Pages static export..."
+npx next build --no-lint && npx next export
 
-# Run the build with GitHub Pages flag
-echo "Running build with GitHub Pages configuration..."
-GITHUB_PAGES=true SIMPLE_PDF=true npm run build
+# Prepare for GitHub Pages
+echo "🌐 Preparing for GitHub Pages deployment..."
+touch out/.nojekyll
+cp -r public/* out/
 
 # Check if build was successful
-if [ $? -eq 0 ]; then
-  echo "Build completed successfully!"
-  echo "The static site is ready to be deployed to GitHub Pages."
+if [ -d "out" ]; then
+  echo "✅ GitHub Pages build completed successfully!"
+  echo "📂 Output is in the 'out' directory"
+  echo "🌎 Deploy these files to GitHub Pages"
 else
-  echo "Build failed. Please check the output above for errors."
+  echo "❌ Build failed. Please check the output above for errors."
   exit 1
 fi
-
-echo "GitHub Pages build process completed successfully!"
