@@ -285,14 +285,9 @@ if (isGitHubPages && !useRealFirebase) {
       console.log(`Initializing Firebase Admin SDK for ${isVercel ? 'Vercel' : 'development'} environment`);
       
       try {
-        // Check if the error might be related to a local service account JSON file
-        const localServiceAccountPath = './variance-test-4b441-firebase-adminsdk-fbsvc-6ef054c9fe.json';
-        if (fileExists(localServiceAccountPath)) {
-          console.log(`Found local service account file at ${localServiceAccountPath}`);
-          // Don't use the file directly as it won't work in Vercel - use environment variables instead
-        } else {
-          console.log(`No local service account file found at ${localServiceAccountPath}. Using environment variables.`);
-        }
+        // We're no longer checking for local service account files
+        // Always use environment variables for Vercel compatibility
+        console.log('Using environment variables for Firebase credentials');
         
         // Always use the service account object created from environment variables
         admin.initializeApp({

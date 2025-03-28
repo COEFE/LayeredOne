@@ -87,7 +87,7 @@
     "express": "^4.21.2",
     "firebase-admin": "^13.2.0",
     "http-proxy-middleware": "^3.0.3",
-    "is-regexp": "2.1.0",
+    "is-regexp": "^2.1.0",
     "lilconfig": "2.0.4",
     "num2fraction": "1.2.2",
     "picocolors": "0.2.1",

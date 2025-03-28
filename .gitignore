@@ -45,3 +45,4 @@ next-env.d.ts
 # Test files
 test-files/
 
+vercel-environment-variables.txt
