@@ -1,6 +1,7 @@
 // Import necessary modules
 import * as path from 'path';
 import * as fs from 'fs';
+import { getPrivateKeyFromEnv } from './key-helpers';
 
 // Use dynamic imports to prevent build-time errors
 let admin: any;
@@ -179,95 +180,16 @@ if (isGitHubPages && !useRealFirebase) {
   
   try {
     // For admin SDK configuration
-    const privateKeyEnv = process.env.FIREBASE_PRIVATE_KEY;
     let privateKey;
     
-    // Try to get the private key from multiple sources
-    // First check for base64 encoded key
-    const privateKeyBase64 = process.env.FIREBASE_PRIVATE_KEY_BASE64;
-    if (privateKeyBase64) {
-      try {
-        // Decode the base64 key
-        privateKey = Buffer.from(privateKeyBase64, 'base64').toString('utf8');
-        console.log('Successfully decoded FIREBASE_PRIVATE_KEY_BASE64');
-      } catch (base64Error) {
-        console.error('Error decoding FIREBASE_PRIVATE_KEY_BASE64:', base64Error);
-        // Fall back to standard key
-      }
-    }
+    // Use our centralized key helper function that handles both formats
+    privateKey = getPrivateKeyFromEnv();
     
-    // If base64 key didn't work, try standard key
-    if (!privateKey && privateKeyEnv) {
-      try {
-        // Advanced private key processing for Vercel environment
-        // First, cleanup any unexpected formatting from the environment
-        let cleanKey = privateKeyEnv;
-        
-        // 1. Remove any extra quotes that might be wrapping the key
-        if (cleanKey.startsWith('"') && cleanKey.endsWith('"')) {
-          cleanKey = cleanKey.substring(1, cleanKey.length - 1);
-        }
-        
-        // 2. Handle different newline formats
-        if (cleanKey.includes('\\n')) {
-          // Convert escaped \n to actual newlines
-          cleanKey = cleanKey.replace(/\\n/g, '\n');
-        }
-        
-        // 3. Check for valid PEM structure
-        if (!cleanKey.includes('-----BEGIN PRIVATE KEY-----')) {
-          console.warn('Warning: Private key does not contain BEGIN marker');
-        }
-        
-        if (!cleanKey.includes('-----END PRIVATE KEY-----')) {
-          console.warn('Warning: Private key does not contain END marker');
-        }
-        
-        // 4. Ensure the key has proper formatting with required newlines
-        // Make sure the BEGIN line is on its own line
-        if (!cleanKey.startsWith('-----BEGIN PRIVATE KEY-----\n')) {
-          cleanKey = cleanKey.replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n');
-        }
-        
-        // Make sure the END line is preceded by a newline
-        if (!cleanKey.includes('\n-----END PRIVATE KEY-----')) {
-          cleanKey = cleanKey.replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----');
-        }
-        
-        // If the key still doesn't end with a newline, add one
-        if (!cleanKey.endsWith('\n')) {
-          cleanKey = cleanKey + '\n';
-        }
-        
-        // 5. Verify basic structure (BEGIN/END markers with content between)
-        const keyPattern = /-----BEGIN PRIVATE KEY-----\n(.+)\n-----END PRIVATE KEY-----\n/s;
-        const match = cleanKey.match(keyPattern);
-        
-        if (!match) {
-          console.warn('Warning: Private key does not match expected PEM format');
-          // Try a more comprehensive reconstruction as a last resort
-          cleanKey = `-----BEGIN PRIVATE KEY-----\n${
-            cleanKey.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')
-              .replace(/\n+/g, '')
-              .match(/.{1,64}/g)?.join('\n') || ''
-          }\n-----END PRIVATE KEY-----\n`;
-        }
-        
-        privateKey = cleanKey;
-        console.log('Successfully processed environment private key');
-      } catch (keyError) {
-        console.error('Error processing private key:', keyError);
-        
-        // Fallback to a basic transformation
-        if (privateKeyEnv.includes('\\n')) {
-          privateKey = privateKeyEnv.replace(/\\n/g, '\n');
-        } else {
-          privateKey = privateKeyEnv;
-        }
-      }
+    if (privateKey) {
+      console.log('Successfully processed private key from environment variables');
     } else {
       // Use service account private key directly for development
-      console.log('Using embedded service account for development');
+      console.log('No private key found in environment, using embedded development key');
       privateKey = "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC8qZf/erJPqFnk\nDDdpGKFgsNp2C9yJ7nX33KgSoTM9Fh2HtKjUzRGgPjEq/KLRzU76yv7vfJAe1bnN\nExWeDTWdN5EpY1gioCvtZL1ZQ8qwi8f9ls7r3mJgPo9mGh/cWoVPHPjHPiw46SpT\n9BMZa3So5CNi7uh6l6UYwi/jJBZZgKk9nn8R/dBd6Pl//g7+nt+k2N2va69oyapu\nHgE8Mv4FLOpn/4eoVru/WTwhiZI1ObQ9G1ngVTqy+v+syMQxk48oJ6yi0gm9qaKB\nKep8HdXFKiBxfhssB9C9EarAAQ4pJ6B3hc5DcjnfSdAJsdB6Z5zeGLdIx6yNqbaW\novD02wblAgMBAAECggEAINAkaiBme/lNbR780jAg/Ua1MFvexzSs2ufLabYUydab\nWzt+M8jY/HRkq9PV48SgLHl6/p89F8fXcYYUt/EXNplwC3FGZntSOI9RaYGjcrJV\nHdOJeLesh43J9hmsGfC6h+iDkm/LVDiljoWAfubUGv3W88GWuJ/AbL51gr2Hj5hG\n7QacJJ1bHcUns/3DWW5dkiffOJOX6fUl19CMchi8+JVdG6v1/f9JuA5V3wVqBpDG\nhhzKmsqkHHIrbKafuw+xbdjAj4iTgdZ0eJLrUxxnip4h0fphpl9n8tG7Cp4KPwQS\nw/2uPoTNGXLLnsDYq952Z0dTP/ENQLZdAOe/Snw83wKBgQDs/xjQhhURPdCFPh5h\nQkRVNtOyFR0Y7gNQQ16VuVW/xZpqq4Labi8GLP0qKhRyZk5wtTHD1t/zJ0k794LO\nZ2FtJHoAB1hThS1OxbCU0pDyvzwjdkDG4ggE5reJfFlmwUuvhHraiaRCE0eJVAsZ\nWatRvfXQuTk5R1ZPGzmRfVPO5wKBgQDLylRKXNidotLmHyQ6Nomdbf+/zN3X5tua\nXf2XlXqLjnmK6Kx6J/fa9VjN1DZ5OsiEfxFVdDZADbnriDggwtp5qPwJPqM/vVfh\nWPWowqHK9S63erC+YU98MTqRGk5NsQvRU1ZdSlEMPYT/ch4Tbg8mccUfPdUOrKtW\nhPk68XU+UwKBgH8dJ+MYN46C2CfPNJ4328zU1mDK4Etxxcc0CzRFLs/oHbWe/lVI\nCeLHGJaX8VWWt/XNyb5frsiNRsNqMvegDWpryR/g0KgjYzS/5cE820/H8GqYz4+c\nxm5SjRip4I2zmXOvm/FBKB/klVb8A+P562CxgXoNDrtBHvLZCFyXmu77AoGAezNC\nagJfYk1BOqWw/RBjea06Y/WyWAfU0ynnWXCguSXVDMlFHER1bwXMPgMBO6DyAEfh\nbsvm0Cp8L4wWgpfKBKrIU75uauZI7o8dVHz12wEG0R13JGEn8GjCg15n4EgcYNwE\n5jk7bi7y7ItM62op9o/pH839s/VnT9Lr6Vp4CskCgYB3g8NBEZzKqrJEjbMTo0xT\nsG+UAwoTXdbt1U2LAIPd+/4ELTe6TcsVzcX9JQBdaI/ELgC0ltme1R9v/zysXBBb\nv/DUzX1lT765satMDogYV4RE0VuS2GKnuNJrLGwS9PYSsrvUPIZLvuFm2J65/xPN\nOm3MLGnAhbqyqFhH8g4Dcw==\n-----END PRIVATE KEY-----\n";
     }
     
