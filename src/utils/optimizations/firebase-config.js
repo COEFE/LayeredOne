@@ -19,16 +19,39 @@ if (!admin.apps.length) {
       console.error('Error initializing Firebase from env variable:', error);
     }
   } 
-  // Fall back to service account file if available
+  // Use environment variables directly for service account
   else {
     try {
-      firebaseApp = admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-        databaseURL: process.env.FIREBASE_DATABASE_URL,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET
-      });
+      // Get service account from individual environment variables
+      const privateKey = process.env.FIREBASE_PRIVATE_KEY
+        ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+        : null;
+
+      if (process.env.FIREBASE_CLIENT_EMAIL && privateKey) {
+        // Create service account from environment variables
+        const serviceAccount = {
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          private_key: privateKey
+        };
+        
+        console.log('Initializing Firebase with service account from env variables');
+        firebaseApp = admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+          databaseURL: process.env.FIREBASE_DATABASE_URL,
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET
+        });
+      } else {
+        // Last resort, try application default
+        console.log('Falling back to application default credentials');
+        firebaseApp = admin.initializeApp({
+          credential: admin.credential.applicationDefault(),
+          databaseURL: process.env.FIREBASE_DATABASE_URL,
+          storageBucket: process.env.FIREBASE_STORAGE_BUCKET
+        });
+      }
     } catch (error) {
-      console.error('Error initializing Firebase with application default:', error);
+      console.error('Error initializing Firebase with credentials:', error);
     }
   }
 }
