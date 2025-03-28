@@ -24,20 +24,35 @@ export async function POST(request: NextRequest) {
   console.log('Upload API route called');
   
   try {
+    // Check if we're in a build/static export context
+    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                       process.env.NEXT_PHASE === 'phase-export';
+    
     // Verify authentication token
     const authHeader = request.headers.get('authorization') || '';
     const token = authHeader.split('Bearer ')[1];
     
-    if (!token) {
+    if (!token && !isBuildTime) {
       console.log('Missing auth token');
       return NextResponse.json({ error: 'Unauthorized - Missing token' }, { status: 401 });
     }
     
+    // If we're in build context, return a stub response or early exit
+    if (isBuildTime) {
+      console.log('Build-time API execution, returning stub response');
+      return NextResponse.json({ stubResponse: true, message: 'This is a build-time stub response' });
+    }
+    
     let userId: string;
     try {
-      const decodedToken = await auth.verifyIdToken(token);
-      userId = decodedToken.uid;
-      console.log('Authenticated user:', userId);
+      // Skip token verification during build time
+      if (isBuildTime) {
+        userId = 'build-time-user';
+      } else {
+        const decodedToken = await auth.verifyIdToken(token);
+        userId = decodedToken.uid;
+        console.log('Authenticated user:', userId);
+      }
     } catch (error) {
       console.error('Invalid auth token:', error);
       return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
