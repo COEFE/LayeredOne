@@ -210,16 +210,24 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
       try {
         // First try to get the token directly from the user object, which is most reliable
         let idToken = null;
+        
+        // Enhanced debugging information
+        console.log("==== AUTH DEBUG ====");
+        console.log("User object exists:", !!user);
+        console.log("User ID:", user?.uid);
+        console.log("User email:", user?.email);
+        console.log("Is user anonymous:", user?.isAnonymous);
+        
         if (user && user.getIdToken && typeof user.getIdToken === 'function') {
-          console.log("User before token retrieval:", user);
-          console.log("User ID:", user?.uid);
           try {
+            console.log("Attempting to get ID token...");
             idToken = await user.getIdToken(true); // Force refresh the token
-            console.log("Token retrieved successfully:", !!idToken);
+            console.log("Token retrieved successfully, length:", idToken?.length);
+            console.log("Token first 10 chars:", idToken?.substring(0, 10));
             localStorage.setItem('authToken', idToken); // Store it for future use
             console.log('Got fresh authentication token directly from user object');
           } catch (tokenError) {
-            console.error("Token retrieval error:", tokenError);
+            console.error("TOKEN ERROR:", tokenError);
             console.error('Error getting token from user object:', tokenError);
           }
         }
@@ -267,22 +275,31 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
           );
           
           if (isVercelDeployment) {
+            console.log('==== VERCEL AUTH DEBUG ====');
             console.log('Vercel deployment detected - ensuring proper authentication for upload');
             // Force another token refresh attempt right before upload
             if (user && user.getIdToken) {
-              console.log("User before Vercel token retrieval:", user);
+              console.log("User object exists in Vercel flow:", !!user);
               console.log("User ID for Vercel flow:", user?.uid);
+              console.log("User email for Vercel flow:", user?.email);
+              console.log("Is user anonymous in Vercel flow:", user?.isAnonymous);
+              
               try {
+                console.log("Attempting to get Vercel ID token...");
                 const freshToken = await user.getIdToken(true);
-                console.log("Vercel token retrieved successfully:", !!freshToken);
+                console.log("Vercel token retrieved successfully, length:", freshToken?.length);
+                console.log("Vercel token first 10 chars:", freshToken?.substring(0, 10));
+                
                 if (freshToken !== idToken) {
                   console.log('Got fresher token for upload request');
                   idToken = freshToken;
                 }
               } catch (refreshError) {
-                console.error("Vercel token retrieval error:", refreshError);
-                console.error('Error refreshing token before upload:', refreshError);
+                console.error("VERCEL TOKEN ERROR:", refreshError);
+                console.error("Error refreshing token before upload:", refreshError);
               }
+            } else {
+              console.error("VERCEL AUTH ERROR: User object or getIdToken not available");
             }
           }
           
@@ -291,7 +308,12 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
             'Authorization': `Bearer ${idToken}`
           };
           
+          // Log the exact headers being sent
+          console.log("Headers being sent:", headers);
+          console.log("Authorization header length:", headers.Authorization?.length);
+          
           // Ensure we have the correct Authorization header format
+          console.log("Starting fetch request to /api/storage/upload...");
           const uploadResponse = await fetch('/api/storage/upload', {
             method: 'POST',
             headers,
@@ -299,6 +321,9 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
             // Ensure credentials are included
             credentials: 'same-origin'
           });
+          
+          console.log("Response received, status:", uploadResponse.status);
+          console.log("Response headers:", Object.fromEntries([...uploadResponse.headers]));
           
           if (!uploadResponse.ok) {
             const errorData = await uploadResponse.json().catch(() => {
