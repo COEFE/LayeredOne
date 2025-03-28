@@ -176,26 +176,83 @@ export const getClientAuthToken = async (user?: any) => {
   }
   
   // Check for static site generation (SSG) or static export context
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return 'localhost-mock-token';
+  if (typeof window !== 'undefined') {
+    // Get the hostname for logging
+    const hostname = window.location.hostname;
+    console.log(`Current hostname: ${hostname} - checking for special auth handling`);
+    
+    // Special handling for Vercel deployments
+    const isVercelDeployment = hostname.includes('vercel.app') || 
+                              process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
+    
+    // For localhost, we can use a mock token since it's development
+    if (hostname === 'localhost') {
+      console.log('Using localhost-specific authentication method');
+      return 'localhost-mock-token';
+    }
+    
+    // For Vercel deployments, try more aggressively to get a token
+    if (isVercelDeployment) {
+      console.log('Vercel deployment detected, using enhanced token retrieval');
+      
+      // Check if Firebase web SDK is available globally
+      // @ts-ignore - Ignore TypeScript errors for global firebase reference
+      if (window.firebase?.auth) {
+        try {
+          // @ts-ignore
+          const auth = window.firebase.auth();
+          if (auth && auth.currentUser) {
+            console.log('Using global Firebase auth from window.firebase');
+            const token = await auth.currentUser.getIdToken(true);
+            localStorage.setItem('authToken', token);
+            return token;
+          }
+        } catch (e) {
+          console.error('Failed to get token from global Firebase Auth:', e);
+        }
+      }
+      
+      // On Vercel, we need to make sure we have a valid token
+      // Try to re-authenticate by redirecting to login if no token is available
+      if (window.location.pathname !== '/login') {
+        console.warn('No authentication token available on Vercel deployment - redirecting to login');
+        // Store the current URL to redirect back after login
+        localStorage.setItem('redirectAfterLogin', window.location.pathname);
+        // Redirect to login page
+        window.location.href = '/login';
+        // Return a temporary token to prevent immediate errors while redirecting
+        return 'redirect-to-login';
+      }
+    }
   }
 
   // Last resort - try a different way to get Firebase Auth
   try {
-    // Try to access Firebase Auth in a global context - this may or may not work
+    // Try to access Firebase Auth in a global context
     // @ts-ignore - Ignore TypeScript errors for global firebase reference
     const globalAuth = window.firebase?.auth?.();
     if (globalAuth && globalAuth.currentUser) {
+      console.log('Successfully retrieved token from global Firebase Auth');
       const token = await globalAuth.currentUser.getIdToken(true);
       localStorage.setItem('authToken', token);
       return token;
     }
   } catch (e) {
-    console.error('Failed to get token from global Firebase Auth', e);
+    console.error('Failed to get token from global Firebase Auth:', e);
   }
   
-  // If we STILL can't get a token, return a mock token for static sites
+  // If we STILL can't get a token, return a special token for Vercel
   // This is a last resort to avoid breaking functionality
-  console.warn('Using fallback mock token - authentication will likely fail for dynamic operations');
+  console.warn('No valid token available - this will likely fail for authenticated operations');
+  
+  // For Vercel deployments, return a more descriptive token that will trigger proper error handling
+  if (typeof window !== 'undefined' && (
+      window.location.hostname.includes('vercel.app') || 
+      process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true'
+  )) {
+    console.error('Authentication missing on Vercel deployment!');
+    return 'vercel-auth-missing-token';
+  }
+  
   return 'fallback-mock-token';
 };

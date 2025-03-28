@@ -256,12 +256,37 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
         try {
           console.log('Sending upload request to API with authentication token');
           
+          // For Vercel deployments, ensure we have a special handling for redirects
+          const isVercelDeployment = typeof window !== 'undefined' && (
+            window.location.hostname.includes('vercel.app') || 
+            process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true'
+          );
+          
+          if (isVercelDeployment) {
+            console.log('Vercel deployment detected - ensuring proper authentication for upload');
+            // Force another token refresh attempt right before upload
+            if (user && user.getIdToken) {
+              try {
+                const freshToken = await user.getIdToken(true);
+                if (freshToken !== idToken) {
+                  console.log('Got fresher token for upload request');
+                  idToken = freshToken;
+                }
+              } catch (refreshError) {
+                console.error('Error refreshing token before upload:', refreshError);
+              }
+            }
+          }
+          
+          // Include multiple auth headers for maximum compatibility
+          const headers: Record<string, string> = {
+            'Authorization': `Bearer ${idToken}`
+          };
+          
           // Ensure we have the correct Authorization header format
           const uploadResponse = await fetch('/api/storage/upload', {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${idToken}`
-            },
+            headers,
             body: formData,
             // Ensure credentials are included
             credentials: 'same-origin'

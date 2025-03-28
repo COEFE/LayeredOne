@@ -46,7 +46,29 @@ export async function POST(request: NextRequest) {
     // For normal operation, verify the auth token
     if (!token) {
       console.log('Missing auth token');
-      return NextResponse.json({ error: 'Unauthorized - Missing token' }, { status: 401 });
+      // Return a more informative error message with debugging info
+      return NextResponse.json({ 
+        error: 'Unauthorized - Missing token',
+        details: 'No authentication token was provided in the Authorization header',
+        isVercelDeployment: process.env.VERCEL === 'true' || process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true',
+        deploymentType: process.env.VERCEL ? 'Vercel' : 'Unknown',
+        requestInfo: {
+          method: request.method,
+          url: request.url,
+          hasAuth: !!request.headers.get('authorization'),
+          contentType: request.headers.get('content-type')
+        }
+      }, { status: 401 });
+    }
+    
+    // Reject mock tokens that are used only for development but won't work in production
+    if (token === 'localhost-mock-token' || token === 'fallback-mock-token' || token === 'vercel-auth-missing-token') {
+      console.log('Invalid token type detected:', token);
+      return NextResponse.json({ 
+        error: 'Unauthorized - Invalid token',
+        details: 'Development/mock tokens cannot be used for authenticated operations in production',
+        recommendation: 'Please sign in properly before attempting this operation'
+      }, { status: 401 });
     }
     
     let userId: string;
