@@ -143,6 +143,13 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
   // Handle refreshing expired URLs
   const handleDownload = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     try {
+      // First, check if this is a mock URL (which will always fail)
+      if (fileUrl.startsWith('mock://') || fileUrl.includes('storage.example.com')) {
+        e.preventDefault();
+        setError('This file was uploaded in mock mode and cannot be downloaded. Please try uploading a real file.');
+        return;
+      }
+      
       // Extract document ID from URL for better caching
       const docIdMatch = fileUrl.match(/documents\/([^/?]+)/);
       const extractedDocId = docIdMatch ? docIdMatch[1] : null;

@@ -127,9 +127,9 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
             throw new Error('Failed to load Excel viewer: Could not load required libraries');
           }
           
-          // Check for invalid URL scheme (mock://)
-          if (fileUrl.startsWith('mock://')) {
-            console.error('Invalid URL scheme detected:', fileUrl);
+          // Check for invalid URL scheme (mock://) or mock domain
+          if (fileUrl.startsWith('mock://') || fileUrl.includes('storage.example.com')) {
+            console.error('Mock URL detected:', fileUrl);
             throw new Error('This file was uploaded in mock mode and cannot be viewed. Please try uploading a real file.');
           }
           
@@ -1107,6 +1107,13 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   
   const handleDownload = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     try {
+      // First, check if this is a mock URL (which will always fail)
+      if (fileUrl.startsWith('mock://') || fileUrl.includes('storage.example.com')) {
+        e.preventDefault();
+        setDownloadError('This file was uploaded in mock mode and cannot be downloaded. Please try uploading a real file.');
+        return;
+      }
+      
       // Test if the URL is valid by sending a HEAD request
       const response = await fetch(fileUrl, { method: 'HEAD' });
       if (!response.ok) {
