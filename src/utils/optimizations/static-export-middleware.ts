@@ -30,9 +30,27 @@ export const handleStaticAuthForAPI = (req: Request) => {
                       process.env.NEXT_PHASE === 'phase-production-build' ||
                       process.env.NEXT_PHASE === 'phase-export';
   
-  // Get the authorization header
+  // Get the authorization header with improved robustness
   const authHeader = req.headers.get('authorization') || '';
-  const token = authHeader.split('Bearer ')[1];
+  
+  // Log debug info to help diagnose token issues
+  console.log('Authorization header present:', !!authHeader);
+  if (authHeader) {
+    console.log('Authorization header format:', authHeader.startsWith('Bearer ') ? 'Valid Bearer format' : 'Invalid format');
+  }
+  
+  // More robust token extraction that handles different formats
+  let token = null;
+  if (authHeader.startsWith('Bearer ')) {
+    token = authHeader.split('Bearer ')[1];
+  } else if (authHeader && !authHeader.includes(' ')) {
+    // Handle case where token is sent without 'Bearer ' prefix
+    token = authHeader;
+    console.log('Found token without Bearer prefix, still using it');
+  }
+  
+  // Log token status (don't log the actual token for security)
+  console.log('Token extracted:', token ? 'Yes (length: ' + token.length + ')' : 'No');
   
   return {
     token,

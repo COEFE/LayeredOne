@@ -208,15 +208,38 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
       }, 100);
       
       try {
-        // Use our enhanced token helper to get a token or suitable fallback
-        const idToken = await getClientAuthToken(user);
+        // First try to get the token directly from the user object, which is most reliable
+        let idToken = null;
+        if (user && user.getIdToken && typeof user.getIdToken === 'function') {
+          try {
+            idToken = await user.getIdToken(true); // Force refresh the token
+            localStorage.setItem('authToken', idToken); // Store it for future use
+            console.log('Got fresh authentication token directly from user object');
+          } catch (tokenError) {
+            console.error('Error getting token from user object:', tokenError);
+          }
+        }
+        
+        // If that fails, fall back to our helper
+        if (!idToken) {
+          idToken = await getClientAuthToken(user);
+          console.log('Using fallback method to get authentication token');
+        }
         
         if (!idToken) {
-          console.error('Could not get authentication token');
+          console.error('Could not get authentication token by any method');
           throw new Error('Authentication error: Could not authenticate. Please sign out and sign in again.');
         }
         
-        console.log('Got authentication token for upload (token length):', idToken.length);
+        // Show some diagnostics, but mask most of the token for security
+        const tokenPreview = idToken.substring(0, 10) + '...' + idToken.substring(idToken.length - 5);
+        console.log(`Got authentication token for upload (length: ${idToken.length}, preview: ${tokenPreview})`);
+        
+        // Verify token isn't one of our mock tokens which will be rejected
+        if (idToken === 'localhost-mock-token' || idToken === 'fallback-mock-token') {
+          console.error('Cannot use mock token for actual upload');
+          throw new Error('Authentication error: Invalid authentication token. Please sign out and sign in again.');
+        }
         
         // Create form data for upload
         const formData = new FormData();
@@ -231,12 +254,17 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
         console.log('Uploading through server-side API route');
         
         try {
+          console.log('Sending upload request to API with authentication token');
+          
+          // Ensure we have the correct Authorization header format
           const uploadResponse = await fetch('/api/storage/upload', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${idToken}`
             },
-            body: formData
+            body: formData,
+            // Ensure credentials are included
+            credentials: 'same-origin'
           });
           
           if (!uploadResponse.ok) {
