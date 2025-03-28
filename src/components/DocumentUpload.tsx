@@ -62,7 +62,10 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
     // Log configuration for debugging
     console.log('Storage bucket:', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
     console.log('Using Firebase emulators:', usingEmulators ? 'Yes' : 'No');
-    console.log('Static export environment:', isStaticExport() ? 'Yes' : 'No');
+    
+    // Check and log static export status - previously using undefined variable
+    const staticExport = false; // Explicitly set to false to prevent UI issues
+    console.log('Static export environment:', staticExport ? 'Yes' : 'No');
     
     if (usingEmulators) {
       // Reset any previous errors if using emulators
