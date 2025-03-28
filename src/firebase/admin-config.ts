@@ -148,10 +148,35 @@ if (isGitHubPages && !useRealFirebase) {
     const privateKeyEnv = process.env.FIREBASE_PRIVATE_KEY;
     let privateKey;
     
-    // Process the private key (handle newlines properly)
+    // Process the private key (handle newlines properly with improved error handling)
     if (privateKeyEnv) {
-      privateKey = privateKeyEnv.replace(/\\n/g, '\n');
-      console.log('Using environment private key');
+      try {
+        // Check if the key is wrapped in quotes
+        if (privateKeyEnv.startsWith('"') && privateKeyEnv.endsWith('"')) {
+          // Remove the quotes before processing
+          privateKeyEnv = privateKeyEnv.substring(1, privateKeyEnv.length - 1);
+        }
+        
+        // Handle both escaped newlines and literal newlines
+        if (privateKeyEnv.includes('\\n')) {
+          // Convert \n to actual newlines
+          privateKey = privateKeyEnv.replace(/\\n/g, '\n');
+        } else if (privateKeyEnv.includes('\n')) {
+          // Already has literal newlines
+          privateKey = privateKeyEnv;
+        } else {
+          // No newlines at all - likely malformed
+          console.warn('Warning: Private key does not contain newlines (\\n or literal)');
+          privateKey = privateKeyEnv;
+        }
+        
+        console.log('Successfully processed environment private key');
+      } catch (keyError) {
+        console.error('Error processing private key:', keyError);
+        
+        // Fallback to not modifying the key
+        privateKey = privateKeyEnv;
+      }
     } else {
       // Use service account private key directly for development
       console.log('Using embedded service account for development');
