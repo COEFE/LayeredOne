@@ -72,35 +72,52 @@ export const isClientStaticExport = () => {
                         hostname.includes('vercel.app') ||
                         hostname.includes('pages.dev');
     
-    // Let's also try to detect if API routes are functioning
-    // by checking if we have already detected API failure
-    const hasDetectedAPIFailure = localStorage.getItem('API_FAILURE_DETECTED') === 'true';
+    // We're disabling the API failure detection to ensure we always use real cloud storage
+    // const hasDetectedAPIFailure = localStorage.getItem('API_FAILURE_DETECTED') === 'true';
     
     // Add helpful debugging for static export detection
-    if (isGithubPages || hasStaticExportMeta || isFileProtocol || isStaticHost || hasDetectedAPIFailure) {
-      console.log('Static export detected based on:', { 
+    if (isGithubPages || hasStaticExportMeta || isFileProtocol || isStaticHost) {
+      console.log('Static export environment detected based on:', { 
         isGithubPages, 
         hasStaticExportMeta, 
         isFileProtocol, 
         isStaticHost,
-        hasDetectedAPIFailure,
         pathname 
       });
+      
+      // Clear any API failure flags that might be set
+      if (localStorage.getItem('API_FAILURE_DETECTED') === 'true') {
+        console.log('Clearing API_FAILURE_DETECTED flag');
+        localStorage.removeItem('API_FAILURE_DETECTED');
+      }
+      
+      if (localStorage.getItem('FORCE_STATIC_EXPORT') === 'true') {
+        console.log('Clearing FORCE_STATIC_EXPORT flag');
+        localStorage.removeItem('FORCE_STATIC_EXPORT');
+      }
     }
     
-    return isGithubPages || hasStaticExportMeta || isFileProtocol || isStaticHost || hasDetectedAPIFailure;
+    // Mock mode is disabled - use actual cloud storage even on static hosts
+    // return isGithubPages || hasStaticExportMeta || isFileProtocol || isStaticHost;
+    return false;
   }
   return false;
 };
 
 /**
- * Utility function to mark that an API failure has been detected
- * This helps future requests recognize they're in a static export environment
+ * Utility function that previously marked API failures
+ * Now disabled to ensure we always use real cloud storage
  */
 export const markAPIFailureDetected = () => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('API_FAILURE_DETECTED', 'true');
-    console.log('API failure detected, marking as static export environment');
+    // Disabled - no longer mark API failures to prevent mock mode
+    // localStorage.setItem('API_FAILURE_DETECTED', 'true');
+    console.log('API failure detected, but mock mode is disabled');
+    
+    // Actually clear the flag if it's set
+    if (localStorage.getItem('API_FAILURE_DETECTED') === 'true') {
+      localStorage.removeItem('API_FAILURE_DETECTED');
+    }
   }
 };
 
@@ -109,10 +126,11 @@ export const markAPIFailureDetected = () => {
  * This performs multiple checks to ensure we always get a token to work with
  */
 export const getClientAuthToken = async (user?: any) => {
-  // Check for static export environment first
+  // Static export mode is disabled, so this will never be true
   if (isClientStaticExport()) {
-    console.log('Static export detected, using mock auth token');
-    return 'static-export-mock-token';
+    console.log('Static export detected, but mock mode is disabled');
+    // Do not return a mock token
+    // return 'static-export-mock-token';
   }
 
   // Check for stored token in localStorage, most reliable and fastest approach

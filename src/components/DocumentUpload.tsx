@@ -25,19 +25,25 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
   
   // Check if Firebase Storage is properly configured
   useEffect(() => {
-    // Check if we're in a static export environment
-    const staticExport = isClientStaticExport();
-    
-    if (staticExport) {
-      console.log('Static export environment detected. Using mock storage.');
-      setStorageAvailable(true);
-      
-      // Set a token in localStorage for static export environments
-      // This helps ensure we always have something to use
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('authToken', 'static-export-mock-token');
+    // Clear any flags that might trigger mock mode
+    if (typeof window !== 'undefined') {
+      // Clear API failure detection
+      if (localStorage.getItem('API_FAILURE_DETECTED') === 'true') {
+        console.log('Clearing API_FAILURE_DETECTED flag');
+        localStorage.removeItem('API_FAILURE_DETECTED');
       }
-      return;
+      
+      // Clear force static export
+      if (localStorage.getItem('FORCE_STATIC_EXPORT') === 'true') {
+        console.log('Clearing FORCE_STATIC_EXPORT flag');
+        localStorage.removeItem('FORCE_STATIC_EXPORT');
+      }
+      
+      // Remove any mock tokens
+      if (localStorage.getItem('authToken') === 'static-export-mock-token') {
+        console.log('Removing mock auth token');
+        localStorage.removeItem('authToken');
+      }
     }
     
     if (!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
@@ -177,115 +183,97 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
       let downloadURL: string;
       let docRef: any;
       
-      // Check if we're in a static export environment
-      const isStaticEnv = isClientStaticExport();
+      // Always use the real cloud storage upload path
+      // Mock mode is completely disabled
       
-      // Check if we're using mock mode or static export
-      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'mockmode' || isStaticEnv) {
-        console.log('Using mock upload mode:', isStaticEnv ? 'static export' : 'development emulator');
+      // Sanitize the filename to avoid path traversal issues
+      const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const timestamp = Date.now();
+      const filePath = `documents/${user.uid}/${timestamp}_${safeFileName}`;
+      console.log(`Uploading to path: ${filePath}`);
+      
+      // Use the server-side upload API route - this avoids all CORS issues
+      console.log('Using server-side upload API');
+      
+      // Progress simulation interval
+      interval = setInterval(() => {
+        setUploadProgress((prev) => Math.min(prev + 5, 90));
+      }, 100);
+      
+      try {
+        // Use our enhanced token helper to get a token or suitable fallback
+        const idToken = await getClientAuthToken(user);
         
-        // Simulate upload progress for mock mode
-        interval = setInterval(() => {
-          setUploadProgress((prev) => {
-            if (prev >= 90) {
-              clearInterval(interval);
-              return 90;
-            }
-            return prev + 10;
-          });
-        }, 300);
+        if (!idToken) {
+          console.error('Could not get authentication token');
+          throw new Error('Authentication error: Could not authenticate. Please sign out and sign in again.');
+        }
         
-        const result = await mockUpload(file, user);
-        downloadURL = result.downloadURL;
-        docRef = result.docRef;
-      } else {
-        // Sanitize the filename to avoid path traversal issues
-        const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const timestamp = Date.now();
-        const filePath = `documents/${user.uid}/${timestamp}_${safeFileName}`;
-        console.log(`Uploading to path: ${filePath}`);
+        console.log('Got authentication token for upload (token length):', idToken.length);
         
-        // Use the server-side upload API route - this avoids all CORS issues
-        console.log('Using server-side upload API');
+        // Create form data for upload
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('filename', file.name);
+        formData.append('contentType', file.type);
+        if (selectedFolder) {
+          formData.append('folderId', selectedFolder);
+        }
         
-        // Progress simulation interval
-        interval = setInterval(() => {
-          setUploadProgress((prev) => Math.min(prev + 5, 90));
-        }, 100);
+        // Upload through our API route
+        console.log('Uploading through server-side API route');
         
         try {
-          // Use our enhanced token helper to get a token or suitable fallback
-          const idToken = await getClientAuthToken(user);
+          const uploadResponse = await fetch('/api/storage/upload', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${idToken}`
+            },
+            body: formData
+          });
           
-          if (!idToken) {
-            console.error('Could not get authentication token');
-            throw new Error('Authentication error: Could not authenticate. Please sign out and sign in again.');
-          }
-          
-          console.log('Got authentication token for upload (token length):', idToken.length);
-          
-          // Create form data for upload
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('filename', file.name);
-          formData.append('contentType', file.type);
-          if (selectedFolder) {
-            formData.append('folderId', selectedFolder);
-          }
-          
-          // Upload through our API route
-          console.log('Uploading through server-side API route');
-          
-          try {
-            const uploadResponse = await fetch('/api/storage/upload', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${idToken}`
-              },
-              body: formData
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json().catch(() => {
+              return { error: uploadResponse.statusText || "Unknown error" };
             });
             
-            if (!uploadResponse.ok) {
-              const errorData = await uploadResponse.json().catch(() => {
-                return { error: uploadResponse.statusText || "Unknown error" };
-              });
-              
-              console.error('Upload failed:', uploadResponse.status, errorData);
-              
-              if (uploadResponse.status === 401) {
-                // Mark that we've detected an API failure due to authentication
-                markAPIFailureDetected();
-                throw new Error(`Authentication error: ${errorData.error || 'Unauthorized - Please try signing out and back in'}`);
-              } else {
-                // For any other API failure, also mark it
-                if (uploadResponse.status >= 400) {
-                  markAPIFailureDetected();
-                }
-                throw new Error(`Failed to upload file: ${errorData.error || `Status ${uploadResponse.status}`}`);
-              }
+            console.error('Upload failed:', uploadResponse.status, errorData);
+            
+            if (uploadResponse.status === 401) {
+              // Mark that we've detected an API failure due to authentication
+              // Do NOT mark as API failure - this will trigger mock mode
+              // markAPIFailureDetected();
+              throw new Error(`Authentication error: ${errorData.error || 'Unauthorized - Please try signing out and back in'}`);
+            } else {
+              // For any other API failure, also mark it
+              // Do NOT mark as API failure - this will trigger mock mode
+              // if (uploadResponse.status >= 400) {
+              //   markAPIFailureDetected();
+              // }
+              throw new Error(`Failed to upload file: ${errorData.error || `Status ${uploadResponse.status}`}`);
             }
-          } catch (fetchError) {
-            console.error('Fetch error during upload:', fetchError);
-            throw fetchError;
           }
-          
-          // Parse the response
-          const responseData = await uploadResponse.json();
-          console.log('Upload successful:', responseData);
-          
-          // Extract the document data
-          downloadURL = responseData.url;
-          docRef = { id: responseData.documentId };
-          
-          clearInterval(interval);
-          setUploadProgress(95);
-          
-          console.log('Upload successful, URL:', downloadURL);
-        } catch (error) {
-          if (interval) clearInterval(interval);
-          console.error('Upload error:', error);
-          throw error;
+        } catch (fetchError) {
+          console.error('Fetch error during upload:', fetchError);
+          throw fetchError;
         }
+        
+        // Parse the response
+        const responseData = await uploadResponse.json();
+        console.log('Upload successful:', responseData);
+        
+        // Extract the document data
+        downloadURL = responseData.url;
+        docRef = { id: responseData.documentId };
+        
+        clearInterval(interval);
+        setUploadProgress(95);
+        
+        console.log('Upload successful, URL:', downloadURL);
+      } catch (error) {
+        if (interval) clearInterval(interval);
+        console.error('Upload error:', error);
+        throw error;
       }
       
       // Finalize upload
