@@ -181,8 +181,22 @@ if (isGitHubPages && !useRealFirebase) {
     const privateKeyEnv = process.env.FIREBASE_PRIVATE_KEY;
     let privateKey;
     
-    // Process the private key (handle newlines properly with improved error handling)
-    if (privateKeyEnv) {
+    // Try to get the private key from multiple sources
+    // First check for base64 encoded key
+    const privateKeyBase64 = process.env.FIREBASE_PRIVATE_KEY_BASE64;
+    if (privateKeyBase64) {
+      try {
+        // Decode the base64 key
+        privateKey = Buffer.from(privateKeyBase64, 'base64').toString('utf8');
+        console.log('Successfully decoded FIREBASE_PRIVATE_KEY_BASE64');
+      } catch (base64Error) {
+        console.error('Error decoding FIREBASE_PRIVATE_KEY_BASE64:', base64Error);
+        // Fall back to standard key
+      }
+    }
+    
+    // If base64 key didn't work, try standard key
+    if (!privateKey && privateKeyEnv) {
       try {
         // Advanced private key processing for Vercel environment
         // First, cleanup any unexpected formatting from the environment
@@ -250,6 +264,7 @@ if (isGitHubPages && !useRealFirebase) {
           privateKey = privateKeyEnv;
         }
       }
+    }
     } else {
       // Use service account private key directly for development
       console.log('Using embedded service account for development');
