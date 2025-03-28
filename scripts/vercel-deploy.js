@@ -87,13 +87,22 @@ console.log(`Deployment will now continue with modified dependencies...`);
 console.log(`✅ Using real Firebase Admin SDK for deployment`);
 
 // Add an environment variable marker file to signal we're using real implementation
-fs.writeFileSync(
-  path.join(process.cwd(), '.env.local'),
-  `# Added by vercel-deploy.js
+// Instead of overwriting the .env.local file, we'll just append to it if it exists
+const envLocalPath = path.join(process.cwd(), '.env.local');
+const envMarker = `\n# Added by vercel-deploy.js
 # This file marks that we want to use the real Firebase Admin SDK
 NEXT_PUBLIC_USE_REAL_FIREBASE=true
-`
-);
+`;
+
+if (fs.existsSync(envLocalPath)) {
+  // Append to existing file
+  fs.appendFileSync(envLocalPath, envMarker);
+  console.log('✅ Appended environment marker to existing .env.local file');
+} else {
+  // Create new file
+  fs.writeFileSync(envLocalPath, envMarker);
+  console.log('✅ Created new .env.local file with environment marker');
+}
 
 console.log(`✅ Done preparing for deployment with real Firebase services`);
 
