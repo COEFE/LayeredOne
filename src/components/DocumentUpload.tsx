@@ -6,7 +6,7 @@ import { db, storage, getProxiedDownloadURL } from '@/firebase/config';
 import { ref, uploadString } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
-import { isClientStaticExport, getClientAuthToken } from '@/utils/optimizations/static-export-middleware';
+import { isClientStaticExport, getClientAuthToken, markAPIFailureDetected } from '@/utils/optimizations/static-export-middleware';
 
 type DocumentUploadProps = {
   onUploadComplete?: () => void;
@@ -31,6 +31,12 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
     if (staticExport) {
       console.log('Static export environment detected. Using mock storage.');
       setStorageAvailable(true);
+      
+      // Set a token in localStorage for static export environments
+      // This helps ensure we always have something to use
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('authToken', 'static-export-mock-token');
+      }
       return;
     }
     
@@ -207,18 +213,15 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
         }, 100);
         
         try {
-          // Get authentication token - handle case where user might be in an invalid state
-          let idToken: string;
+          // Use our enhanced token helper to get a token or suitable fallback
+          const idToken = await getClientAuthToken(user);
           
-          try {
-            if (!user.getIdToken) {
-              throw new Error('Invalid authentication state');
-            }
-            idToken = await user.getIdToken();
-          } catch (tokenError) {
-            console.error('Error getting auth token:', tokenError);
-            throw new Error('Authentication error: Please sign out and sign in again');
+          if (!idToken) {
+            console.error('Could not get authentication token');
+            throw new Error('Authentication error: Could not authenticate. Please sign out and sign in again.');
           }
+          
+          console.log('Got authentication token for upload (token length):', idToken.length);
           
           // Create form data for upload
           const formData = new FormData();
@@ -249,8 +252,14 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
               console.error('Upload failed:', uploadResponse.status, errorData);
               
               if (uploadResponse.status === 401) {
+                // Mark that we've detected an API failure due to authentication
+                markAPIFailureDetected();
                 throw new Error(`Authentication error: ${errorData.error || 'Unauthorized - Please try signing out and back in'}`);
               } else {
+                // For any other API failure, also mark it
+                if (uploadResponse.status >= 400) {
+                  markAPIFailureDetected();
+                }
                 throw new Error(`Failed to upload file: ${errorData.error || `Status ${uploadResponse.status}`}`);
               }
             }
