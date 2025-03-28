@@ -127,6 +127,12 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
             throw new Error('Failed to load Excel viewer: Could not load required libraries');
           }
           
+          // Check for invalid URL scheme (mock://)
+          if (fileUrl.startsWith('mock://')) {
+            console.error('Invalid URL scheme detected:', fileUrl);
+            throw new Error('This file was uploaded in mock mode and cannot be viewed. Please try uploading a real file.');
+          }
+          
           // Extract document ID from URL for better caching
           const docIdMatch = fileUrl.match(/documents\/([^/?]+)/);
           const extractedDocId = docIdMatch ? docIdMatch[1] : null;
@@ -145,6 +151,12 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
           if (cachedUrl) {
             console.log('Trying cached URL:', cachedUrl);
             try {
+              // Validate URL scheme before fetching
+              if (!cachedUrl.startsWith('http://') && !cachedUrl.startsWith('https://')) {
+                console.error('Invalid cached URL scheme:', cachedUrl);
+                throw new Error('Invalid URL scheme in cached URL');
+              }
+              
               const response = await fetch(cachedUrl, {
                 method: 'GET',
                 // Add CORS mode to help debug issues
@@ -171,6 +183,12 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
           if (!arrayBuffer) {
             console.log('Fetching Excel file from original URL:', fileUrl);
             try {
+              // Validate URL scheme before fetching
+              if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
+                console.error('Invalid original URL scheme:', fileUrl);
+                throw new Error('Invalid URL scheme in original URL');
+              }
+              
               const response = await fetch(fileUrl, {
                 method: 'GET',
                 mode: 'cors',
