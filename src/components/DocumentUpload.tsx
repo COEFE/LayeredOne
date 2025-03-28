@@ -6,7 +6,7 @@ import { db, storage, getProxiedDownloadURL } from '@/firebase/config';
 import { ref, uploadString } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
-import { isClientStaticExport, getClientAuthToken, markAPIFailureDetected } from '@/utils/optimizations/static-export-middleware';
+import { isClientStaticExport, getClientAuthToken, markAPIFailureDetected, isStaticExport } from '@/utils/optimizations/static-export-middleware';
 
 type DocumentUploadProps = {
   onUploadComplete?: () => void;
@@ -62,7 +62,7 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
     // Log configuration for debugging
     console.log('Storage bucket:', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
     console.log('Using Firebase emulators:', usingEmulators ? 'Yes' : 'No');
-    console.log('Static export environment:', staticExport ? 'Yes' : 'No');
+    console.log('Static export environment:', isStaticExport() ? 'Yes' : 'No');
     
     if (usingEmulators) {
       // Reset any previous errors if using emulators
