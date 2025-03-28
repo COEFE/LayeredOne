@@ -6,6 +6,7 @@ import { db, storage, getProxiedDownloadURL } from '@/firebase/config';
 import { ref, uploadString } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
+import { isClientStaticExport, getClientAuthToken } from '@/utils/optimizations/static-export-middleware';
 
 type DocumentUploadProps = {
   onUploadComplete?: () => void;
@@ -24,6 +25,15 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
   
   // Check if Firebase Storage is properly configured
   useEffect(() => {
+    // Check if we're in a static export environment
+    const staticExport = isClientStaticExport();
+    
+    if (staticExport) {
+      console.log('Static export environment detected. Using mock storage.');
+      setStorageAvailable(true);
+      return;
+    }
+    
     if (!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
       setStorageAvailable(false);
       setError('Firebase Storage is not properly configured. Please check your environment variables.');
@@ -40,6 +50,7 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
     // Log configuration for debugging
     console.log('Storage bucket:', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
     console.log('Using Firebase emulators:', usingEmulators ? 'Yes' : 'No');
+    console.log('Static export environment:', staticExport ? 'Yes' : 'No');
     
     if (usingEmulators) {
       // Reset any previous errors if using emulators
@@ -159,9 +170,12 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
       let downloadURL: string;
       let docRef: any;
       
-      // Check if we're using mock mode
-      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'mockmode') {
-        console.log('Using mock upload in development mode');
+      // Check if we're in a static export environment
+      const isStaticEnv = isClientStaticExport();
+      
+      // Check if we're using mock mode or static export
+      if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'mockmode' || isStaticEnv) {
+        console.log('Using mock upload mode:', isStaticEnv ? 'static export' : 'development emulator');
         
         // Simulate upload progress for mock mode
         interval = setInterval(() => {
@@ -193,8 +207,18 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
         }, 100);
         
         try {
-          // Get authentication token
-          const idToken = await user.getIdToken();
+          // Get authentication token - handle case where user might be in an invalid state
+          let idToken: string;
+          
+          try {
+            if (!user.getIdToken) {
+              throw new Error('Invalid authentication state');
+            }
+            idToken = await user.getIdToken();
+          } catch (tokenError) {
+            console.error('Error getting auth token:', tokenError);
+            throw new Error('Authentication error: Please sign out and sign in again');
+          }
           
           // Create form data for upload
           const formData = new FormData();

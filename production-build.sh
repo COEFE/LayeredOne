@@ -17,7 +17,18 @@ node update-firebase-config.js
 # Ensure the keys are properly set in the environment
 if [ -f .env.production ]; then
   echo "📝 Loading production environment variables..."
-  export $(grep -v '^#' .env.production | xargs)
+  # Load variables without trying to export multi-line values directly
+  export NEXT_PUBLIC_FIREBASE_API_KEY=$(grep NEXT_PUBLIC_FIREBASE_API_KEY .env.production | cut -d '=' -f2)
+  export NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$(grep NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN .env.production | cut -d '=' -f2)
+  export NEXT_PUBLIC_FIREBASE_PROJECT_ID=$(grep NEXT_PUBLIC_FIREBASE_PROJECT_ID .env.production | cut -d '=' -f2)
+  export NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$(grep NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET .env.production | cut -d '=' -f2)
+  export NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$(grep NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID .env.production | cut -d '=' -f2)
+  export NEXT_PUBLIC_FIREBASE_APP_ID=$(grep NEXT_PUBLIC_FIREBASE_APP_ID .env.production | cut -d '=' -f2)
+  export FIREBASE_CLIENT_EMAIL=$(grep FIREBASE_CLIENT_EMAIL .env.production | cut -d '=' -f2)
+  export FIREBASE_PRIVATE_KEY_ID=$(grep FIREBASE_PRIVATE_KEY_ID .env.production | cut -d '=' -f2)
+  
+  # Use the Base64 version which is most reliable
+  export FIREBASE_PRIVATE_KEY_BASE64=$(grep FIREBASE_PRIVATE_KEY_BASE64 .env.production | cut -d '=' -f2)
 fi
 
 # Export environment variables for build
@@ -28,7 +39,7 @@ export NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 export SIMPLE_PDF=true
 
 echo "🏗️ Running production build..."
-next build --no-lint
+npx next build --no-lint
 
 # Check build result
 if [ $? -eq 0 ]; then

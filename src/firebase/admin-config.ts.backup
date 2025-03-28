@@ -161,10 +161,10 @@ function initializeFirebaseAdmin() {
 }
 
 // Initialize Firebase Admin SDK
-const firebaseServices = initializeFirebaseAdmin();
+const { db: initializedDb, auth: initializedAuth, storage: initializedStorage } = initializeFirebaseAdmin();
 
 // Export the initialized instances
-export const db = firebaseServices.db;
-export const auth = firebaseServices.auth;
-export const storage = firebaseServices.storage;
+export const db = initializedDb;
+export const auth = initializedAuth;
+export const storage = initializedStorage;
 export { admin, firestorePath };

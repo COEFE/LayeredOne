@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, storage, db } from '@/firebase/admin-config';
 import { v4 as uuidv4 } from 'uuid';
 import { createStoragePath } from '@/utils/firebase-path-utils';
+import { handleStaticAuthForAPI } from '@/utils/optimizations/static-export-middleware';
 
 export const dynamic = 'force-static';
 
@@ -24,30 +25,35 @@ export async function POST(request: NextRequest) {
   console.log('Upload API route called');
   
   try {
-    // Check if we're in a build/static export context
-    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
-                       process.env.NEXT_PHASE === 'phase-export';
+    // Use the static export middleware to handle authentication
+    const { token, isStaticExport, mockUserId } = handleStaticAuthForAPI(request);
     
-    // Verify authentication token
-    const authHeader = request.headers.get('authorization') || '';
-    const token = authHeader.split('Bearer ')[1];
+    // If we're in a static export, return a mock response
+    if (isStaticExport) {
+      console.log('Static export detected, returning mock response');
+      return NextResponse.json({
+        success: true,
+        url: 'https://example.com/mock-upload-url',
+        documentId: 'mock-document-id',
+        filename: 'example.pdf',
+        contentType: 'application/pdf',
+        size: 12345,
+        storageRef: 'documents/mock-user/example.pdf',
+        stubResponse: true
+      });
+    }
     
-    if (!token && !isBuildTime) {
+    // For normal operation, verify the auth token
+    if (!token) {
       console.log('Missing auth token');
       return NextResponse.json({ error: 'Unauthorized - Missing token' }, { status: 401 });
     }
     
-    // If we're in build context, return a stub response or early exit
-    if (isBuildTime) {
-      console.log('Build-time API execution, returning stub response');
-      return NextResponse.json({ stubResponse: true, message: 'This is a build-time stub response' });
-    }
-    
     let userId: string;
     try {
-      // Skip token verification during build time
-      if (isBuildTime) {
-        userId = 'build-time-user';
+      // Use mockUserId if in static export (shouldn't reach here due to early return above)
+      if (mockUserId) {
+        userId = mockUserId;
       } else {
         const decodedToken = await auth.verifyIdToken(token);
         userId = decodedToken.uid;

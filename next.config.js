@@ -28,6 +28,16 @@ const nextConfig = {
       };
     }
     
+    // Add environment variable to detect static export during build
+    config.plugins = config.plugins || [];
+    config.plugins.push(
+      new config.webpack.DefinePlugin({
+        'process.env.NEXT_STATIC_EXPORT': JSON.stringify(
+          process.env.GITHUB_PAGES === 'true' || process.env.STATIC_EXPORT === 'true'
+        ),
+      })
+    );
+    
     // Fix for PostCSS issues
     config.resolve.alias = {
       ...config.resolve.alias,
