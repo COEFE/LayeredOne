@@ -35,6 +35,16 @@ const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
 const isGitHubPages = process.env.GITHUB_PAGES === 'true';
 const useRealFirebase = process.env.NEXT_PUBLIC_USE_REAL_FIREBASE === 'true';
 
+// Define a function to check if a file exists in a safe way
+const fileExists = (filePath: string): boolean => {
+  try {
+    return fs.existsSync(filePath);
+  } catch (error) {
+    console.error(`Error checking if file exists at ${filePath}:`, error);
+    return false;
+  }
+};
+
 // Only for GitHub Pages we'll use mock objects since it's a static deployment
 const createMockFirebaseAdmin = () => {
   console.log('Creating mock Firebase Admin objects for GitHub Pages static deployment');
@@ -109,17 +119,40 @@ if (!admin.apps.length) {
     // Last resort fallback 
     if (!admin.apps.length) {
       try {
-        console.log('Attempting fallback initialization');
+        console.log('Attempting fallback initialization with minimal config');
+        
+        // Try to create a minimal service account object with just the required fields
+        const minimalServiceAccount = {
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'variance-test-4b441',
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL || 'firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com',
+          private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') || "-----BEGIN PRIVATE KEY-----\nPLACEHOLDER\n-----END PRIVATE KEY-----\n"
+        };
         
         admin.initializeApp({
+          credential: admin.credential.cert(minimalServiceAccount),
           projectId: 'variance-test-4b441',
-          storageBucket: 'variance-test-4b441.firebasestorage.app'
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'variance-test-4b441.firebasestorage.app'
         });
         
-        console.log('Firebase Admin SDK initialized with fallback config (limited functionality)');
+        console.log('Firebase Admin SDK initialized with fallback config (may have limited functionality)');
       } catch (fallbackError) {
         console.error('Failed to initialize Admin SDK even with fallback:', fallbackError);
-        // Just continue - we'll handle errors at the point of use
+        
+        if (fallbackError.message?.includes('no such file') || fallbackError.message?.includes('ENOENT')) {
+          console.error('CRITICAL ERROR: Still encountering file not found errors in fallback initialization');
+          console.error('Please ensure your environment variables are set correctly in Vercel');
+        }
+        
+        // One last attempt with absolutely no credential
+        try {
+          admin.initializeApp({
+            projectId: 'variance-test-4b441',
+            storageBucket: 'variance-test-4b441.firebasestorage.app'
+          });
+          console.log('WARNING: Firebase Admin SDK initialized without credentials (extremely limited functionality)');
+        } catch (lastError) {
+          console.error('All initialization attempts failed:', lastError);
+        }
       }
     }
   }
@@ -196,13 +229,32 @@ if (isGitHubPages && !useRealFirebase) {
     // Initialize if not already initialized
     if (!admin.apps.length) {
       console.log(`Initializing Firebase Admin SDK for ${isVercel ? 'Vercel' : 'development'} environment`);
+      
       try {
+        // Check if the error might be related to a local service account JSON file
+        const localServiceAccountPath = './variance-test-4b441-firebase-adminsdk-fbsvc-6ef054c9fe.json';
+        if (fileExists(localServiceAccountPath)) {
+          console.log(`Found local service account file at ${localServiceAccountPath}`);
+          // Don't use the file directly as it won't work in Vercel - use environment variables instead
+        } else {
+          console.log(`No local service account file found at ${localServiceAccountPath}. Using environment variables.`);
+        }
+        
+        // Always use the service account object created from environment variables
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
           storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.firebasestorage.app"
         });
+        
+        console.log('Successfully initialized Firebase Admin SDK with credential object');
       } catch (initError) {
         console.error('Failed to initialize Firebase Admin:', initError);
+        
+        // Log more detailed error information to help diagnose the issue
+        if (initError.message?.includes('no such file') || initError.message?.includes('ENOENT')) {
+          console.error('File not found error detected. This may be due to trying to access a service account JSON file');
+          console.error('Solution: Use environment variables instead of file paths for credentials');
+        }
       }
     }
     
@@ -233,6 +285,24 @@ if (isGitHubPages && !useRealFirebase) {
         })
       })
     };
+    
+    // Check if there's a reference to a service account JSON file in the code and log info
+    if (admin && admin.credential && typeof admin.credential.cert === 'function') {
+      try {
+        // Get the current app if it exists
+        const app = admin.apps.length ? admin.app() : null;
+        if (app) {
+          const options = app.options;
+          if (options && options.credential) {
+            console.log('Firebase Admin SDK initialized with credential object');
+          } else {
+            console.log('Firebase Admin SDK initialized but credential details unknown');
+          }
+        }
+      } catch (checkError) {
+        console.error('Error checking credentials:', checkError);
+      }
+    }
     
     // Try to get real services, fall back to mocks if unavailable
     try {
