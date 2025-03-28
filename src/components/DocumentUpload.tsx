@@ -211,11 +211,15 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
         // First try to get the token directly from the user object, which is most reliable
         let idToken = null;
         if (user && user.getIdToken && typeof user.getIdToken === 'function') {
+          console.log("User before token retrieval:", user);
+          console.log("User ID:", user?.uid);
           try {
             idToken = await user.getIdToken(true); // Force refresh the token
+            console.log("Token retrieved successfully:", !!idToken);
             localStorage.setItem('authToken', idToken); // Store it for future use
             console.log('Got fresh authentication token directly from user object');
           } catch (tokenError) {
+            console.error("Token retrieval error:", tokenError);
             console.error('Error getting token from user object:', tokenError);
           }
         }
@@ -266,13 +270,17 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
             console.log('Vercel deployment detected - ensuring proper authentication for upload');
             // Force another token refresh attempt right before upload
             if (user && user.getIdToken) {
+              console.log("User before Vercel token retrieval:", user);
+              console.log("User ID for Vercel flow:", user?.uid);
               try {
                 const freshToken = await user.getIdToken(true);
+                console.log("Vercel token retrieved successfully:", !!freshToken);
                 if (freshToken !== idToken) {
                   console.log('Got fresher token for upload request');
                   idToken = freshToken;
                 }
               } catch (refreshError) {
+                console.error("Vercel token retrieval error:", refreshError);
                 console.error('Error refreshing token before upload:', refreshError);
               }
             }
@@ -360,7 +368,16 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
       try {
         // Only proceed if we have a valid document ID
         if (docRef && docRef.id) {
-          const idToken = await user.getIdToken();
+          console.log("User before processing token retrieval:", user);
+          console.log("User ID for processing flow:", user?.uid);
+          let idToken;
+          try {
+            idToken = await user.getIdToken(true); // Force refresh
+            console.log("Processing token retrieved successfully:", !!idToken);
+          } catch (error) {
+            console.error("Processing token retrieval error:", error);
+            throw error;
+          }
           
           fetch('/api/documents/process', {
             method: 'POST',
