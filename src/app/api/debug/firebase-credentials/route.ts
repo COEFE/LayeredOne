@@ -5,6 +5,7 @@ import { getPrivateKeyFromEnv } from '@/firebase/key-helpers';
  * This API route provides diagnostic information about Firebase credentials
  * for debugging authentication issues.
  */
+export const dynamic = 'force-static';
 export async function GET(request: NextRequest) {
   try {
     // Check for environment variables

@@ -4,6 +4,8 @@ import { extractTextFromExcel } from '@/utils/excelExtractor';
 import { extractTextFromPDF } from '@/utils/pdfExtractor';
 import withTimeout, { processInChunks } from '@/utils/optimizations/timeout-middleware';
 
+export const dynamic = 'force-static';
+
 // Create a safe FieldValue for Vercel compatibility
 const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
 

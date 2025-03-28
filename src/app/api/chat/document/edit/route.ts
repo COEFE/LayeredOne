@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, db, admin, firestorePath } from '@/firebase/admin-config';
 
+export const dynamic = 'force-static';
+
 // Create a safe FieldValue for Vercel compatibility
 const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
 

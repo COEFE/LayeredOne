@@ -8,6 +8,8 @@ import {
   getPotentialStoragePaths 
 } from '@/utils/firebase-path-utils';
 
+export const dynamic = 'force-static';
+
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication token

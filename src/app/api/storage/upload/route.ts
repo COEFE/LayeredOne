@@ -3,6 +3,8 @@ import { auth, storage, db } from '@/firebase/admin-config';
 import { v4 as uuidv4 } from 'uuid';
 import { createStoragePath } from '@/utils/firebase-path-utils';
 
+export const dynamic = 'force-static';
+
 // Instead of trying to import modules that might fail at build time,
 // use the pre-initialized admin SDK objects exported from admin-config.ts
 

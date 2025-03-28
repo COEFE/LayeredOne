@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { createBlankExcel, createTemplateExcel } from '@/utils/excelCreator';
 import { createStoragePath } from '@/utils/firebase-path-utils';
 
+export const dynamic = 'force-static';
+
 // Define FieldValue with serverTimestamp for compatibility
 const FieldValue = {
   serverTimestamp: () => new Date().toISOString()

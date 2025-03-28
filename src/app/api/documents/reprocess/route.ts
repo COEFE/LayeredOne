@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/firebase/admin-config';
 
+export const dynamic = 'force-static';
+
 // Define FieldValue with serverTimestamp for compatibility
 const FieldValue = {
   serverTimestamp: () => new Date().toISOString()
