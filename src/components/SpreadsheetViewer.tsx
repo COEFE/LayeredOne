@@ -130,7 +130,7 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
           // Check for invalid URL scheme (mock://) or mock domain
           if (fileUrl.startsWith('mock://') || fileUrl.includes('storage.example.com')) {
             console.error('Mock URL detected:', fileUrl);
-            throw new Error('This file was uploaded in mock mode and cannot be viewed. Please try uploading a real file.');
+            throw new Error('This document was uploaded in mock mode and cannot be viewed. Please upload an actual Excel file using the "Upload Document" button.');
           }
           
           // Extract document ID from URL for better caching
@@ -1110,7 +1110,7 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
       // First, check if this is a mock URL (which will always fail)
       if (fileUrl.startsWith('mock://') || fileUrl.includes('storage.example.com')) {
         e.preventDefault();
-        setDownloadError('This file was uploaded in mock mode and cannot be downloaded. Please try uploading a real file.');
+        setDownloadError('This document was uploaded in mock mode and cannot be viewed or downloaded. Please upload an actual Excel file using the "Upload Document" button.');
         return;
       }
       

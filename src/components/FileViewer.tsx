@@ -146,7 +146,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
       // First, check if this is a mock URL (which will always fail)
       if (fileUrl.startsWith('mock://') || fileUrl.includes('storage.example.com')) {
         e.preventDefault();
-        setError('This file was uploaded in mock mode and cannot be downloaded. Please try uploading a real file.');
+        setError('This document was uploaded in mock mode and cannot be viewed or downloaded. Please upload an actual document using the "Upload Document" button.');
         return;
       }
       
