@@ -30,8 +30,18 @@ const firestorePath = {
   }
 };
 
-// Hardcoded private key with literal newlines (works in all environments)
-const privateKey = `-----BEGIN PRIVATE KEY-----
+// Get private key from environment variable or use a placeholder
+// Make sure to handle different formats of private key (with escaped newlines or not)
+let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+
+// Handle private key format - if it contains escaped newlines, replace them
+if (privateKey.includes('\\n')) {
+  privateKey = privateKey.replace(/\\n/g, '\n');
+  console.log('Formatted private key with newlines');
+} else if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+  console.log('Using placeholder private key for development/testing only');
+  // Placeholder key only for development
+  privateKey = `-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCe/m4WApen/M1n
 oOwnO1ajvbdJ3mg4nOPtGFg0OUsnc3CrHDVXObIEaNeYHuxOUFgRLbOx8+xcrmRB
 GVoJL367YgIzcaXEVlvFCQ4WrVZDyESWHCjTOafFpAcjM2GgEEiCHRauDSiqwBXo
@@ -59,6 +69,7 @@ kPzrL9/rxFviaapUi8ZwE4CPEEopXRO6nJSen6QjKkxM3uRBybTa1u1cc2e4AMBV
 yIbP4SVlkIAOoR0jk4e9skCgN0JWjqt36kbbM9GWAAz97Gw25vqxtPFCj0EUahVo
 T78NlclGYfEsc1Qvj/fc7Ws=
 -----END PRIVATE KEY-----`;
+}
 
 // Initialize Firebase Admin if not already initialized
 let db;
@@ -69,7 +80,17 @@ if (!admin.apps.length) {
   try {
     console.log('Initializing Firebase Admin SDK with hardcoded credential...');
     
-    // Create a service account with the hardcoded private key
+    // Log the environment variable status
+    const hasPrivateKey = !!process.env.FIREBASE_PRIVATE_KEY;
+    const hasClientEmail = !!process.env.FIREBASE_CLIENT_EMAIL;
+    console.log('Firebase Admin SDK initialization status:', {
+      hasPrivateKey,
+      hasClientEmail,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.appspot.com"
+    });
+    
+    // Create a service account with the private key from environment variables
     const serviceAccount = {
       type: 'service_account',
       project_id: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
