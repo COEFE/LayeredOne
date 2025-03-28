@@ -1,3 +1,7 @@
+// Import necessary modules
+import * as path from 'path';
+import * as fs from 'fs';
+
 // Use dynamic imports to prevent build-time errors
 let admin: any;
 
@@ -26,9 +30,6 @@ const firestorePath = {
     return `projects/${projectId}/databases/(default)/documents/${resourcePath}`;
   }
 };
-
-import * as path from 'path';
-import * as fs from 'fs';
 
 // Check for different deployment environments
 const isVercel = process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT === 'true';
