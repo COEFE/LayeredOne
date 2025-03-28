@@ -30,8 +30,11 @@ const nextConfig = {
     
     // Add environment variable to detect static export during build
     config.plugins = config.plugins || [];
+    
+    // Use webpack directly rather than from config
+    const webpack = require('webpack');
     config.plugins.push(
-      new config.webpack.DefinePlugin({
+      new webpack.DefinePlugin({
         'process.env.NEXT_STATIC_EXPORT': JSON.stringify(
           process.env.GITHUB_PAGES === 'true' || process.env.STATIC_EXPORT === 'true'
         ),
