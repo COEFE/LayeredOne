@@ -143,10 +143,10 @@ const FileViewer: React.FC<FileViewerProps> = ({ fileUrl, mimeType, fileName }) 
   // Handle refreshing expired URLs
   const handleDownload = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     try {
-      // First, check if this is a mock URL (which will always fail)
+      // First, check if this is a mock URL (which will always fail for downloads)
       if (fileUrl.startsWith('mock://') || fileUrl.includes('storage.example.com')) {
         e.preventDefault();
-        setError('This file was uploaded in mock mode and cannot be downloaded. Please try uploading a real file.');
+        setError('This file was uploaded in mock mode. While you can view a preview with mock data, downloading is not supported for mock files. To download real files, please upload an actual document.');
         return;
       }
       

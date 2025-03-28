@@ -127,10 +127,114 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
             throw new Error('Failed to load Excel viewer: Could not load required libraries');
           }
           
-          // Check for invalid URL scheme (mock://) or mock domain
+          // Check for mock URLs and generate mock data instead of throwing an error
           if (fileUrl.startsWith('mock://') || fileUrl.includes('storage.example.com')) {
-            console.error('Mock URL detected:', fileUrl);
-            throw new Error('This file was uploaded in mock mode and cannot be viewed. Please try uploading a real file.');
+            console.log('Mock URL detected, generating mock data:', fileUrl);
+            
+            // Generate mock data
+            const mockData = generateMockSpreadsheetData(fileName);
+            
+            // Process mock data
+            console.log('Using mock workbook data');
+            
+            // Create a mock workbook with multiple sheets
+            const mockSheets = ['Sheet1', 'Sheet2'];
+            const mockSheetData: {[key: string]: any[][]} = {
+              'Sheet1': mockData,
+              'Sheet2': [
+                ['This', 'is', 'a', 'second', 'sheet'],
+                ['with', 'mock', 'data', 'for', 'preview'],
+                ['You', 'can', 'view', 'this', 'data'],
+                ['even', 'though', 'it', 'was', 'uploaded'],
+                ['in', 'mock', 'mode', '!', '👍'],
+              ]
+            };
+            
+            // Format data for table view (simple formatting for mock data)
+            const formattedData = mockData.map((row: any, rowIndex: number) => 
+              Array.isArray(row) 
+                ? row.map((cell, colIndex) => {
+                    return { 
+                      value: cell?.toString() || '',
+                      style: rowIndex === 0 ? 'bold centered' : 
+                            typeof cell === 'number' ? 'number' : '',
+                      hasFormula: false
+                    };
+                  })
+                : [{ value: row?.toString() || '', style: '' }]
+            );
+            
+            // Set workbook sheets
+            setWorkbookSheets(mockSheets);
+            
+            // Format all sheets (basic formatting)
+            const formattedSheets: {[key: string]: any[][]} = {};
+            Object.keys(mockSheetData).forEach(sheetName => {
+              formattedSheets[sheetName] = mockSheetData[sheetName].map((row: any, rowIndex: number) => 
+                Array.isArray(row) 
+                  ? row.map((cell, colIndex) => {
+                      return { 
+                        value: cell?.toString() || '',
+                        style: rowIndex === 0 ? 'bold centered' : 
+                              typeof cell === 'number' ? 'number' : '',
+                        hasFormula: false
+                      };
+                    })
+                  : [{ value: row?.toString() || '', style: '' }]
+              );
+            });
+            
+            // Store all sheet data
+            setSheetData(formattedSheets);
+            
+            // Set the first sheet as the default view
+            if (mockSheets.length > 0) {
+              const firstSheet = mockSheets[0];
+              setActiveSheet(firstSheet);
+              setCurrentData(formattedSheets[firstSheet] || []);
+            } else {
+              setCurrentData([]);
+            }
+            
+            return;
+          }
+          
+          // Function to generate mock data based on file name for consistent results
+          function generateMockSpreadsheetData(fileName: string) {
+            // Default header row
+            const headers = ['ID', 'Name', 'Category', 'Price', 'Quantity', 'Total', 'Date', 'Status'];
+            
+            // Generate different mock data based on filename to make it look realistic
+            const mockData = [headers];
+            
+            // Use filename to seed the mock data generation (simple hash)
+            const seed = fileName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const numRows = 10 + (seed % 10); // 10-19 rows based on filename
+            
+            const categories = ['Electronics', 'Furniture', 'Clothing', 'Office', 'Food'];
+            const statuses = ['Completed', 'Pending', 'Cancelled', 'In Progress'];
+            
+            for (let i = 1; i <= numRows; i++) {
+              const price = (10 + (seed + i) % 90).toFixed(2);
+              const quantity = 1 + (seed + i) % 10;
+              const total = (parseFloat(price) * quantity).toFixed(2);
+              const itemSeed = (seed + i) % 100;
+              
+              const row = [
+                i.toString(),                                        // ID
+                `Item ${(seed + i) % 1000}`,                         // Name
+                categories[itemSeed % categories.length],            // Category
+                price,                                               // Price
+                quantity.toString(),                                 // Quantity
+                total,                                               // Total
+                new Date(2023, (seed + i) % 12, (seed + i) % 28 + 1).toISOString().split('T')[0], // Date
+                statuses[itemSeed % statuses.length]                 // Status
+              ];
+              
+              mockData.push(row);
+            }
+            
+            return mockData;
           }
           
           // Extract document ID from URL for better caching
@@ -1107,10 +1211,10 @@ const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   
   const handleDownload = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     try {
-      // First, check if this is a mock URL (which will always fail)
+      // First, check if this is a mock URL (which will always fail for downloads)
       if (fileUrl.startsWith('mock://') || fileUrl.includes('storage.example.com')) {
         e.preventDefault();
-        setDownloadError('This file was uploaded in mock mode and cannot be downloaded. Please try uploading a real file.');
+        setDownloadError('This file was uploaded in mock mode. While you can view a preview with mock data, downloading is not supported for mock files. To download real files, please upload an actual document.');
         return;
       }
       
