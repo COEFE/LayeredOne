@@ -2,15 +2,30 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, setLogLevel } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
+import * as firebaseModule from "firebase/app";
+import * as firebaseAuthModule from "firebase/auth";
 
 // Enable debug logging if we're in the browser
 if (typeof window !== 'undefined') {
   // Set log level to debug to help diagnose issues
   setLogLevel('debug');
   console.log('Firebase debug logging enabled');
+  
+  // Make Firebase available globally for debugging
+  // @ts-ignore - Intentionally exposing as global
+  window.firebase = {
+    app: firebaseModule,
+    auth: firebaseAuthModule,
+    // Add a helper method to get the current Auth instance
+    getAuth: () => {
+      return getAuth();
+    }
+  };
+  
+  console.log('Firebase exposed to window.firebase for debugging');
 }
 
 // Dynamically import Firestore functions at runtime to prevent build issues
@@ -191,6 +206,33 @@ if (typeof window !== 'undefined') {
   window.addEventListener('offline', () => {
     console.warn('Network connection lost. Firebase services may be unavailable.');
   });
+  
+  // Set auth persistence to LOCAL to ensure the user stays logged in
+  // This is critical for maintaining auth state between page loads
+  setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+      console.log('Firebase Auth persistence set to LOCAL');
+      
+      // Check if the user is already logged in
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        console.log('User already logged in:', currentUser.uid);
+        // Force token refresh to ensure we have a valid token
+        currentUser.getIdToken(true)
+          .then(token => {
+            console.log('Token refreshed, length:', token.length);
+            localStorage.setItem('authToken', token);
+          })
+          .catch(err => {
+            console.error('Error refreshing token:', err);
+          });
+      } else {
+        console.log('No user currently logged in');
+      }
+    })
+    .catch(error => {
+      console.error('Error setting auth persistence:', error);
+    });
 }
 
 // Create safer versions of Firebase services with error handling

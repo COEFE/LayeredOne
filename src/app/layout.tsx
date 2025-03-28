@@ -29,8 +29,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Add diagnostic script for troubleshooting 404 errors */}
+        {/* Add diagnostic scripts for troubleshooting */}
         <script src="/debug.js" defer></script>
+        <script src="/auth-debug.js" defer></script>
+        
+        {/* Meta tag to indicate that Firebase auth persistence should be enabled */}
+        <meta name="firebase-auth-persistence" content="true" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
