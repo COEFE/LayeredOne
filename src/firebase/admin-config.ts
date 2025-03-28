@@ -264,7 +264,6 @@ if (isGitHubPages && !useRealFirebase) {
           privateKey = privateKeyEnv;
         }
       }
-    }
     } else {
       // Use service account private key directly for development
       console.log('Using embedded service account for development');
