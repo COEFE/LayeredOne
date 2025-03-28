@@ -58,19 +58,63 @@ export async function POST(request: NextRequest) {
     }
 
     // Make the actual processing request
-    const processingUrl = new URL('/api/documents/process', request.url);
-    const processingResponse = await fetch(processingUrl.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ documentId })
-    });
+    // Get the base URL (origin) from the request
+    const origin = request.headers.get('x-forwarded-host') || 
+                  request.headers.get('host') || 
+                  'localhost:3000';
+    const protocol = request.headers.get('x-forwarded-proto') || 'http';
     
-    // Return the processing result
-    const result = await processingResponse.json();
-    return NextResponse.json(result, { status: processingResponse.status });
+    // Construct a more reliable URL
+    const baseUrl = `${protocol}://${origin}`;
+    const processingUrl = `${baseUrl}/api/documents/process`;
+    
+    console.log(`Calling document processing API at: ${processingUrl}`);
+    
+    try {
+      const processingResponse = await fetch(processingUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ documentId })
+      });
+      
+      // Check if the response is OK before trying to parse JSON
+      if (!processingResponse.ok) {
+        console.error(`Processing API returned status ${processingResponse.status}`);
+        // Try to get the response text for debugging
+        const responseText = await processingResponse.text();
+        console.error(`Response body: ${responseText.substring(0, 500)}...`);
+        
+        // Check if it looks like HTML (containing the < character)
+        if (responseText.includes('<')) {
+          return NextResponse.json({
+            error: `Document processing failed with status ${processingResponse.status}. Server may have timed out.`
+          }, { status: 500 });
+        }
+        
+        // Try to parse as JSON if possible
+        try {
+          const errorData = JSON.parse(responseText);
+          return NextResponse.json(errorData, { status: processingResponse.status });
+        } catch {
+          // If parsing fails, return a generic error
+          return NextResponse.json({
+            error: `Document processing failed with status ${processingResponse.status}`
+          }, { status: processingResponse.status });
+        }
+      }
+      
+      // If response is OK, parse the JSON
+      const result = await processingResponse.json();
+      return NextResponse.json(result, { status: processingResponse.status });
+    } catch (fetchError) {
+      console.error('Fetch error in document processing:', fetchError);
+      return NextResponse.json({
+        error: `Error connecting to document processing API: ${fetchError.message}`
+      }, { status: 500 });
+    }
 
   } catch (error: any) {
     console.error("Error reprocessing document:", error);

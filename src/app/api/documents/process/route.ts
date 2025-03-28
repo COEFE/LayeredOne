@@ -70,6 +70,9 @@ async function handler(request: NextRequest) {
       console.error('Invalid auth token:', error);
       return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
     }
+    
+    // Record the start time for performance tracking
+    const startTime = Date.now();
 
     // Parse request body
     const body = await request.json();
@@ -161,17 +164,37 @@ async function handler(request: NextRequest) {
       processingError: null
     });
 
-    console.log(`Document ${documentId} processed successfully`);
+    // Calculate processing time
+    const endTime = Date.now();
+    const processingTimeMs = endTime - startTime;
+    
+    console.log(`Document ${documentId} processed successfully in ${processingTimeMs}ms`);
 
     return NextResponse.json({ 
       success: true,
       documentId: documentId,
       contentType: contentType,
-      extracted: !!extractedText
+      extracted: !!extractedText,
+      processingTimeMs
     });
 
   } catch (error: any) {
     console.error("Error processing document:", error);
+    
+    // Update the document with error information
+    try {
+      const documentRef = db.collection('documents').doc(documentId);
+      await documentRef.update({
+        processed: false,
+        processingComplete: true,  // Mark as complete to prevent infinite retries
+        updatedAt: FieldValue.serverTimestamp(),
+        processingError: error.message || 'Unknown error'
+      });
+      console.log(`Updated document ${documentId} with error information`);
+    } catch (updateError) {
+      console.error('Failed to update document with error information:', updateError);
+    }
+    
     return NextResponse.json(
       { error: `Error processing document: ${error.message}` },
       { status: 500 }
@@ -179,5 +202,6 @@ async function handler(request: NextRequest) {
   }
 }
 
-// Export with timeout wrapper - 30 second timeout for document processing
-export const POST = withTimeout(handler, 30000);
+// Export with timeout wrapper - 60 second timeout for document processing
+// Excel files may need more time to process, especially larger ones
+export const POST = withTimeout(handler, 60000);

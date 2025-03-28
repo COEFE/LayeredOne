@@ -14,8 +14,34 @@ import * as XLSX from 'xlsx';
 export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
   try {
     console.log('Extracting text content from Excel file for Claude AI...');
+    console.log(`Input buffer size: ${buffer.length} bytes`);
+    
+    if (!buffer || buffer.length === 0) {
+      throw new Error('Empty buffer provided to extractTextFromExcel');
+    }
+    
+    try {
+      // Attempt to detect the file type from the buffer
+      const firstBytes = buffer.slice(0, 8).toString('hex');
+      console.log(`File signature (first 8 bytes): ${firstBytes}`);
+      
+      // Check if it has Excel signatures
+      // 50 4B is the signature for XLSX (Office Open XML)
+      // D0 CF is a signature for XLS (older Excel format)
+      const isXlsx = firstBytes.startsWith('504b');
+      const isXls = firstBytes.startsWith('d0cf');
+      
+      if (!isXlsx && !isXls) {
+        console.warn('Warning: Buffer does not appear to have standard Excel file signature');
+      } else {
+        console.log(`Detected Excel format: ${isXlsx ? 'XLSX' : 'XLS'}`);
+      }
+    } catch (signatureError) {
+      console.warn('Error checking file signature:', signatureError);
+    }
     
     // Parse the Excel file with optimized options
+    console.log('Parsing Excel file with xlsx library...');
     const workbook = XLSX.read(buffer, { 
       type: 'buffer',
       cellDates: true,
@@ -23,6 +49,8 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
       cellStyles: true,
       WTF: false,
     });
+    
+    console.log(`Excel parsed successfully. Found ${workbook.SheetNames.length} sheets: ${workbook.SheetNames.join(', ')}`);
     
     // Get information about all sheets
     const sheetInfo = workbook.SheetNames.map(name => {
@@ -34,6 +62,8 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
         columnCount: range.e.c + 1
       };
     });
+    
+    console.log('Sheet information:', JSON.stringify(sheetInfo, null, 2));
     
     // Build a comprehensive text representation of the Excel file
     let extractedText = `EXCEL DOCUMENT\n\n`;
@@ -48,19 +78,24 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
     
     // Process each sheet
     for (const sheetName of workbook.SheetNames) {
+      console.log(`Processing sheet: ${sheetName}`);
       const worksheet = workbook.Sheets[sheetName];
       
       // Convert sheet to array of arrays (2D array)
+      console.log('Converting sheet to JSON...');
       const data = XLSX.utils.sheet_to_json(worksheet, {
         header: 1,
         defval: '',
         blankrows: true
       }) as any[][];
       
+      console.log(`Converted sheet to JSON: ${data.length} rows`);
+      
       extractedText += `SHEET: ${sheetName}\n\n`;
       
       // Create a compact representation of the table with cell references
       const nonEmptyRows = data.filter(row => row.some(cell => cell !== ''));
+      console.log(`Found ${nonEmptyRows.length} non-empty rows`);
       
       // Limit to a reasonable number of rows/cols for Claude's context
       const maxRows = Math.min(nonEmptyRows.length, 500);
@@ -69,7 +104,10 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
         50
       );
       
+      console.log(`Processing up to ${maxRows} rows and ${maxCols} columns`);
+      
       // Add cell references and values in a readable format
+      let cellCount = 0;
       for (let rowIdx = 0; rowIdx < maxRows; rowIdx++) {
         const row = nonEmptyRows[rowIdx] || [];
         for (let colIdx = 0; colIdx < maxCols; colIdx++) {
@@ -77,11 +115,22 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
             // Convert column index to letter (0=A, 1=B, etc.)
             const colLetter = XLSX.utils.encode_col(colIdx);
             const cellRef = `${colLetter}${rowIdx + 1}`;
-            extractedText += `${cellRef}: ${row[colIdx]}\n`;
+            
+            // Convert cell value to string safely
+            let cellValue = row[colIdx];
+            if (cellValue instanceof Date) {
+              cellValue = cellValue.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+            } else if (typeof cellValue === 'object' && cellValue !== null) {
+              cellValue = JSON.stringify(cellValue);
+            }
+            
+            extractedText += `${cellRef}: ${cellValue}\n`;
+            cellCount++;
           }
         }
       }
       
+      console.log(`Added ${cellCount} cells from sheet "${sheetName}"`);
       extractedText += '\n';
     }
     
@@ -89,6 +138,12 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
     return extractedText;
   } catch (error) {
     console.error('Error extracting text from Excel:', error);
+    // Return detailed error information for debugging
+    const errorMessage = error instanceof Error
+      ? `${error.name}: ${error.message}\n${error.stack}`
+      : String(error);
+    
+    console.error('Full error details:', errorMessage);
     return 'Error extracting Excel content: ' + (error instanceof Error ? error.message : String(error));
   }
 }
