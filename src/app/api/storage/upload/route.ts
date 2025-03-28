@@ -4,20 +4,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { createStoragePath } from '@/utils/firebase-path-utils';
 import { handleStaticAuthForAPI } from '@/utils/optimizations/static-export-middleware';
 
-// For static export compatibility, don't set dynamic to force-dynamic
-// Instead, let it default to auto so it works with static export
-// Or conditionally set it based on the environment
-const isStaticExport = process.env.GITHUB_PAGES === 'true' || 
-                      process.env.STATIC_EXPORT === 'true' ||
-                      process.env.NEXT_STATIC_EXPORT === 'true';
+// Next.js requires route segment config exports to be direct string literals
+// We can't use conditionals with environment variables at the module level
 
-// Only use force-dynamic when not in static export mode
-export const dynamic = isStaticExport ? 'auto' : 'force-dynamic';
+// For Vercel deployments and server environments, use force-dynamic
+// This ensures the API route is always dynamically evaluated and not cached
+export const dynamic = 'force-dynamic';
 
-// Log a warning if we're in static export mode
-if (isStaticExport) {
-  console.warn('WARNING: Building API routes in static export mode. API functionality will be limited in the exported build.');
-}
+// Note: For static exports like GitHub Pages, this value is ignored
+// since API routes aren't included in the static output anyway
 
 // Instead of trying to import modules that might fail at build time,
 // use the pre-initialized admin SDK objects exported from admin-config.ts
