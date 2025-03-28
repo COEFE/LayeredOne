@@ -125,9 +125,15 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ error: "File not found in storage" }, { status: 404 });
     }
 
+    // Log memory usage before download
+    console.log(`Memory usage before download: ${process.memoryUsage().heapUsed / 1024 / 1024} MB`);
+    
     // Download the file
     const [fileBuffer] = await fileRef.download();
     console.log(`Downloaded file: ${fileName}, size: ${fileBuffer.length} bytes`);
+    
+    // Log memory usage after download
+    console.log(`Memory usage after download: ${process.memoryUsage().heapUsed / 1024 / 1024} MB`);
 
     // Process the file based on its content type
     let extractedText = '';
@@ -235,6 +241,7 @@ async function handler(request: NextRequest) {
   }
 }
 
-// Export with timeout wrapper - 60 second timeout for document processing
+// Export with timeout wrapper - 120 second timeout for document processing
 // Excel files may need more time to process, especially larger ones
-export const POST = withTimeout(handler, 60000);
+// This is the maximum timeout Vercel allows for serverless functions on the hobby plan
+export const POST = withTimeout(handler, 120000);

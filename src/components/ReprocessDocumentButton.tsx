@@ -50,19 +50,18 @@ export default function ReprocessDocumentButton({
           errorMessage = errorData.error || errorMessage;
           console.log('Document reprocessing error details:', errorData);
         } catch (e) {
-          // If we can't parse JSON, get the text content
-          try {
-            const textContent = await response.text();
-            console.log('Raw error response:', textContent.substring(0, 500));
-            // If it's HTML (likely an error page)
-            if (textContent.includes('<html') || textContent.includes('<!DOCTYPE')) {
-              errorMessage = `Server error (${response.status}). The processing may have timed out.`;
-            } else {
-              errorMessage = response.statusText || errorMessage;
-            }
-          } catch (textError) {
-            console.error('Failed to get error text:', textError);
-            errorMessage = `Error ${response.status}: ${response.statusText}`;
+          // Handle the response without trying to read the body again
+          // For 504 errors, it's definitely a timeout
+          if (response.status === 504) {
+            errorMessage = `Server timeout (504). Document processing is taking too long. Try again with a smaller file or wait a few minutes.`;
+            console.error('Document processing timeout (504)');
+          } else if (response.status === 502) {
+            errorMessage = `Bad gateway (502). The server may be overloaded or restarting.`;
+            console.error('Document processing bad gateway (502)');
+          } else {
+            // For other errors, use the status text
+            errorMessage = `Error ${response.status}: ${response.statusText || 'Unknown error'}`;
+            console.error(`Document processing error: ${response.status} ${response.statusText}`);
           }
         }
         throw new Error(errorMessage);

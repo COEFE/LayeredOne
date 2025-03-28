@@ -15,9 +15,15 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
   try {
     console.log('Extracting text content from Excel file for Claude AI...');
     console.log(`Input buffer size: ${buffer.length} bytes`);
+    console.log(`Memory usage before Excel processing: ${process.memoryUsage().heapUsed / 1024 / 1024} MB`);
     
     if (!buffer || buffer.length === 0) {
       throw new Error('Empty buffer provided to extractTextFromExcel');
+    }
+    
+    // For extremely large Excel files, implement a size check
+    if (buffer.length > 20 * 1024 * 1024) { // 20MB
+      console.warn('Very large Excel file detected. Processing may be slow and could timeout.');
     }
     
     try {
@@ -76,7 +82,7 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
     });
     extractedText += '\n';
     
-    // Process each sheet
+    // Process each sheet with chunking for large sheets
     for (const sheetName of workbook.SheetNames) {
       console.log(`Processing sheet: ${sheetName}`);
       const worksheet = workbook.Sheets[sheetName];
@@ -106,27 +112,45 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
       
       console.log(`Processing up to ${maxRows} rows and ${maxCols} columns`);
       
+      // Process in smaller chunks to avoid timeouts
+      const CHUNK_SIZE = 50; // Process 50 rows at a time
+      const totalChunks = Math.ceil(maxRows / CHUNK_SIZE);
+      
+      console.log(`Processing in ${totalChunks} chunks of ${CHUNK_SIZE} rows each`);
+      
       // Add cell references and values in a readable format
       let cellCount = 0;
-      for (let rowIdx = 0; rowIdx < maxRows; rowIdx++) {
-        const row = nonEmptyRows[rowIdx] || [];
-        for (let colIdx = 0; colIdx < maxCols; colIdx++) {
-          if (colIdx < row.length && row[colIdx] !== '') {
-            // Convert column index to letter (0=A, 1=B, etc.)
-            const colLetter = XLSX.utils.encode_col(colIdx);
-            const cellRef = `${colLetter}${rowIdx + 1}`;
-            
-            // Convert cell value to string safely
-            let cellValue = row[colIdx];
-            if (cellValue instanceof Date) {
-              cellValue = cellValue.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-            } else if (typeof cellValue === 'object' && cellValue !== null) {
-              cellValue = JSON.stringify(cellValue);
+      for (let chunk = 0; chunk < totalChunks; chunk++) {
+        console.log(`Processing chunk ${chunk + 1}/${totalChunks}`);
+        
+        const startRow = chunk * CHUNK_SIZE;
+        const endRow = Math.min(startRow + CHUNK_SIZE, maxRows);
+        
+        for (let rowIdx = startRow; rowIdx < endRow; rowIdx++) {
+          const row = nonEmptyRows[rowIdx] || [];
+          for (let colIdx = 0; colIdx < maxCols; colIdx++) {
+            if (colIdx < row.length && row[colIdx] !== '') {
+              // Convert column index to letter (0=A, 1=B, etc.)
+              const colLetter = XLSX.utils.encode_col(colIdx);
+              const cellRef = `${colLetter}${rowIdx + 1}`;
+              
+              // Convert cell value to string safely
+              let cellValue = row[colIdx];
+              if (cellValue instanceof Date) {
+                cellValue = cellValue.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+              } else if (typeof cellValue === 'object' && cellValue !== null) {
+                cellValue = JSON.stringify(cellValue);
+              }
+              
+              extractedText += `${cellRef}: ${cellValue}\n`;
+              cellCount++;
             }
-            
-            extractedText += `${cellRef}: ${cellValue}\n`;
-            cellCount++;
           }
+        }
+        
+        // Optional: Add a small delay between chunks to allow other server processes to run
+        if (chunk < totalChunks - 1) {
+          await new Promise(resolve => setTimeout(resolve, 10));
         }
       }
       
@@ -135,6 +159,14 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
     }
     
     console.log(`Excel text extraction complete: ${extractedText.length} characters`);
+    console.log(`Memory usage after Excel processing: ${process.memoryUsage().heapUsed / 1024 / 1024} MB`);
+    
+    // Force garbage collection if available (Node.js with --expose-gc flag)
+    if (global.gc) {
+      console.log('Running garbage collection');
+      global.gc();
+    }
+    
     return extractedText;
   } catch (error) {
     console.error('Error extracting text from Excel:', error);

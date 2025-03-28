@@ -556,20 +556,35 @@ export default function DocumentChat({ documentId, compactMode = false }: Docume
                   <FiAlertTriangle className="inline-block mr-1 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
-                {(!document?.extractedText || error.includes('process')) && document && (
+                {(!document?.extractedText || 
+                  error.includes('process') || 
+                  error.includes('timeout') ||
+                  error.includes('504')) && document && (
                   <ReprocessDocumentButton 
                     documentId={document.id} 
                     onSuccess={() => {
                       setError(null);
                       // Show processing message
-                      setError("Document is being processed. This may take a moment...");
-                      // Refresh document data after a short delay
+                      setError("Document is being processed. This may take a moment. For large Excel files, this could take 1-2 minutes.");
+                      
+                      // For large files, we need a longer delay before checking again
+                      const isLargeFile = document.contentType?.includes('excel') || 
+                                         document.contentType?.includes('spreadsheet') ||
+                                         document.name?.endsWith('.xlsx') ||
+                                         document.name?.endsWith('.xls');
+                      
+                      // Refresh document data after a delay appropriate for the file type
                       setTimeout(() => {
                         window.location.reload();
-                      }, 2000);
+                      }, isLargeFile ? 10000 : 3000); // 10 seconds for Excel, 3 for others
                     }}
                     onError={(errorMsg) => {
-                      setError(`Processing failed: ${errorMsg}. Please try again.`);
+                      // Special handling for timeout errors
+                      if (errorMsg.includes('timeout') || errorMsg.includes('504')) {
+                        setError(`The document processing timed out. This usually happens with very large files. Try again or upload a smaller file.`);
+                      } else {
+                        setError(`Processing failed: ${errorMsg}. Please try again.`);
+                      }
                     }}
                     className="ml-2 flex-shrink-0"
                   />
