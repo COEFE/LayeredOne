@@ -4,8 +4,20 @@ import { v4 as uuidv4 } from 'uuid';
 import { createStoragePath } from '@/utils/firebase-path-utils';
 import { handleStaticAuthForAPI } from '@/utils/optimizations/static-export-middleware';
 
-// Change to force-dynamic to ensure the API route is always dynamically evaluated
-export const dynamic = 'force-dynamic';
+// For static export compatibility, don't set dynamic to force-dynamic
+// Instead, let it default to auto so it works with static export
+// Or conditionally set it based on the environment
+const isStaticExport = process.env.GITHUB_PAGES === 'true' || 
+                      process.env.STATIC_EXPORT === 'true' ||
+                      process.env.NEXT_STATIC_EXPORT === 'true';
+
+// Only use force-dynamic when not in static export mode
+export const dynamic = isStaticExport ? 'auto' : 'force-dynamic';
+
+// Log a warning if we're in static export mode
+if (isStaticExport) {
+  console.warn('WARNING: Building API routes in static export mode. API functionality will be limited in the exported build.');
+}
 
 // Instead of trying to import modules that might fail at build time,
 // use the pre-initialized admin SDK objects exported from admin-config.ts
