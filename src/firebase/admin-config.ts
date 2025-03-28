@@ -197,10 +197,16 @@ if (isGitHubPages && !useRealFirebase) {
     // The key property should be 'private_key' (with underscore) not 'privateKey'
     // This is critical for compatibility with Google Cloud Auth
     const serviceAccount = {
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com",
+      type: 'service_account',  // This is a required field
+      project_id: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
       private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "96aa094298f80099a378e9244b8e7e22f214cc2a",
-      private_key: privateKey  // IMPORTANT: This must be 'private_key' not 'privateKey'
+      private_key: privateKey,  // IMPORTANT: This must be 'private_key' not 'privateKey'
+      client_email: process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com",
+      client_id: '',  // Optional
+      auth_uri: "https://accounts.google.com/o/oauth2/auth",
+      token_uri: "https://oauth2.googleapis.com/token",
+      auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+      client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com")}`
     };
     
     // Initialize if not already initialized
@@ -211,14 +217,41 @@ if (isGitHubPages && !useRealFirebase) {
         // We're no longer checking for local service account files
         // Always use environment variables for Vercel compatibility
         console.log('Using environment variables for Firebase credentials');
+        console.log('Storage bucket:', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.firebasestorage.app");
+        console.log('Project ID:', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441");
+        console.log('Client email available:', !!process.env.FIREBASE_CLIENT_EMAIL);
+        console.log('Private key available:', !!privateKey);
         
-        // Always use the service account object created from environment variables
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.firebasestorage.app"
-        });
-        
-        console.log('Successfully initialized Firebase Admin SDK with credential object');
+        try {
+          // First attempt: Use service account from environment variables
+          admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.firebasestorage.app"
+          });
+          
+          console.log('Successfully initialized Firebase Admin SDK with credential object');
+        } catch (certError) {
+          console.error('Error initializing with cert credentials:', certError.message);
+          
+          // Second attempt: Try application default credentials
+          console.log('Falling back to application default credentials...');
+          try {
+            admin.initializeApp({
+              credential: admin.credential.applicationDefault(),
+              storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.firebasestorage.app"
+            });
+            console.log('Successfully initialized with application default credentials');
+          } catch (adcError) {
+            console.error('Error with application default credentials:', adcError.message);
+            
+            // Third attempt: No credentials (very limited functionality)
+            console.log('Falling back to no credentials (limited functionality)...');
+            admin.initializeApp({
+              storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "variance-test-4b441.firebasestorage.app"
+            });
+            console.warn('WARNING: Initialized without credentials (functionality will be limited)');
+          }
+        }
       } catch (initError) {
         console.error('Failed to initialize Firebase Admin:', initError);
         
@@ -226,6 +259,12 @@ if (isGitHubPages && !useRealFirebase) {
         if (initError.message?.includes('no such file') || initError.message?.includes('ENOENT')) {
           console.error('File not found error detected. This may be due to trying to access a service account JSON file');
           console.error('Solution: Use environment variables instead of file paths for credentials');
+        } else if (initError.message?.includes('The caller does not have permission')) {
+          console.error('Permission error detected. The service account lacks permissions to access this resource.');
+          console.error('Solution: Grant Storage Admin and Firestore User roles to your service account');
+        } else if (initError.message?.includes('credentials') || initError.message?.includes('authentication')) {
+          console.error('Authentication error detected. Service account credentials may be invalid.');
+          console.error('Solution: Check that FIREBASE_PRIVATE_KEY and FIREBASE_CLIENT_EMAIL are correctly formatted');
         }
       }
     }
