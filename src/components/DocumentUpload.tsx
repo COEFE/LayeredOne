@@ -120,7 +120,20 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!file || !user) return;
+    if (!file) {
+      setError('Please select a file to upload.');
+      return;
+    }
+    
+    if (!user) {
+      setError('You must be logged in to upload documents. Please sign in and try again.');
+      return;
+    }
+    
+    if (!user.getIdToken) {
+      setError('Authentication state is invalid. Please sign out and sign in again.');
+      return;
+    }
     
     // Validate file type
     const allowedTypes = [
@@ -194,18 +207,32 @@ export default function DocumentUpload({ onUploadComplete }: DocumentUploadProps
           
           // Upload through our API route
           console.log('Uploading through server-side API route');
-          const uploadResponse = await fetch('/api/storage/upload', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${idToken}`
-            },
-            body: formData
-          });
           
-          if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text().catch(() => "");
-            console.error('Upload failed:', uploadResponse.status, uploadResponse.statusText, errorText);
-            throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
+          try {
+            const uploadResponse = await fetch('/api/storage/upload', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${idToken}`
+              },
+              body: formData
+            });
+            
+            if (!uploadResponse.ok) {
+              const errorData = await uploadResponse.json().catch(() => {
+                return { error: uploadResponse.statusText || "Unknown error" };
+              });
+              
+              console.error('Upload failed:', uploadResponse.status, errorData);
+              
+              if (uploadResponse.status === 401) {
+                throw new Error(`Authentication error: ${errorData.error || 'Unauthorized - Please try signing out and back in'}`);
+              } else {
+                throw new Error(`Failed to upload file: ${errorData.error || `Status ${uploadResponse.status}`}`);
+              }
+            }
+          } catch (fetchError) {
+            console.error('Fetch error during upload:', fetchError);
+            throw fetchError;
           }
           
           // Parse the response
