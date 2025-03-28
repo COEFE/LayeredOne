@@ -159,11 +159,13 @@ if (isGitHubPages && !useRealFirebase) {
     }
     
     // Use consistent service account credentials for all environments
+    // The key property should be 'private_key' (with underscore) not 'privateKey'
+    // This is critical for compatibility with Google Cloud Auth
     const serviceAccount = {
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com",
       private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "96aa094298f80099a378e9244b8e7e22f214cc2a",
-      privateKey: privateKey
+      private_key: privateKey  // IMPORTANT: This must be 'private_key' not 'privateKey'
     };
     
     // Initialize if not already initialized
