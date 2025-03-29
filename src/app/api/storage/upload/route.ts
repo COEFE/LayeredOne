@@ -154,25 +154,58 @@ export async function POST(request: NextRequest) {
     // Get file buffer
     const buffer = await file.arrayBuffer();
     
-    // Upload to Firebase Storage using Admin SDK with better error handling
-    try {
+    // Helper function to upload file to Firebase Storage
+    const uploadToStorage = async () => {
       console.log(`Uploading file to Firebase Storage: ${filePath}`);
       console.log(`Firebase Storage bucket: ${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'variance-test-4b441.firebasestorage.app'}`);
       
-      const fileRef = storage.bucket().file(filePath);
+      // Create file reference
+      const bucket = storage.bucket();
+      const fileRef = bucket.file(filePath);
       
-      await fileRef.save(Buffer.from(buffer), {
+      // Create a write stream instead of using .save() which is unreliable in Node.js environment
+      const writeStream = fileRef.createWriteStream({
         metadata: {
           contentType: contentType,
           metadata: {
             firebaseStorageDownloadTokens: uniqueId,
             documentId, // Store document ID in metadata for easier lookup
-            userId,      // Store user ID in metadata for security verification
+            userId,     // Store user ID in metadata for security verification
           }
-        }
+        },
+        resumable: false // Set to false for small files for better performance
       });
       
-      console.log(`Successfully uploaded file to path: ${filePath}`);
+      // Handle stream errors and completion
+      await new Promise((resolve, reject) => {
+        writeStream.on('error', (error) => {
+          console.error('Stream error during upload:', error);
+          reject(error);
+        });
+        
+        writeStream.on('finish', () => {
+          console.log(`Successfully uploaded file to path: ${filePath}`);
+          resolve(true);
+        });
+        
+        // Write the buffer to the stream
+        writeStream.end(Buffer.from(buffer));
+      });
+      
+      console.log(`File stream completed for: ${filePath}`);
+      
+      // Return the file reference for later use
+      return { fileRef, filePath, bucket };
+    };
+    
+    // Upload the file using our helper function
+    let fileRef;
+    try {
+      // Call the upload function
+      const uploadResult = await uploadToStorage();
+      fileRef = uploadResult.fileRef;
+      
+      console.log('File uploaded successfully to Firebase Storage');
     } catch (uploadError) {
       console.error('Error uploading to Firebase Storage:', uploadError);
       
@@ -183,15 +216,6 @@ export async function POST(request: NextRequest) {
       }
       
       throw uploadError;
-    }
-    
-    // Declare fileRef outside the try block so it's accessible in the URL generation
-    let fileRef;
-    try {
-      fileRef = storage.bucket().file(filePath);
-    } catch (error) {
-      console.error('Error accessing bucket:', error);
-      throw new Error(`Failed to access storage bucket: ${error.message}`);
     }
     
     // Get a signed URL with longer expiration
