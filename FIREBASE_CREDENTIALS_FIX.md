@@ -1,73 +1,110 @@
-# Firebase Credentials Fix
+# Firebase Credentials Fix Guide
 
-This document outlines the solution for the "invalid_grant: account not found" error that occurs during file uploads when using Firebase Storage.
+## Problem: "No valid private key found in environment variables"
 
-## Problem
+When encountering this error:
 
-The application was encountering an `invalid_grant: account not found` error when attempting to:
-1. Upload files to Firebase Storage
-2. Generate signed URLs for accessing files
+```
+No valid private key found in environment variables
+No valid Firebase private key available from environment variables
+Please ensure FIREBASE_PRIVATE_KEY or FIREBASE_PRIVATE_KEY_BASE64 is set correctly
+Error initializing Firebase Admin SDK: Error: No valid private key available.
+```
 
-This error typically occurs when:
-- The service account credentials are invalid or outdated
-- The private key format is incorrect
-- The service account does not have proper permissions
+This occurs when the Firebase Admin SDK cannot properly initialize due to missing or malformed private key in the environment variables.
 
 ## Root Cause
 
-After investigation, we discovered several issues:
+1. The Firebase Admin SDK needs a valid private key in one of two environment variables:
+   - `FIREBASE_PRIVATE_KEY` - The direct private key with proper newline formatting
+   - `FIREBASE_PRIVATE_KEY_BASE64` - A Base64 encoded version of the key
 
-1. The helper files (`key-helpers.js` and `key-helpers-production.js`) were using hardcoded outdated private keys as fallbacks, rather than relying on environment variables
-2. The private key format wasn't being handled correctly in some cases (escaped newlines vs. actual newlines)
-3. The environment variables in Vercel were incomplete or incorrect
+2. Common issues:
+   - Missing environment variables
+   - Incorrectly formatted private keys (missing proper `\n` escaping in .env files)
+   - Missing BEGIN/END markers in the private key
 
 ## Solution
 
-We implemented the following fixes:
-
-1. **Removed hardcoded keys**: Updated all helper files to remove hardcoded fallback keys and properly prioritize environment variables
-2. **Enhanced error reporting**: Added better validation and error messages for missing or invalid credentials
-3. **Improved key format handling**: Updated the key handling code to properly process different private key formats (with escaped newlines or literal newlines)
-4. **Created credential verification tools**: Added a diagnostic script (`verify-firebase-credentials.js`) to test and validate Firebase credentials
-
-## How to Fix in Your Environment
-
-1. **Update environment variables in Vercel**:
-   - Go to your Vercel project settings
-   - Add all required environment variables as specified in `.env.example`
-   - Ensure you include both `FIREBASE_CLIENT_EMAIL` and either `FIREBASE_PRIVATE_KEY` or `FIREBASE_PRIVATE_KEY_BASE64`
-
-2. **Verify key format**:
-   - If using `FIREBASE_PRIVATE_KEY`, ensure newlines are properly escaped (`\\n`)
-   - If using `FIREBASE_PRIVATE_KEY_BASE64`, encode your key with Base64 for reliable storage
-
-3. **Run verification script**:
-   ```bash
-   node verify-firebase-credentials.js
+1. Ensure your `.env.local` file has the correct Firebase credentials:
+   ```
+   # Firebase private key with escaped newlines
+   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...key contents...\n-----END PRIVATE KEY-----"
+   
+   # Firebase client email
+   FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com"
+   
+   # Firebase project ID
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
+   
+   # Firebase storage bucket
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
    ```
 
-4. **Check the debug endpoint**:
-   Access `/api/debug/firebase-credentials` to see detailed diagnostics about your Firebase credentials
-
-## Format of Private Key
-
-The Firebase private key needs to be in one of two formats:
-
-1. **Escaped newlines** (for environment variables):
+2. Run the `setup-firebase-env.js` script to automatically fix these issues:
    ```
-   -----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w...\\n-----END PRIVATE KEY-----
+   node setup-firebase-env.js
    ```
 
-2. **Actual newlines** (for code or local development):
+3. Rebuild your application:
    ```
-   -----BEGIN PRIVATE KEY-----
-   MIIEvgIBADANBgkqhkiG9w...
-   -----END PRIVATE KEY-----
+   npm run build
    ```
 
-## Recommended Best Practice
+## Technical Details
 
-1. Use the base64-encoded version of the private key (`FIREBASE_PRIVATE_KEY_BASE64`) as it's the most reliable across different environments
-2. Generate it with: `cat your-service-account.json | jq -r '.private_key' | base64`
-3. Keep your service account keys secure and rotate them periodically
-4. Verify the credentials are working using the provided verification script
+The application loads Firebase credentials in this order:
+
+1. First, it tries to use `FIREBASE_PRIVATE_KEY` directly
+2. If that's not available, it looks for `FIREBASE_PRIVATE_KEY_BASE64` and decodes it
+3. If neither is found, the Firebase Admin SDK initialization fails
+
+The `key-helpers.js` file contains the logic for retrieving the private key from environment variables:
+
+```javascript
+export function getPrivateKeyFromEnv() {
+  // First, try to get from the regular environment variable
+  if (process.env.FIREBASE_PRIVATE_KEY) {
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    
+    // Handle the case where the key has escaped newlines
+    if (privateKey.includes('\\n')) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+    
+    // Check if the key has the proper format
+    if (privateKey.includes('-----BEGIN PRIVATE KEY-----') && 
+        privateKey.includes('-----END PRIVATE KEY-----')) {
+      return privateKey;
+    }
+  }
+  
+  // Then, try base64-encoded key
+  if (process.env.FIREBASE_PRIVATE_KEY_BASE64) {
+    try {
+      const buffer = Buffer.from(process.env.FIREBASE_PRIVATE_KEY_BASE64, 'base64');
+      const decodedKey = buffer.toString('utf8');
+      
+      if (decodedKey.includes('-----BEGIN PRIVATE KEY-----') && 
+          decodedKey.includes('-----END PRIVATE KEY-----')) {
+        return decodedKey;
+      }
+    } catch (error) {
+      console.error('Error decoding base64 private key:', error);
+    }
+  }
+  
+  // If all else fails, return null
+  return null;
+}
+```
+
+## Deployment Considerations
+
+1. **Local Development**: Use `.env.local` with escaped newlines in the private key
+2. **Vercel Deployment**: In Vercel environment variables, use literal newlines (not escaped with `\n`)
+3. **GitHub Pages**: For static exports, ensure the `setup-firebase-env.js` script is run during the build process
+
+## Security Reminder
+
+Never commit actual Firebase private keys to your repository. The key included in the setup script is for development use only and should be replaced with your own credentials in production environments.
