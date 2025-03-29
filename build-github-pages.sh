@@ -6,6 +6,10 @@ echo "🚀 Starting GitHub Pages build process..."
 echo "🔧 Applying Firebase key fix..."
 node direct-fix.js
 
+# Fix the API routes for GitHub Pages compatibility
+echo "🔧 Configuring API routes for GitHub Pages..."
+node fix-api-routes-github-pages.js
+
 # Set GitHub Pages environment variables
 export GITHUB_PAGES=true
 export NEXT_PUBLIC_USE_REAL_FIREBASE=false

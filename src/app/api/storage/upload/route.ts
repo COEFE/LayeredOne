@@ -4,14 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { createStoragePath } from '@/utils/firebase-path-utils';
 import { handleStaticAuthForAPI } from '@/utils/optimizations/static-export-middleware';
 
-// For GitHub Pages static export, we need to configure it properly
-// We'll use conditional exports based on the environment
-const isGitHubPages = process.env.GITHUB_PAGES === 'true' || 
-                     process.env.STATIC_EXPORT === 'true';
-
-// Set the config based on environment - 'error' for GitHub Pages,
-// 'force-dynamic' for normal deployments
-export const dynamic = isGitHubPages ? 'error' : 'force-dynamic';
+// For API route configuration, we need to use a static value
+// Set to error for GitHub Pages compatibility
+export const dynamic = 'error';
 
 // Instead of trying to import modules that might fail at build time,
 // use the pre-initialized admin SDK objects exported from admin-config.ts

@@ -6,6 +6,10 @@ echo "🚀 Starting Vercel build process..."
 echo "🔧 Applying Firebase key fix..."
 node direct-fix.js
 
+# Fix the API routes for Vercel compatibility
+echo "🔧 Configuring API routes for Vercel deployment..."
+node fix-api-routes-github-pages.js
+
 # Set Vercel environment variables
 export NEXT_PUBLIC_VERCEL_DEPLOYMENT=true
 export NEXT_PUBLIC_USE_REAL_FIREBASE=true
