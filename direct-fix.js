@@ -1,15 +1,15 @@
 /**
- * Direct fix for Firebase "Invalid PEM formatted message" error
+ * Environment setup for Firebase credentials
  * 
- * This script directly modifies the admin-config.ts file to fix the PEM format issue
- * without requiring any external environment variables.
+ * This script ensures proper environment variables are set for Firebase
+ * without modifying any code files directly.
  */
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔧 Applying direct fix for Invalid PEM formatted message error...');
+console.log('🔧 Setting up Firebase environment variables...');
 
-// Hard-coded test private key
+// Default private key for testing purposes only
 const privateKey = `-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCe/m4WApen/M1n
 oOwnO1ajvbdJ3mg4nOPtGFg0OUsnc3CrHDVXObIEaNeYHuxOUFgRLbOx8+xcrmRB
@@ -42,81 +42,64 @@ T78NlclGYfEsc1Qvj/fc7Ws=
 // Create a Base64 encoded version of the key
 const base64Key = Buffer.from(privateKey).toString('base64');
 
-// Get all files we need to modify
-const firebaseDir = path.join(process.cwd(), 'src', 'firebase');
-const keyHelpersPath = path.join(firebaseDir, 'key-helpers.js');
-const adminConfigPath = path.join(firebaseDir, 'admin-config.ts');
-
-// Backup the files
-if (fs.existsSync(keyHelpersPath)) {
-  fs.copyFileSync(keyHelpersPath, `${keyHelpersPath}.backup`);
-  console.log('Created backup of key-helpers.js');
-}
-
-if (fs.existsSync(adminConfigPath)) {
-  fs.copyFileSync(adminConfigPath, `${adminConfigPath}.backup`);
-  console.log('Created backup of admin-config.ts');
-}
-
-// Fix key-helpers.js to return a hardcoded key
-const keyHelpersContent = `/**
- * Helper for working with Firebase key formats - Fixed for production builds
- */
-
-// For decoding base64 encoded private keys
-export function getPrivateKeyFromEnv() {
-  console.log('===== Getting Firebase Private Key (Direct Fix) =====');
+// Check if .env.local exists, if not create it with the default values
+const envPath = path.join(process.cwd(), '.env.local');
+if (!fs.existsSync(envPath)) {
+  console.log('Creating .env.local with default Firebase credentials');
   
-  // Return a properly formatted hardcoded key with literal newlines, works in most environments
-  return \`${privateKey}\`;
-}`;
-
-fs.writeFileSync(keyHelpersPath, keyHelpersContent);
-console.log('Updated key-helpers.js with direct fix');
-
-// Modify admin-config.ts to hardcode service account values
-let adminConfigContent = fs.readFileSync(adminConfigPath, 'utf8');
-
-// Modify the service account configuration
-adminConfigContent = adminConfigContent.replace(
-  /const serviceAccount = \{[^}]*\}/s,
-  `const serviceAccount = {
-      type: 'service_account',  // This is a required field
-      project_id: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "variance-test-4b441",
-      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "96aa094298f80099a378e9244b8e7e22f214cc2a",
-      private_key: privateKey,  // Using direct privateKey for reliability
-      client_email: process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com",
-      client_id: '',  // Optional
-      auth_uri: "https://accounts.google.com/o/oauth2/auth",
-      token_uri: "https://oauth2.googleapis.com/token",
-      auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-      client_x509_cert_url: \`https://www.googleapis.com/robot/v1/metadata/x509/\${encodeURIComponent(process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com")}\`
-    }`
-);
-
-fs.writeFileSync(adminConfigPath, adminConfigContent);
-console.log('Updated admin-config.ts with direct fix');
-
-// Create a simple environment file
-const envContent = `# Firebase configuration with hardcoded values for testing
+  const envContent = `# Firebase configuration with default values
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=variance-test-4b441
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=variance-test-4b441.firebasestorage.app
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com
 FIREBASE_PRIVATE_KEY_BASE64=${base64Key}
 `;
 
-fs.writeFileSync(path.join(process.cwd(), '.env.local'), envContent);
-console.log('Created .env.local with test values');
+  fs.writeFileSync(envPath, envContent);
+  console.log('Created .env.local with default values');
+} else {
+  console.log('.env.local already exists, keeping existing values');
+  
+  // Check if the environment file has the necessary variables
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  
+  let updated = false;
+  let newContent = envContent;
+  
+  if (!envContent.includes('FIREBASE_PRIVATE_KEY') && !envContent.includes('FIREBASE_PRIVATE_KEY_BASE64')) {
+    console.log('Adding missing FIREBASE_PRIVATE_KEY_BASE64 to .env.local');
+    newContent += `\n# Added by setup script\nFIREBASE_PRIVATE_KEY_BASE64=${base64Key}\n`;
+    updated = true;
+  }
+  
+  if (!envContent.includes('FIREBASE_CLIENT_EMAIL')) {
+    console.log('Adding missing FIREBASE_CLIENT_EMAIL to .env.local');
+    newContent += `\n# Added by setup script\nFIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com\n`;
+    updated = true;
+  }
+  
+  if (updated) {
+    fs.writeFileSync(envPath, newContent);
+    console.log('Updated .env.local with missing variables');
+  }
+}
 
-// Create a file with the formatted key for reference
-fs.writeFileSync(path.join(process.cwd(), 'formatted-key.txt'), privateKey);
-console.log('Created formatted-key.txt for reference');
+// Set the environment variables for the current process too
+process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'variance-test-4b441';
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'variance-test-4b441.firebasestorage.app';
+process.env.FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || 'firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com';
+
+// Set the private key environment variable if not already set
+if (!process.env.FIREBASE_PRIVATE_KEY && !process.env.FIREBASE_PRIVATE_KEY_BASE64) {
+  process.env.FIREBASE_PRIVATE_KEY_BASE64 = base64Key;
+  console.log('Set FIREBASE_PRIVATE_KEY_BASE64 environment variable for current process');
+}
 
 console.log(`
-✅ Direct fix has been applied successfully!
+✅ Firebase environment setup completed successfully!
 
-To build your application, run:
-  npx next build --no-lint
-
-The "Invalid PEM formatted message" error should be fixed now.
+The environment variables needed for Firebase are now available:
+- NEXT_PUBLIC_FIREBASE_PROJECT_ID
+- NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+- FIREBASE_CLIENT_EMAIL
+- FIREBASE_PRIVATE_KEY_BASE64
 `);
