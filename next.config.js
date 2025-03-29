@@ -109,9 +109,9 @@ const nextConfig = {
     optimisticClientCache: true
   },
   
-  // Use standalone output mode for all deployments to ensure API routes work
-  output: 'standalone',
-  distDir: '.next',
+  // Set output based on deployment target
+  output: process.env.GITHUB_PAGES === 'true' ? 'export' : 'standalone',
+  distDir: process.env.GITHUB_PAGES === 'true' ? 'out' : '.next',
   
   // For GitHub Pages, we need to configure static parameters via the individual components
   // using generateStaticParams() in each dynamic route

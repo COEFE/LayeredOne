@@ -5,8 +5,13 @@ import { getPrivateKeyFromEnv } from '@/firebase/key-helpers';
  * This API route provides diagnostic information about Firebase credentials
  * for debugging authentication issues.
  */
-// Force dynamic rendering for this API route to ensure fresh credentials check
-export const dynamic = 'force-dynamic';
+// For GitHub Pages static export, we need to configure it properly
+// We'll use conditional exports based on the environment
+const isStaticExport = process.env.GITHUB_PAGES === 'true' || 
+                      process.env.STATIC_EXPORT === 'true';
+
+// Set the config based on environment
+export const dynamic = isStaticExport ? 'error' : 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {

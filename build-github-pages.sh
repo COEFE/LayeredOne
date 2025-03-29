@@ -13,7 +13,7 @@ export SIMPLE_PDF=true
 
 # Run the static export build
 echo "📦 Building for GitHub Pages static export..."
-npx next build --no-lint && npx next export
+npx next build --no-lint
 
 # Prepare for GitHub Pages
 echo "🌐 Preparing for GitHub Pages deployment..."
