@@ -5,9 +5,45 @@ import { getPrivateKeyFromEnv } from '@/firebase/key-helpers';
  * This API route provides diagnostic information about Firebase credentials
  * for debugging authentication issues.
  */
-export const dynamic = 'force-dynamic'; // Changed to dynamic to ensure fresh credentials
+// Only set dynamic mode when not in static export (GitHub Pages)
+const isStaticExport = process.env.GITHUB_PAGES === 'true' || 
+                      process.env.STATIC_EXPORT === 'true';
+                      
+// Conditionally export dynamic config
+if (!isStaticExport) {
+  // This will be tree-shaken out during static export builds
+  exports.dynamic = 'force-dynamic';
+}
 
 export async function GET(request: NextRequest) {
+  // For static exports, return a mock response
+  const isStaticExport = process.env.GITHUB_PAGES === 'true' || 
+                         process.env.STATIC_EXPORT === 'true';
+  
+  if (isStaticExport) {
+    console.log('Static export detected, returning mock response for Firebase credentials debug');
+    return NextResponse.json({
+      success: true,
+      environment: 'static',
+      isStaticExport: true,
+      isVercel: false,
+      serverInfo: {
+        platform: 'static-export',
+        nodeVersion: 'n/a'
+      },
+      envVars: {
+        FIREBASE_CLIENT_EMAIL: 'Mock - Not available in static export',
+        FIREBASE_PRIVATE_KEY: 'Mock - Not available in static export',
+        FIREBASE_PRIVATE_KEY_BASE64: 'Mock - Not available in static export',
+        FIREBASE_PRIVATE_KEY_ID: 'Mock - Not available in static export',
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'Mock - Not available in static export',
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: 'Mock - Not available in static export',
+        NEXT_PUBLIC_FIREBASE_APP_ID: 'Mock - Not available in static export'
+      },
+      message: 'This is a mock response for static exports. This API cannot run in static export environments like GitHub Pages.'
+    });
+  }
+  
   try {
     // Check for environment variables
     const envVars = {
