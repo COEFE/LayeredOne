@@ -129,7 +129,24 @@ if (!admin.apps.length) {
     storage = {
       bucket: () => ({
         file: () => ({
-          getSignedUrl: async () => ['https://example.com/mock-url']
+          getSignedUrl: async () => ['https://example.com/mock-url'],
+          createWriteStream: () => {
+            const mockStream = {
+              on: (event, callback) => {
+                if (event === 'finish') {
+                  // Simulate successful completion
+                  setTimeout(callback, 100);
+                }
+                return mockStream;
+              },
+              end: () => {
+                console.log('Mock stream end called');
+                return mockStream;
+              }
+            };
+            return mockStream;
+          },
+          save: async () => {}
         })
       })
     };

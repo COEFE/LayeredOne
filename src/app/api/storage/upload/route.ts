@@ -104,12 +104,9 @@ export async function POST(request: NextRequest) {
 
     // Parse the multipart form data
     const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const filename = formData.get('filename') as string || file.name;
-    const contentType = formData.get('contentType') as string || file.type;
-    const folderId = formData.get('folderId') as string || null;
-    const folderPath = formData.get('folderPath') as string || '';
+    const file = formData.get('file');
     
+    // Check if file exists
     if (!file) {
       console.log('No file provided');
       return NextResponse.json({ error: 'No file provided' }, { 
@@ -117,6 +114,17 @@ export async function POST(request: NextRequest) {
         headers: corsHeaders
       });
     }
+    
+    // Handle different possible file types (File or Blob)
+    // This ensures compatibility with different environments
+    const filename = formData.get('filename') as string || 
+      (file instanceof File ? file.name : 'uploaded-file');
+    
+    const contentType = formData.get('contentType') as string || 
+      (file instanceof File ? file.type : 'application/octet-stream');
+    
+    const folderId = formData.get('folderId') as string || null;
+    const folderPath = formData.get('folderPath') as string || '';
     
     // Check file size
     if (file.size > MAX_FILE_SIZE) {
