@@ -5,15 +5,13 @@ import { getPrivateKeyFromEnv } from '@/firebase/key-helpers';
  * This API route provides diagnostic information about Firebase credentials
  * for debugging authentication issues.
  */
-// Check if this is a static export (GitHub Pages)
-const isStaticExport = process.env.GITHUB_PAGES === 'true' || 
-                      process.env.STATIC_EXPORT === 'true';
-                      
-// Set the appropriate dynamic/static mode based on environment
-export const dynamic = isStaticExport ? 'force-static' : 'force-dynamic';
+// For static export environments (like GitHub Pages), we need to provide
+// a simpler API route configuration that works with static export.
+// Next.js doesn't allow conditional expressions in route exports config.
 
-// For static export, we need to set revalidate to false
-export const revalidate = isStaticExport ? false : 0;
+// If using revalidate: false + forced static rendering
+export const revalidate = false;
+export const dynamic = 'force-static';
 
 export async function GET(request: NextRequest) {
   // For static exports, return a mock response
