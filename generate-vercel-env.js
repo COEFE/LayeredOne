@@ -1,93 +1,99 @@
-#!/usr/bin/env node
-
 /**
- * Generate Vercel Environment Variables
- * 
- * This script helps generate properly formatted environment variables
- * for Vercel deployment, especially focusing on the Firebase private key.
+ * Generate Vercel configuration with properly formatted environment variables
+ * This script addresses the Firebase private key newline formatting issue
  */
-
-require('dotenv').config({ path: '.env.local' });
 const fs = require('fs');
+const path = require('path');
 
-console.log('===== Generate Vercel Environment Variables =====\n');
+console.log('Generating Vercel configuration with formatted environment variables...');
 
-// Check if we have access to the required environment variables
-const requiredVars = [
-  'FIREBASE_PRIVATE_KEY',
-  'FIREBASE_CLIENT_EMAIL',
-  'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
-  'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
-];
-
-const missingVars = requiredVars.filter(varName => !process.env[varName]);
-if (missingVars.length > 0) {
-  console.error(`Missing required environment variables: ${missingVars.join(', ')}`);
-  console.error('Please set these variables in your .env.local file first.');
-  process.exit(1);
+// Read existing environment variables from .env.local
+let envContent = '';
+try {
+  const envPath = path.join(process.cwd(), '.env.local');
+  if (fs.existsSync(envPath)) {
+    envContent = fs.readFileSync(envPath, 'utf8');
+    console.log('Successfully read .env.local file');
+  } else {
+    console.log('No .env.local file found, using default values');
+  }
+} catch (err) {
+  console.error('Error reading .env.local:', err);
 }
 
-// Process the private key
-let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-
-// Remove wrapping quotes if present
-if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-  privateKey = privateKey.substring(1, privateKey.length - 1);
-}
-
-// Replace escaped newlines with actual newlines
-if (privateKey.includes('\\n')) {
-  privateKey = privateKey.replace(/\\n/g, '\n');
-}
-
-// Convert to base64
-const privateKeyBase64 = Buffer.from(privateKey).toString('base64');
-
-// Generate the environment variables
-const vercelEnv = {
-  'FIREBASE_CLIENT_EMAIL': process.env.FIREBASE_CLIENT_EMAIL,
-  'FIREBASE_PRIVATE_KEY': JSON.stringify(privateKey), // Properly escape newlines
-  'FIREBASE_PRIVATE_KEY_BASE64': privateKeyBase64,
-  'FIREBASE_PRIVATE_KEY_ID': process.env.FIREBASE_PRIVATE_KEY_ID || '',
-  'NEXT_PUBLIC_FIREBASE_API_KEY': process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
-  'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN': process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
-  'NEXT_PUBLIC_FIREBASE_PROJECT_ID': process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET': process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID': process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
-  'NEXT_PUBLIC_FIREBASE_APP_ID': process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
-  'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID': process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || '',
-  'NEXT_PUBLIC_VERCEL_DEPLOYMENT': 'true',
-  'NEXT_PUBLIC_USE_REAL_FIREBASE': 'true',
-  'FIREBASE_USE_PRODUCTION_CONFIG': 'true',
-  'SIMPLE_PDF': 'true'
+// Extract environment variable value using regex
+const getEnvVar = (name, defaultValue = '') => {
+  const match = envContent.match(new RegExp(`${name}=["']?([^"'\n]+)["']?`));
+  return match ? match[1] : defaultValue;
 };
 
-// Save to file
-const outputFile = 'vercel-environment-variables.txt';
-let output = '# Vercel Environment Variables\n\n';
-output += 'Add the following environment variables to your Vercel project:\n\n';
+// Create Vercel configuration object
+const vercelConfig = {
+  "version": 2,
+  "env": {
+    "FIREBASE_CLIENT_EMAIL": getEnvVar('FIREBASE_CLIENT_EMAIL', 'firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com'),
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID": getEnvVar('NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'variance-test-4b441'),
+    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": getEnvVar('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', 'variance-test-4b441.firebasestorage.app')
+  },
+  "build": {
+    "env": {
+      "FIREBASE_CLIENT_EMAIL": getEnvVar('FIREBASE_CLIENT_EMAIL', 'firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com'),
+      "NEXT_PUBLIC_FIREBASE_PROJECT_ID": getEnvVar('NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'variance-test-4b441'),
+      "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": getEnvVar('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', 'variance-test-4b441.firebasestorage.app')
+    }
+  },
+  "buildCommand": "next build",
+  "outputDirectory": ".next"
+};
 
-for (const [key, value] of Object.entries(vercelEnv)) {
-  output += `## ${key}\n\`\`\`\n${value}\n\`\`\`\n\n`;
+// Handle the Firebase private key with special formatting
+try {
+  // Try to get the private key (it might have escaped newlines in .env.local)
+  let privateKey = '';
+  
+  // First try FIREBASE_PRIVATE_KEY environment variable
+  const privateKeyMatch = envContent.match(/FIREBASE_PRIVATE_KEY=["']?(.*?)["']?$/m);
+  if (privateKeyMatch && privateKeyMatch[1]) {
+    privateKey = privateKeyMatch[1];
+    console.log('Found FIREBASE_PRIVATE_KEY in .env.local');
+    
+    // Replace escaped newlines with actual newlines for Vercel
+    if (privateKey.includes('\\n')) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+      console.log('Converted escaped newlines to actual newlines for Vercel');
+    }
+    
+    // Add to Vercel config
+    vercelConfig.env.FIREBASE_PRIVATE_KEY = privateKey;
+    vercelConfig.build.env.FIREBASE_PRIVATE_KEY = privateKey;
+  } else {
+    // Try Base64 encoded key as fallback
+    const base64Match = envContent.match(/FIREBASE_PRIVATE_KEY_BASE64=["']?(.*?)["']?$/m);
+    if (base64Match && base64Match[1]) {
+      const base64Key = base64Match[1];
+      console.log('Found FIREBASE_PRIVATE_KEY_BASE64 in .env.local');
+      
+      // Add to Vercel config
+      vercelConfig.env.FIREBASE_PRIVATE_KEY_BASE64 = base64Key;
+      vercelConfig.build.env.FIREBASE_PRIVATE_KEY_BASE64 = base64Key;
+    } else {
+      console.warn('Could not find Firebase private key in .env.local');
+      console.warn('You will need to set FIREBASE_PRIVATE_KEY manually in Vercel dashboard');
+    }
+  }
+} catch (err) {
+  console.error('Error processing Firebase private key:', err);
 }
 
-// Add usage instructions
-output += '# How to add these variables to Vercel\n\n';
-output += '1. Go to your Vercel project dashboard\n';
-output += '2. Click on "Settings" tab\n';
-output += '3. Click on "Environment Variables"\n';
-output += '4. Add each variable with its corresponding value\n';
-output += '5. Click "Save" and redeploy your project\n\n';
-output += 'Alternatively, you can use the Vercel CLI to add these variables:\n\n';
-output += '```bash\n';
-for (const [key, value] of Object.entries(vercelEnv)) {
-  output += `vercel env add ${key}\n`;
+// Write the configuration to vercel.json
+try {
+  fs.writeFileSync('vercel.json', JSON.stringify(vercelConfig, null, 2));
+  console.log('Successfully generated vercel.json with formatted environment variables');
+} catch (err) {
+  console.error('Error writing vercel.json:', err);
 }
-output += '```\n';
 
-fs.writeFileSync(outputFile, output);
-
-console.log(`✅ Environment variables written to ${outputFile}`);
-console.log('⚠️  These include sensitive values - do not commit this file to git!');
-console.log('⚠️  Add this file to your .gitignore if it\'s not already there.');
-console.log('\nMost importantly, make sure to add FIREBASE_PRIVATE_KEY_BASE64 to your Vercel environment.');
+console.log('\nNext steps:');
+console.log('1. Verify vercel.json has been created correctly');
+console.log('2. Deploy to Vercel with: vercel deploy');
+console.log('3. If issues persist, set environment variables manually in Vercel dashboard');

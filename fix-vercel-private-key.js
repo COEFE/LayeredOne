@@ -1,166 +1,155 @@
-#!/usr/bin/env node
-
 /**
- * Firebase Private Key Formatter for Vercel
+ * Fix Firebase private key format for Vercel deployment
  * 
- * This script helps format a Firebase private key for use in Vercel environment variables.
- * It provides multiple format options to help resolve "Invalid PEM formatted message" errors.
+ * This script helps resolve the "No valid private key found in environment variables" 
+ * error that occurs in Vercel deployments due to newline handling differences.
  */
-
-// Check if running with Node.js
-if (typeof process === 'undefined') {
-  console.error('This script must be run with Node.js');
-  // Exit if not in Node.js environment
-  return;
-}
-
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: '.env.local' });
 
-// Get the private key from the environment variable or command line
-let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-if (process.argv.length > 2) {
-  privateKey = process.argv[2];
-}
+console.log('🔑 Fixing Firebase private key format for Vercel...');
 
-if (!privateKey) {
-  console.error('No private key provided. Please set FIREBASE_PRIVATE_KEY in your .env.local file or provide it as an argument.');
-  console.error('Usage: node fix-vercel-private-key.js "YOUR_PRIVATE_KEY"');
-  process.exit(1);
-}
+// Default private key format for testing
+const defaultPrivateKey = `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCe/m4WApen/M1n
+oOwnO1ajvbdJ3mg4nOPtGFg0OUsnc3CrHDVXObIEaNeYHuxOUFgRLbOx8+xcrmRB
+GVoJL367YgIzcaXEVlvFCQ4WrVZDyESWHCjTOafFpAcjM2GgEEiCHRauDSiqwBXo
+iyzH/aMKG7zu6xJpRNm2HDlPF9lo6PPC+DGtfV5n4lDWmOQIpghAI4dDbabfLLmL
+uNzk2Ddahx5xcWFiJ/ikLRpnnpbPB1o7EbV0wyKPumCBi8/D5oJQIQ0tl7LuyKAj
+sQ4U4ofxheCE5pq64GEh9SBmCUbnh5mPyS1tItOXw0kNKp66DXvABsBNzIfsa+dr
+nIEgqlE7AgMBAAECggEATo6N3Agp4JGS97nWFMhH1Z1+O1xNiHNUVqhppFwOmw55
+w8GrRU63e2BF7d6RiVw/NzWqjKllxqFP3a5mAxXZe0JAriRf8DNvIlqIAIJilhkU
+ckq1jS/2ijuyXx0bBlglS0yOES9lQYCpEn35gVL7xJnR7wZs0WB4ZXdqhX7WJ/Py
+ODZykBeJ4qsXcbJO7E58vRQoLj3yYu5wEsoVYriHLiNXfVxAEd3rlZ0UeLjGee9z
+r55TuRv7AhxF63geeXp2uLRt5e6wRyDMsdCFwhwQKJXfnW1NjLr1lhRuvtUANdrB
+fQbPyHklJPAYNUZBax0UvhqTheWJDTHpUHhBpEjbgQKBgQDSnSQpFoQd/MThnUdu
+AzSZ0WEXE1cNWsBf0T64NlJpySo4KOAtyythSjIuytiBmHLndS0JPaWV42bkIFEG
+WlLTdyCaY5MPVtbUCPBJZZeUB3eo44S46Mp0uxxaMGC3wLR2ke2aHTlvQa+yaE4W
+g8ad+t6wlS1jC9WUUsxqIE4f+wKBgQDBQZahY+CP0MDG2q/YJOGpqrft5VxpVPtD
+z8IsG10MjHL/2HK8nw8EJ+AaXINM54mcxLkb0attZZUIf2Hfs8Yi/dF1g4hbahT6
+1MzWBnTYCHYVQt5KAQLH5GJKVJaUtevZBKN6FQ+aohLiOKBc6J0OppL1queN6K7g
+Tv7D5gWPwQKBgCrki+++QSvmRaZ5JIn4JydIaBCOBMWYfONGtxJHJeObb3i+gmFx
+JiWLOcsjzpIeHRCcYY6nOmjbRiIhnr6/eGzOrxoiO1n9YoUOSPl5sjQYjTsdEvOh
+nVHGpZCMl7X0jgwzzgL7/q104DZiXbziG3ojFGU8DGFGkLnDXxQh/icvAoGAPWKp
+BxCjlur3IPL74gstBuisTcuKBAczXMHUapAyiTbfnHbTUyiu62IDJDx4lGgDZSFz
+rut1qWUX5sAXhagj6p929f3WxTq3+Ui4287nNGvTnkNEOnuBt57KvdOKlSgIB0Ia
+7z9bWoHav7K+9WQJ50pv6crkjEX5rlRJRk59O8ECgYEAuipnpFp3k05ZUl1W8bVd
+kPzrL9/rxFviaapUi8ZwE4CPEEopXRO6nJSen6QjKkxM3uRBybTa1u1cc2e4AMBV
+yIbP4SVlkIAOoR0jk4e9skCgN0JWjqt36kbbM9GWAAz97Gw25vqxtPFCj0EUahVo
+T78NlclGYfEsc1Qvj/fc7Ws=
+-----END PRIVATE KEY-----`;
 
-// Remove any wrapping quotes if they exist
-if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-  privateKey = privateKey.substring(1, privateKey.length - 1);
-}
-
-// Handle escaped newlines
-if (privateKey.includes('\\n')) {
-  privateKey = privateKey.replace(/\\n/g, '\n');
-}
-
-// Clean and normalize the key
-let normalizedKey = privateKey;
-
-// Remove any extra whitespace
-normalizedKey = normalizedKey.trim();
-
-// Ensure the key follows the proper PEM format
-if (!normalizedKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
-  normalizedKey = '-----BEGIN PRIVATE KEY-----\n' + normalizedKey;
-}
-
-if (!normalizedKey.endsWith('-----END PRIVATE KEY-----')) {
-  normalizedKey = normalizedKey + '\n-----END PRIVATE KEY-----';
-}
-
-// Ensure there's a newline after BEGIN and before END
-if (!normalizedKey.includes('-----BEGIN PRIVATE KEY-----\n')) {
-  normalizedKey = normalizedKey.replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n');
-}
-
-if (!normalizedKey.includes('\n-----END PRIVATE KEY-----')) {
-  normalizedKey = normalizedKey.replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----');
-}
-
-// Ensure the key ends with a newline
-if (!normalizedKey.endsWith('\n')) {
-  normalizedKey = normalizedKey + '\n';
-}
-
-// Extract the base64 portion
-const base64Pattern = /-----BEGIN PRIVATE KEY-----\n([\s\S]+?)\n-----END PRIVATE KEY-----/;
-const match = normalizedKey.match(base64Pattern);
-let base64Content = '';
-
-if (match && match[1]) {
-  // Clean up the content (removing extra spaces and newlines)
-  base64Content = match[1].replace(/[\s\n]/g, '');
-  
-  // Format with 64 characters per line
-  const formattedBase64 = base64Content.match(/.{1,64}/g).join('\n');
-  
-  // Reconstruct the properly formatted key
-  normalizedKey = `-----BEGIN PRIVATE KEY-----\n${formattedBase64}\n-----END PRIVATE KEY-----\n`;
-}
-
-// Generate different formats
-const formatsToTry = {
-  // 1. Standard format with escaped newlines (for .env.local and most env var systems)
-  standardFormat: JSON.stringify(normalizedKey),
-  
-  // 2. Base64 encoded format (useful for problematic environment variables)
-  base64Format: Buffer.from(normalizedKey).toString('base64'),
-  
-  // 3. Raw format with actual newlines (for direct input in some UI systems)
-  rawFormat: normalizedKey,
-  
-  // 4. Single line format with explicit \n (for systems that don't support quotes)
-  singleLineFormat: normalizedKey.replace(/\n/g, '\\n')
+// Base64 encode the private key
+const base64EncodeKey = (key) => {
+  return Buffer.from(key).toString('base64');
 };
 
-// Save the results to a file
-const outputFile = path.join(__dirname, 'vercel-private-key-formats.txt');
-let outputContent = '# Firebase Private Key Formats for Vercel\n\n';
-outputContent += 'Different formats to try for your FIREBASE_PRIVATE_KEY environment variable in Vercel:\n\n';
+// Create a .env.vercel file with properly formatted credentials 
+const createVercelEnv = () => {
+  try {
+    // Read existing .env.local if available
+    let envContent = '';
+    const envLocalPath = path.join(process.cwd(), '.env.local');
+    
+    if (fs.existsSync(envLocalPath)) {
+      envContent = fs.readFileSync(envLocalPath, 'utf8');
+      console.log('Found existing .env.local file');
+    } else {
+      console.log('No .env.local found, creating with defaults');
+    }
+    
+    // Extract values or use defaults
+    const getEnvVar = (name, defaultValue = '') => {
+      const match = envContent.match(new RegExp(`${name}=["']?([^"'\n]+)["']?`));
+      return match ? match[1] : defaultValue;
+    };
+    
+    // Get the private key, formatting for Vercel
+    let privateKey = '';
+    let foundKey = false;
+    
+    // First try to find the private key in environment variables
+    const privateKeyMatch = envContent.match(/FIREBASE_PRIVATE_KEY=["']?(.*?)["']?$/m);
+    if (privateKeyMatch && privateKeyMatch[1]) {
+      privateKey = privateKeyMatch[1];
+      console.log('Found FIREBASE_PRIVATE_KEY in .env.local');
+      foundKey = true;
+      
+      // Convert escaped newlines to actual newlines
+      if (privateKey.includes('\\n')) {
+        privateKey = privateKey.replace(/\\n/g, '\n');
+        console.log('Converted escaped newlines to actual newlines');
+      }
+    } else {
+      console.log('No FIREBASE_PRIVATE_KEY found in .env.local');
+      privateKey = defaultPrivateKey;
+      console.log('Using default private key (for development only)');
+    }
+    
+    // Encode the key in Base64 for easier handling
+    const base64Key = base64EncodeKey(privateKey);
+    console.log('Generated Base64 encoded private key');
+    
+    // Get other environment variables
+    const clientEmail = getEnvVar('FIREBASE_CLIENT_EMAIL', 'firebase-adminsdk-fbsvc@variance-test-4b441.iam.gserviceaccount.com');
+    const projectId = getEnvVar('NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'variance-test-4b441');
+    const storageBucket = getEnvVar('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', 'variance-test-4b441.firebasestorage.app');
+    
+    // Create .env.vercel content
+    const vercelEnvContent = `# Firebase credentials for Vercel deployment
+# Generated by fix-vercel-private-key.js
+# These variables are formatted specifically for Vercel
 
-outputContent += '## 1. Standard Format (best for .env.local and most environment variable systems)\n';
-outputContent += 'This format uses escaped newlines and is wrapped in quotes:\n\n';
-outputContent += '```\n';
-outputContent += formatsToTry.standardFormat;
-outputContent += '\n```\n\n';
+# Firebase project details
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=${projectId}
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${storageBucket}
+FIREBASE_CLIENT_EMAIL=${clientEmail}
 
-outputContent += '## 2. Base64 Encoded Format\n';
-outputContent += 'If you have issues with the private key format, you can use this base64 encoded version.\n';
-outputContent += 'Set this as FIREBASE_PRIVATE_KEY_BASE64 and update your code to decode it:\n\n';
-outputContent += '```\n';
-outputContent += formatsToTry.base64Format;
-outputContent += '\n```\n\n';
-outputContent += 'Then in your code, decode it with:\n\n';
-outputContent += '```javascript\n';
-outputContent += 'const privateKeyBase64 = process.env.FIREBASE_PRIVATE_KEY_BASE64;\n';
-outputContent += 'const privateKey = Buffer.from(privateKeyBase64, "base64").toString("utf8");\n';
-outputContent += '```\n\n';
+# Firebase private key - IMPORTANT: This uses actual newlines, not escaped \\n characters
+FIREBASE_PRIVATE_KEY=${privateKey}
 
-outputContent += '## 3. Raw Format with Actual Newlines\n';
-outputContent += 'Some UI systems (like Vercel\'s UI) may accept raw input with actual newlines.\n';
-outputContent += 'Copy and paste this directly into the Vercel environment variable field:\n\n';
-outputContent += '```\n';
-outputContent += formatsToTry.rawFormat;
-outputContent += '```\n\n';
+# Alternative: Base64 encoded private key (easier to handle in CI environments)
+FIREBASE_PRIVATE_KEY_BASE64=${base64Key}
 
-outputContent += '## 4. Single Line Format (without quotes)\n';
-outputContent += 'For systems that don\'t support quotes in environment variables:\n\n';
-outputContent += '```\n';
-outputContent += formatsToTry.singleLineFormat;
-outputContent += '\n```\n\n';
+# NOTE: When setting environment variables in Vercel's dashboard:
+# 1. For FIREBASE_PRIVATE_KEY: Use actual newlines (press Enter), not \\n
+# 2. For FIREBASE_PRIVATE_KEY_BASE64: Just paste the entire string (no newlines needed)
+`;
 
-outputContent += '## Verifying Your Key\n';
-outputContent += 'To verify your key is properly formatted, you can use the test-document-upload.js script:\n\n';
-outputContent += '```bash\n';
-outputContent += 'node test-document-upload.js\n';
-outputContent += '```\n';
+    // Write to .env.vercel
+    fs.writeFileSync('.env.vercel', vercelEnvContent);
+    console.log('Created .env.vercel with properly formatted credentials');
+    console.log('Use this file as a reference for setting up Vercel environment variables');
+    
+    // Create vercel.json for easier deployment
+    const vercelConfig = {
+      "version": 2,
+      "env": {
+        "FIREBASE_CLIENT_EMAIL": clientEmail,
+        "NEXT_PUBLIC_FIREBASE_PROJECT_ID": projectId,
+        "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": storageBucket,
+        "FIREBASE_PRIVATE_KEY_BASE64": base64Key
+      },
+      "buildCommand": "npm run build",
+      "outputDirectory": ".next"
+    };
+    
+    fs.writeFileSync('vercel.json', JSON.stringify(vercelConfig, null, 2));
+    console.log('Created vercel.json with environment configuration');
+    
+    return true;
+  } catch (error) {
+    console.error('Error creating Vercel environment files:', error);
+    return false;
+  }
+};
 
-fs.writeFileSync(outputFile, outputContent);
+// Run the main function
+createVercelEnv();
 
-console.log('===== Firebase Private Key Formatter for Vercel =====\n');
-console.log(`Different format options have been saved to: ${outputFile}`);
-console.log('Try these different formats if you encounter "Invalid PEM formatted message" errors in Vercel.\n');
-
-// Test the key directly
-try {
-  // Try to parse the key to see if it's valid
-  const crypto = require('crypto');
-  crypto.createPrivateKey(normalizedKey);
-  console.log('✅ Private key is valid! It can be properly parsed as a PEM formatted key.');
-} catch (error) {
-  console.error('❌ Private key validation failed:', error.message);
-  console.error('Please check the format of your private key.');
-}
-
-console.log('\nFollow these steps to fix the issue in Vercel:');
-console.log('1. Go to your Vercel project settings');
-console.log('2. Navigate to the Environment Variables section');
-console.log('3. Update your FIREBASE_PRIVATE_KEY with one of the formats from the file');
-console.log('4. Redeploy your application')
+console.log('\n✅ Firebase private key fix for Vercel completed!');
+console.log('\nNext steps:');
+console.log('1. Check .env.vercel for correctly formatted credentials');
+console.log('2. Copy and paste the Base64 encoded key into Vercel dashboard environment variable: FIREBASE_PRIVATE_KEY_BASE64');
+console.log('3. Deploy with: vercel deploy');
+console.log('4. If issues persist, check logs in the Vercel dashboard');
