@@ -6,14 +6,7 @@
  * @returns {boolean} True if the current environment is a static export build
  */
 export const isStaticExport = () => {
-  if (typeof process !== 'undefined') {
-    return (
-      process.env.NEXT_STATIC_EXPORT === 'true' ||
-      process.env.GITHUB_PAGES === 'true' ||
-      process.env.STATIC_EXPORT === 'true' ||
-      process.env.NEXT_PHASE === 'phase-export'
-    );
-  }
+  // Always return false - we want to use real Firebase in all environments
   return false;
 };
 

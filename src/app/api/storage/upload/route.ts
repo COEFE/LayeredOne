@@ -4,26 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { createStoragePath } from '@/utils/firebase-path-utils';
 import { handleStaticAuthForAPI } from '@/utils/optimizations/static-export-middleware';
 
-// For static HTML export environments like GitHub Pages
-// we remove the dynamic config export entirely
-// This allows the static export build to complete successfully
-
-// For non-static environments (Vercel, etc.), we use a build-time conditional
-// to only include the dynamic config when needed
-// This is done by checking if this is a GitHub Pages build
-const isGitHubPages = process.env.GITHUB_PAGES === 'true' || 
-                     process.env.STATIC_EXPORT === 'true';
-
-// Only include the dynamic config for non-static exports
-// This is achieved using a clever webpack trick - wrapping in a condition that webpack
-// can evaluate at build time while still satisfying Next.js's need for literal exports
-if (!isGitHubPages) {
-  // This code will be removed during static export builds by dead code elimination
-  exports.dynamic = 'force-dynamic';
-}
-
-// No direct export of dynamic here, which allows GitHub Pages builds to succeed
-// But the condition above will add it for Vercel builds
+// Next.js API route configuration
+// This route requires dynamic rendering to handle file uploads and Firebase operations
+export const dynamic = 'force-dynamic';
 
 // Instead of trying to import modules that might fail at build time,
 // use the pre-initialized admin SDK objects exported from admin-config.ts
@@ -69,25 +52,8 @@ export async function POST(request: NextRequest) {
   console.log('Upload API route called');
   
   try {
-    // Use the static export middleware to handle authentication
-    const { token, isStaticExport, mockUserId } = handleStaticAuthForAPI(request);
-    
-    // If we're in a static export, return a mock response
-    if (isStaticExport) {
-      console.log('Static export detected, returning mock response');
-      return NextResponse.json({
-        success: true,
-        url: 'https://example.com/mock-upload-url',
-        documentId: 'mock-document-id',
-        filename: 'example.pdf',
-        contentType: 'application/pdf',
-        size: 12345,
-        storageRef: 'documents/mock-user/example.pdf',
-        stubResponse: true
-      }, {
-        headers: corsHeaders
-      });
-    }
+    // Use the authentication middleware
+    const { token } = handleStaticAuthForAPI(request);
     
     // For normal operation, verify the auth token
     if (!token) {
@@ -125,14 +91,9 @@ export async function POST(request: NextRequest) {
     
     let userId: string;
     try {
-      // Use mockUserId if in static export (shouldn't reach here due to early return above)
-      if (mockUserId) {
-        userId = mockUserId;
-      } else {
-        const decodedToken = await auth.verifyIdToken(token);
-        userId = decodedToken.uid;
-        console.log('Authenticated user:', userId);
-      }
+      const decodedToken = await auth.verifyIdToken(token);
+      userId = decodedToken.uid;
+      console.log('Authenticated user:', userId);
     } catch (error) {
       console.error('Invalid auth token:', error);
       return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { 
